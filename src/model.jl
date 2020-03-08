@@ -6,7 +6,10 @@ export
     discrete_dynamics,
     jacobian!,
     discrete_jacobian!,
-	orientation
+	orientation,
+	state_dim,
+	control_dim,
+	state_diff_size
 
 export
     QuadratureRule,
@@ -168,6 +171,13 @@ The default integration scheme is stored in `TrajectoryOptimization.DEFAULT_Q`
 """
 @inline discrete_dynamics(::Type{Q}, model::AbstractModel, z::KnotPoint) where Q<:Implicit =
     discrete_dynamics(Q, model, state(z), control(z), z.t, z.dt)
+
+
+"Propagate the dynamics forward, storing the result in the next knot point"
+function propagate_dynamics(::Type{Q}, model::AbstractModel, z_::KnotPoint, z::KnotPoint) where Q<:Implicit
+    x_next = discrete_dynamics(Q, model, z)
+    set_state!(z_, x_next)
+end
 
 """ Compute the discrete dynamics Jacobian of `model` using implicit integration scheme `Q<:QuadratureRule`
 

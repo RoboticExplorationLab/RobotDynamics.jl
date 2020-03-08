@@ -2,7 +2,9 @@ export
     KnotPoint,
     Traj,
     state,
-    control
+    control,
+    set_states!
+    set_controls!
 
 abstract type AbstractKnotPoint{T,N,M,NM} end
 
