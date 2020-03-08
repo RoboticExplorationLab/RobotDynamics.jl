@@ -1,5 +1,15 @@
 module Dynamics
 
-greet() = print("Hello World!")
+using DocStringExtensions
+using DifferentialRotations
+using StaticArrays
+using LinearAlgebra
+using ForwardDiff
+
+include("expansion.jl")
+include("knotpoint.jl")
+include("model.jl")
+include("rigidbody.jl")
+include("integration.jl")
 
 end # module
