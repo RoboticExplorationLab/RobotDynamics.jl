@@ -39,6 +39,12 @@ export
     set_states!,
     set_controls!
 
+# integration
+export
+    RK2,
+    RK3,
+    RK4,
+    HermiteSimpson
 
 
 include("expansion.jl")
