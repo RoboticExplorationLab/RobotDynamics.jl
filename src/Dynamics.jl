@@ -41,6 +41,7 @@ export
 
 # integration
 export
+    QuadratureRule,
     RK2,
     RK3,
     RK4,
