@@ -1,6 +1,6 @@
-export
-	DynamicsExpansion
-	
+# export
+# 	DynamicsExpansion
+
 struct DynamicsExpansion{T,N,N̄,M}
 	∇f::Matrix{T} # n × (n+m+1)
 	A_::SubArray{T,2,Matrix{T},Tuple{UnitRange{Int},UnitRange{Int}},false}

@@ -1,9 +1,9 @@
-export
-    Traj,
-	states,
-	controls,
-	set_states!,
-	set_controls!
+# export
+#     Traj,
+# 	states,
+# 	controls,
+# 	set_states!,
+# 	set_controls!
 
 traj_size(Z::Vector{<:KnotPoint{T,N,M}}) where {T,N,M} = N,M,length(Z)
 
@@ -102,5 +102,12 @@ end
 function state_diff_jacobian!(G, model::RigidBody, Z::Traj)
     for k in eachindex(Z)
         G[k] .= state_diff_jacobian(model, state(Z[k]))
+    end
+end
+
+function rollout!(model::AbstractModel, Z::Traj, x0)
+    Z[1].z = [x0; control(Z[1])]
+    for k = 2:length(Z)
+        Dynamics.propagate_dynamics(DEFAULT_Q, model, Z[k], Z[k-1])
     end
 end

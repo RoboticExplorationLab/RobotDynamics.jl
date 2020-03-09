@@ -1,7 +1,7 @@
-export
-    orientation,
-    linear_velocity,
-    angular_velocity
+# export
+#     orientation,
+#     linear_velocity,
+#     angular_velocity
 
 @inline Base.size(model::RigidBody{<:UnitQuaternion}) = 13, control_dim(model)
 @inline Base.size(model::RigidBody) = 12, control_dim(model)

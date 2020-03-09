@@ -1,22 +1,21 @@
-export
-    AbstractModel,
-    InfeasibleModel,
-    RigidBody,
-    dynamics,
-    discrete_dynamics,
-    jacobian!,
-    discrete_jacobian!,
-	orientation,
-	state_dim,
-	control_dim,
-	state_diff_size
-
-export
-    QuadratureRule,
-	RK2,
-    RK3,
-	RK4,
-    HermiteSimpson
+# export
+#     AbstractModel,
+#     RigidBody,
+#     dynamics,
+#     discrete_dynamics,
+#     jacobian!,
+#     discrete_jacobian!,
+# 	orientation,
+# 	state_dim,
+# 	control_dim,
+# 	state_diff_size
+#
+# export
+#     QuadratureRule,
+# 	RK2,
+#     RK3,
+# 	RK4,
+#     HermiteSimpson
 
 
 """ $(TYPEDEF)
