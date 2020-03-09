@@ -142,13 +142,13 @@ function jacobian!(∇c::Matrix, model::AbstractModel, z::AbstractKnotPoint)
 	ForwardDiff.jacobian!(∇c, f_aug, s)
 end
 
-# QUESTION: is this one needed?
-function jacobian!(∇c, model::AbstractModel, z::SVector)
-    n,m = size(model)
-    ix,iu = 1:n, n .+ (1:m)
-    f_aug(z) = dynamics(model, view(z,ix), view(z,iu))
-    ForwardDiff.jacobian!(∇c, f_aug, z)
-end
+# # QUESTION: is this one needed?
+# function jacobian!(∇c, model::AbstractModel, z::SVector)
+#     n,m = size(model)
+#     ix,iu = 1:n, n .+ (1:m)
+#     f_aug(z) = dynamics(model, view(z,ix), view(z,iu))
+#     ForwardDiff.jacobian!(∇c, f_aug, z)
+# end
 
 ############################################################################################
 #                          IMPLICIT DISCRETE TIME METHODS                                  #
@@ -207,14 +207,6 @@ function dynamics_expansion!(D::Vector{<:DynamicsExpansion}, model::AbstractMode
 	end
 end
 
-@inline error_expansion!(D::Vector{<:DynamicsExpansion}, model::AbstractModel, G) = nothing
-
-function error_expansion!(D::Vector{<:DynamicsExpansion}, model::RigidBody, G)
-	for k in eachindex(D)
-		error_expansion!(D[k], G[k], G[k+1])
-	end
-end
-
 function error_expansion!(D::DynamicsExpansion,G1,G2)
     mul!(D.tmp, D.tmpA, G1)
     mul!(D.A, Transpose(G2), D.tmp)
@@ -239,12 +231,6 @@ state_diff(model::AbstractModel, x, x0) = x - x0
 @inline state_diff_size(model::AbstractModel) = size(model)[1]
 
 @inline state_diff_jacobian!(G, model::AbstractModel, Z::Traj) = nothing
-
-function state_diff_jacobian!(G, model::RigidBody, Z::Traj)
-    for k in eachindex(Z)
-        G[k] .= state_diff_jacobian(model, state(Z[k]))
-    end
-end
 
 function ∇²differential!(G, model::AbstractModel, x::SVector, dx::AbstractVector)
 	G .= ∇²differential(model, x, dx)

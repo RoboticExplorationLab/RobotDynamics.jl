@@ -11,5 +11,6 @@ include("knotpoint.jl")
 include("model.jl")
 include("rigidbody.jl")
 include("integration.jl")
+include("trajectories.jl")
 
 end # module
