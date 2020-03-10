@@ -1,4 +1,4 @@
-# Dynamics.jl
+# RobotDynamics.jl
 
 This purpose of this package is to provide a common interface for calling systems with
 forced dynamics, i.e. dynamics of the form `xdot = f(x,u,t)` where `x` is an n-dimensional
