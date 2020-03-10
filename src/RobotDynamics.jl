@@ -1,4 +1,4 @@
-module Dynamics
+module RobotDynamics
 
 using DocStringExtensions
 using DifferentialRotations
