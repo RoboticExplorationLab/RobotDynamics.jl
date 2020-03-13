@@ -13,6 +13,8 @@ export
     jacobian!,
     discrete_dynamics,
     discrete_jacobian!,
+    linearize,
+    linearize!,
     state_dim,
     control_dim,
     state_diff_size,
@@ -21,6 +23,7 @@ export
 # rigid bodies
 export
     RigidBody,
+    RBState,
     orientation,
     linear_velocity,
     angular_velocity
@@ -54,5 +57,6 @@ include("model.jl")
 include("rigidbody.jl")
 include("integration.jl")
 include("trajectories.jl")
+include("rbstate.jl")
 
 end # module
