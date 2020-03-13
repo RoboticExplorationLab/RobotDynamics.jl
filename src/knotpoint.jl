@@ -3,7 +3,7 @@ export
     state,
     control
 
-abstract type AbstractKnotPoint{T,N,M,NM} end
+abstract type AbstractKnotPoint{T,N,M} end
 
 """ $(TYPEDEF)
 Stores critical information corresponding to each knot point in the trajectory optimization
@@ -36,7 +36,7 @@ KnotPoint(x, m, t=0.0)  # for terminal knot point
 Use `is_terminal(z::KnotPoint)` to determine if a `KnotPoint` is a terminal knot point (e.g.
 has no time step length and z.t == tf).
 """
-mutable struct KnotPoint{T,N,M,NM} <: AbstractKnotPoint{T,N,M,NM}
+mutable struct KnotPoint{T,N,M,NM} <: AbstractKnotPoint{T,N,M}
     z::SVector{NM,T}
     _x::SVector{N,Int}
     _u::SVector{M,Int}
@@ -69,7 +69,7 @@ end
 set_state!(z::KnotPoint, x) = z.z = [x; control(z)]
 set_control!(z::KnotPoint, u) = z.z = [state(z); u]
 
-struct StaticKnotPoint{T,N,M,NM} <: AbstractKnotPoint{T,N,M,NM}
+struct StaticKnotPoint{T,N,M,NM} <: AbstractKnotPoint{T,N,M}
     z::SVector{NM,T}
     _x::SVector{N,Int}
     _u::SVector{M,Int}
@@ -78,4 +78,4 @@ struct StaticKnotPoint{T,N,M,NM} <: AbstractKnotPoint{T,N,M,NM}
 end
 
 """ A vector of KnotPoints """
-const Traj = AbstractVector{<:KnotPoint}
+const Traj = AbstractVector{<:AbstractKnotPoint}
