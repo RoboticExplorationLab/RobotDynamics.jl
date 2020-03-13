@@ -206,6 +206,29 @@ function dynamics_expansion!(D::Vector{<:DynamicsExpansion}, model::AbstractMode
 	end
 end
 
+function linearize(::Type{Q}, model::AbstractModel, z::AbstractKnotPoint) where Q
+	D = DynamicsExpansion(model)
+	linearize!(Q, D, model, z)
+end
+
+function linearize!(::Type{Q}, D::DynamicsExpansion{<:Any,<:Any,N,M}, model::AbstractModel,
+		z::AbstractKnotPoint) where {N,M,Q}
+	discrete_jacobian!(Q, D.∇f, model, z)
+	D.tmpA .= D.A_  # avoids allocations later
+	D.tmpB .= D.B_
+	return D.tmpA, D.tmpB
+end
+
+function linearize!(::Type{Q}, D::DynamicsExpansion, model::RigidBody) where Q
+	discrete_jacobian!(Q, D.∇f, model, z)
+	D.tmpA .= D.A_  # avoids allocations later
+	D.tmpB .= D.B_
+	G1 = state_diff_jacobian(model, state(z))
+	G2 = state_diff_jacobian(model, x1)
+	error_expansion!(D, G1, G2)
+	return D.A, D.B
+end
+
 function error_expansion!(D::DynamicsExpansion,G1,G2)
     mul!(D.tmp, D.tmpA, G1)
     mul!(D.A, Transpose(G2), D.tmp)
