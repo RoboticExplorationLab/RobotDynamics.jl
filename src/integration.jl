@@ -3,7 +3,7 @@
 ############################################################################################
 
 function discrete_dynamics(::Type{RK3}, model::AbstractModel, x::SVector{N,T}, u::SVector{M,T},
-		t, dt::T) where {N,M,T}
+		t, dt) where {N,M,T}
     k1 = dynamics(model, x,             u, t       )*dt;
     k2 = dynamics(model, x + k1/2,      u, t + dt/2)*dt;
     k3 = dynamics(model, x - k1 + 2*k2, u, t       )*dt;

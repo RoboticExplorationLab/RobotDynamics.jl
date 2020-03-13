@@ -11,7 +11,7 @@ struct DynamicsExpansion{T,N,N̄,M}
 	tmpB::SizedMatrix{N,M,T,2}
 	tmp::SizedMatrix{N,N̄,T,2}
 	function DynamicsExpansion{T}(n0::Int, n::Int, m::Int) where T
-		∇f = zeros(n0,n0+m+1)
+		∇f = zeros(n0,n0+m)
 		ix = 1:n0
 		iu = n0 .+ (1:m)
 		A_ = view(∇f, ix, ix)
@@ -24,7 +24,7 @@ struct DynamicsExpansion{T,N,N̄,M}
 		new{T,n0,n,m}(∇f,A_,B_,A,B,tmpA,tmpB,tmp)
 	end
 	function DynamicsExpansion{T}(n::Int, m::Int) where T
-		∇f = zeros(n,n+m+1)
+		∇f = zeros(n,n+m)
 		ix = 1:n
 		iu = n .+ (1:m)
 		A_ = view(∇f, ix, ix)

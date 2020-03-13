@@ -189,12 +189,12 @@ Methods:
 where `s = [x; u; dt]`, `t` is the time, and `ix` and `iu` are the indices to extract the state and controls.
 """
 function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
-		z::AbstractKnotPoint{T,N,M,NM}) where {T,N,M,NM,Q<:Implicit}
-    ix,iu,idt = z._x, z._u, NM+1
+		z::AbstractKnotPoint{T,N,M}) where {T,N,M,Q<:Implicit}
+    ix,iu,idt = z._x, z._u, N+M+1
     t = z.t
-    fd_aug(s) = discrete_dynamics(Q, model, s[ix], s[iu], t, s[idt])
+    fd_aug(s) = discrete_dynamics(Q, model, s[ix], s[iu], t, z.dt)
     s = [z.z; @SVector [z.dt]]
-    ForwardDiff.jacobian!(∇f, fd_aug, s)
+    ForwardDiff.jacobian!(∇f, fd_aug, z.z)
 end
 
 function dynamics_expansion!(D::Vector{<:DynamicsExpansion}, model::AbstractModel,
