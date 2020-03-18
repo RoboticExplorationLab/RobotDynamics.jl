@@ -193,8 +193,8 @@ function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
     ix,iu,idt = z._x, z._u, N+M+1
     t = z.t
     fd_aug(s) = discrete_dynamics(Q, model, s[ix], s[iu], t, z.dt)
-    s = [z.z; @SVector [z.dt]]
-    ForwardDiff.jacobian!(∇f, fd_aug, z.z)
+    ∇f .= ForwardDiff.jacobian(fd_aug, z.z)
+	return nothing
 end
 
 function dynamics_expansion!(D::Vector{<:DynamicsExpansion}, model::AbstractModel,
