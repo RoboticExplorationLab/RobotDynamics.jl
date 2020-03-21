@@ -77,5 +77,11 @@ struct StaticKnotPoint{T,N,M,NM} <: AbstractKnotPoint{T,N,M}
     t::T  # total time
 end
 
+function StaticKnotPoint(x::SVector{n,T}, u::SVector{m,T}, dt=zero(T), t=zero(T)) where {n,m,T}
+    ix = SVector{n}(1:n)
+    iu = n .+ SVector{m}(1:m)
+    StaticKnotPoint([x; u], ix, iu, dt, t)
+end
+
 """ A vector of KnotPoints """
 const Traj = AbstractVector{<:AbstractKnotPoint}

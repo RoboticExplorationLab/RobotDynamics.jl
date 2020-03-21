@@ -7,8 +7,8 @@
 
 traj_size(Z::Vector{<:KnotPoint{T,N,M}}) where {T,N,M} = N,M,length(Z)
 
-function Base.copy(Z::Vector{KnotPoint{T,N,M,NM}}) where {T,N,M,NM}
-    [KnotPoint((@SVector ones(NM)) .* z.z, z._x, z._u, z.dt, z.t) for z in Z]
+function Base.copy(Z::Vector{KnotPoint{T,N,M}}) where {T,N,M}
+    [KnotPoint((@SVector ones(N+M)) .* z.z, z._x, z._u, z.dt, z.t) for z in Z]
 end
 
 function Traj(n::Int, m::Int, dt::AbstractFloat, N::Int, equal=false)
