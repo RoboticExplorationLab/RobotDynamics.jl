@@ -31,14 +31,6 @@ git-tree-sha1 = "eb0c34204c8410888844ada5359ac8b96292cfd1"
 uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "1.0.1"
 
-[[DifferentialRotations]]
-deps = ["ForwardDiff", "LinearAlgebra", "StaticArrays"]
-git-tree-sha1 = "8f773f560614ce0c593392536def4d8752b0291c"
-repo-rev = "master"
-repo-url = "https://github.com/RoboticExplorationLab/DifferentialRotations.jl.git"
-uuid = "67b05b69-bfda-4565-9187-7150922e6889"
-version = "0.1.0"
-
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
@@ -60,6 +52,7 @@ deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[LibGit2]]
+deps = ["Printf"]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 
 [[Libdl]]
@@ -83,12 +76,12 @@ version = "0.3.3"
 
 [[OpenSpecFun_jll]]
 deps = ["CompilerSupportLibraries_jll", "Libdl", "Pkg"]
-git-tree-sha1 = "d110040968b9afe95c6bd9c6233570b0fe8abd22"
+git-tree-sha1 = "d51c416559217d974a1113522d5919235ae67a87"
 uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
-version = "0.5.3+2"
+version = "0.5.3+3"
 
 [[Pkg]]
-deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Test", "UUIDs"]
+deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[Printf]]
@@ -102,6 +95,14 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 [[Random]]
 deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[[Rotations]]
+deps = ["LinearAlgebra", "StaticArrays", "Statistics"]
+git-tree-sha1 = "575e90d4b06a829dadfa3a6d8585e4be10b8e7ed"
+repo-rev = "master"
+repo-url = "https://github.com/bjack205/Rotations.jl.git"
+uuid = "6038ab10-8711-5258-84ad-4b1120ba62dc"
+version = "0.13.0"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"

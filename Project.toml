@@ -4,8 +4,8 @@ authors = ["Brian Jackson <bjack205@gmail.com>"]
 version = "0.1.0"
 
 [deps]
-DifferentialRotations = "67b05b69-bfda-4565-9187-7150922e6889"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

@@ -36,12 +36,19 @@ KnotPoint(x, m, t=0.0)  # for terminal knot point
 Use `is_terminal(z::KnotPoint)` to determine if a `KnotPoint` is a terminal knot point (e.g.
 has no time step length and z.t == tf).
 """
-mutable struct KnotPoint{T,N,M,NM} <: AbstractKnotPoint{T,N,M}
-    z::SVector{NM,T}
+mutable struct GeneralKnotPoint{T,N,M,V} <: AbstractKnotPoint{T,N,M}
+    z::V
     _x::SVector{N,Int}
     _u::SVector{M,Int}
     dt::T # time step
     t::T  # total time
+end
+
+
+const KnotPoint{T,N,M,NM} = GeneralKnotPoint{T,N,M,SVector{NM,T}} where {T,N,M,NM}
+
+function KnotPoint(z::V, ix::SVector{n,Int}, iu::SVector{m,Int}, dt::T, t::T) where {n,m,T,V}
+    GeneralKnotPoint{T,n,m,V}(z, ix, iu, dt, t)
 end
 
 function KnotPoint(x::AbstractVector, u::AbstractVector, dt::Float64, t=0.0)

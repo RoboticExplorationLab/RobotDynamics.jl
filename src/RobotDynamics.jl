@@ -1,7 +1,7 @@
 module RobotDynamics
 
 using DocStringExtensions
-using DifferentialRotations
+using Rotations
 using StaticArrays
 using LinearAlgebra
 using ForwardDiff

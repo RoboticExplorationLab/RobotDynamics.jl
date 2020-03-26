@@ -4,14 +4,14 @@ export
 
 struct RBState{T}
     r::SVector{3,T}
-    q::UnitQuaternion{T,DifferentialRotations.DEFAULT_QMAP}
+    q::UnitQuaternion{T}
     v::SVector{3,T}
     ω::SVector{3,T}
 end
 
 function RBState(r::AbstractVector, q::Rotation, v::AbstractVector, ω::AbstractVector)
     r_ = @SVector [r[1],r[2],r[3]]
-    q_ = UnitQuaternion{DifferentialRotations.DEFAULT_QMAP}(q)
+    q_ = UnitQuaternion(q)
     v_ = @SVector [v[1],v[2],v[3]]
     ω_ = @SVector [ω[1],ω[2],ω[3]]
     RBState(r_, q_, v_, ω_)
@@ -57,7 +57,7 @@ function Base.:-(s1::RBState, s2::RBState)
     RBState(s1.r-s2.r, s2.q\s1.q, s1.v-s2.v, s1.ω-s2.ω)
 end
 
-function DifferentialRotations.:⊖(s1::RBState, s2::RBState, rmap=ExponentialMap)
+function Rotations.:⊖(s1::RBState, s2::RBState, rmap=ExponentialMap)
     dx = s1.r-s2.r
     dq = rmap(s2.q\s1.q)
     dv = s1.v-s2.v

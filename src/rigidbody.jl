@@ -37,12 +37,9 @@ orientation(model::RigidBody{R}, x::AbstractVector{T}, renorm=false) where {R,T}
 @inline linear_velocity(model::RigidBody, x) = SVector{3}(x[7],x[8],x[9])
 @inline angular_velocity(model::RigidBody, x) = SVector{3}(x[10],x[11],x[12])
 
-function orientation(model::RigidBody{UnitQuaternion{T,D}}, x::AbstractVector{T2},
-        renorm=false) where {T,D,T2}
-    q = UnitQuaternion{T2,D}(x[4],x[5],x[6],x[7])
-    if renorm
-        q = normalize(q)
-    end
+function orientation(model::RigidBody{UnitQuaternion}, x::AbstractVector,
+        renorm=false)
+    q = UnitQuaternion(x[4],x[5],x[6],x[7], renorm)
     return q
 end
 @inline linear_velocity(model::RigidBody{<:UnitQuaternion}, x) = SVector{3}(x[8],x[9],x[10])
@@ -109,10 +106,10 @@ function fill_error_state(model::RigidBody, x::Real, q::Real, v::Real, ω::Real)
     @SVector [x,x,x, q,q,q, v,v,v, ω,ω,ω]
 end
 
-function fill_error_state(model::RigidBody{UnitQuaternion{T,IdentityMap}},
-        x::Real, q::Real, v::Real, ω::Real) where T
-    @SVector [x,x,x, q,q,q,q, v,v,v, ω,ω,ω]
-end
+# function fill_error_state(model::RigidBody{UnitQuaternion{T,IdentityMap}},
+#         x::Real, q::Real, v::Real, ω::Real) where T
+#     @SVector [x,x,x, q,q,q,q, v,v,v, ω,ω,ω]
+# end
 
 ############################################################################################
 #                                DYNAMICS
@@ -150,6 +147,8 @@ end
 ############################################################################################
 #                          STATE DIFFERENTIAL METHODS
 ############################################################################################
+@inline get_error_map(::RigidBody) = CayleyMap()
+
 function state_diff(model::RigidBody, x::SVector{N}, x0::SVector{N}) where {N}
     r,q,v,ω = parse_state(model, x)
     r0,q0,v0,ω0 = parse_state(model, x0)
@@ -160,34 +159,28 @@ function state_diff(model::RigidBody, x::SVector{N}, x0::SVector{N}) where {N}
     build_state(model, δr, δq, δv, δω)
 end
 
-@generated function state_diff_jacobian(model::RigidBody{UnitQuaternion{T,D}},
-        x0::SVector{N,T}) where {N,T,D}
-    if D == IdentityMap
-        :(I)
-    else
-        quote
-            q0 = orientation(model, x0)
-            G = DifferentialRotations.∇differential(q0)
-            I1 = @SMatrix [1 0 0 0 0 0 0 0 0 0 0 0;
-                           0 1 0 0 0 0 0 0 0 0 0 0;
-                           0 0 1 0 0 0 0 0 0 0 0 0;
-                           0 0 0 G[1] G[5] G[ 9] 0 0 0 0 0 0;
-                           0 0 0 G[2] G[6] G[10] 0 0 0 0 0 0;
-                           0 0 0 G[3] G[7] G[11] 0 0 0 0 0 0;
-                           0 0 0 G[4] G[8] G[12] 0 0 0 0 0 0;
-                           0 0 0 0 0 0 1 0 0 0 0 0;
-                           0 0 0 0 0 0 0 1 0 0 0 0;
-                           0 0 0 0 0 0 0 0 1 0 0 0;
-                           0 0 0 0 0 0 0 0 0 1 0 0;
-                           0 0 0 0 0 0 0 0 0 0 1 0;
-                           0 0 0 0 0 0 0 0 0 0 0 1.]
-        end
-    end
+function state_diff_jacobian(model::RigidBody{UnitQuaternion},
+        x0::SVector)
+    q0 = orientation(model, x0)
+    G = Rotations.∇differential(q0)
+    I1 = @SMatrix [1 0 0 0 0 0 0 0 0 0 0 0;
+                   0 1 0 0 0 0 0 0 0 0 0 0;
+                   0 0 1 0 0 0 0 0 0 0 0 0;
+                   0 0 0 G[1] G[5] G[ 9] 0 0 0 0 0 0;
+                   0 0 0 G[2] G[6] G[10] 0 0 0 0 0 0;
+                   0 0 0 G[3] G[7] G[11] 0 0 0 0 0 0;
+                   0 0 0 G[4] G[8] G[12] 0 0 0 0 0 0;
+                   0 0 0 0 0 0 1 0 0 0 0 0;
+                   0 0 0 0 0 0 0 1 0 0 0 0;
+                   0 0 0 0 0 0 0 0 1 0 0 0;
+                   0 0 0 0 0 0 0 0 0 1 0 0;
+                   0 0 0 0 0 0 0 0 0 0 1 0;
+                   0 0 0 0 0 0 0 0 0 0 0 1.]
 end
 
-function state_diff_jacobian(model::RigidBody{<:Rotation}, x0::SVector)
+function state_diff_jacobian(model::RigidBody, x0::SVector)
     q0 = orientation(model, x0)
-    G = DifferentialRotations.∇differential(q0)
+    G = Rotations.∇differential(q0)
     return @SMatrix [
         1 0 0 0 0 0 0 0 0 0 0 0;
         0 1 0 0 0 0 0 0 0 0 0 0;
@@ -206,13 +199,12 @@ function state_diff_jacobian(model::RigidBody{<:Rotation}, x0::SVector)
 end
 
 state_diff_size(::RigidBody) = 12
-state_diff_size(::RigidBody{UnitQuaternion{T,Union{IdentityMap}}}) where T = 13
 
 function ∇²differential(model::RigidBody,
         x::SVector, dx::AbstractVector)
       q = orientation(model, x)
       dq = SVector(orientation(model, dx, false))
-      G2 = DifferentialRotations.∇²differential(q, dq)
+      G2 = Rotations.∇²differential(q, dq)
       return @SMatrix [
             0 0 0 0 0 0 0 0 0 0 0 0;
             0 0 0 0 0 0 0 0 0 0 0 0;
@@ -232,7 +224,7 @@ end
 function inverse_map_jacobian(model::RigidBody{<:UnitQuaternion},
         x::SVector)
     q = orientation(model, x)
-    G = DifferentialRotations.inverse_map_jacobian(q)
+    G = Rotations.inverse_map_jacobian(q)
     return @SMatrix [
             1 0 0 0 0 0 0 0 0 0 0 0 0;
             0 1 0 0 0 0 0 0 0 0 0 0 0;
@@ -249,11 +241,11 @@ function inverse_map_jacobian(model::RigidBody{<:UnitQuaternion},
     ]
 end
 
-function ∇²differential(model::RigidBody{UnitQuaternion{T,IdentityMap}},
-        x::SVector, dx::SVector) where T
-    return I*0
-end
-
+# function ∇²differential(model::RigidBody{UnitQuaternion{T,IdentityMap}},
+#         x::SVector, dx::SVector) where T
+#     return I*0
+# end
+#
 function inverse_map_jacobian(model::RigidBody, x::SVector)
     return I
 end
@@ -262,7 +254,7 @@ function inverse_map_∇jacobian(model::RigidBody{<:UnitQuaternion},
         x::SVector, b::SVector)
     q = orientation(model, x)
     bq = @SVector [b[4], b[5], b[6]]
-    ∇G = DifferentialRotations.inverse_map_∇jacobian(q, bq)
+    ∇G = Rotations.inverse_map_∇jacobian(q, bq)
     return @SMatrix [
         0 0 0 0 0 0 0 0 0 0 0 0 0;
         0 0 0 0 0 0 0 0 0 0 0 0 0;
