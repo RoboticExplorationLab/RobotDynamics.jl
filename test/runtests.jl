@@ -1,4 +1,4 @@
-using Dynamics
+using RobotDynamics
 using Test
 using StaticArrays
 
