@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/RoboticExplorationLab/RobotDynamics.jl.svg?branch=master)](https://travis-ci.com/RoboticExplorationLab/RobotDynamics.jl)
+
 # RobotDynamics.jl
 
 This purpose of this package is to provide a common interface for calling systems with
