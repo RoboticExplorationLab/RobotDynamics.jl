@@ -22,6 +22,7 @@ export
 
 # rigid bodies
 export
+    LieGroupModel,
     RigidBody,
     RBState,
     orientation,

@@ -33,11 +33,11 @@ end
 
 @inline Base.position(model::RigidBody, x) = SVector{3}(x[1],x[2],x[3])
 orientation(model::RigidBody{R}, x::AbstractVector{T}, renorm=false) where {R,T} =
-    R(T,x[4],x[5],x[6])
+    R(x[4],x[5],x[6])
 @inline linear_velocity(model::RigidBody, x) = SVector{3}(x[7],x[8],x[9])
 @inline angular_velocity(model::RigidBody, x) = SVector{3}(x[10],x[11],x[12])
 
-function orientation(model::RigidBody{UnitQuaternion}, x::AbstractVector,
+function orientation(model::RigidBody{<:UnitQuaternion}, x::AbstractVector,
         renorm=false)
     q = UnitQuaternion(x[4],x[5],x[6],x[7], renorm)
     return q
@@ -59,7 +59,7 @@ function parse_state(model::RigidBody, x, renorm=false)
 end
 
 function build_state(model::RigidBody{R}, x, q::Rotation, v, ω) where R <: Rotation
-    q = SVector(R(q))
+    q = Rotations.params(R(q))
     build_state(model, x, q, v, ω)
 end
 
@@ -70,7 +70,7 @@ function build_state(model::RigidBody{R}, x, q::SVector{4}, v, ω) where R <: Ro
               ω[1], ω[2], ω[3]]
 end
 
-function build_state(model::RigidBody{R}, x, q::SVector{3}, v, ω) where R <: Rotation
+function build_state(model::RigidBody{R}, x, q::StaticVector{3}, v, ω) where R <: Rotation
     @SVector [x[1], x[2], x[3],
               q[1], q[2], q[3],
               v[1], v[2], v[3],
@@ -124,7 +124,7 @@ function dynamics(model::RigidBody{D}, x, u) where D
     Jinv = inertia_inv(model, x, u)
 
     xdot = v
-    qdot = kinematics(q,ω)
+    qdot = Rotations.kinematics(q,ω)
     vdot = M\F
     ωdot = Jinv*(τ - ω × (J*ω))
 
@@ -159,7 +159,7 @@ function state_diff(model::RigidBody, x::SVector{N}, x0::SVector{N}) where {N}
     build_state(model, δr, δq, δv, δω)
 end
 
-function state_diff_jacobian(model::RigidBody{UnitQuaternion},
+function state_diff_jacobian(model::RigidBody{<:UnitQuaternion},
         x0::SVector)
     q0 = orientation(model, x0)
     G = Rotations.∇differential(q0)
@@ -203,7 +203,7 @@ state_diff_size(::RigidBody) = 12
 function ∇²differential(model::RigidBody,
         x::SVector, dx::AbstractVector)
       q = orientation(model, x)
-      dq = SVector(orientation(model, dx, false))
+      dq = Rotations.params(orientation(model, dx, false))
       G2 = Rotations.∇²differential(q, dq)
       return @SMatrix [
             0 0 0 0 0 0 0 0 0 0 0 0;

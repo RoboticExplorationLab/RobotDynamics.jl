@@ -1,5 +1,5 @@
 ############################################################################################
-#                                  IMPLICIT METHODS 								       #
+#                                  EXPLICIT METHODS 								       #
 ############################################################################################
 
 function discrete_dynamics(::Type{RK3}, model::AbstractModel, x::SVector{N,T}, u::SVector{M,T},

@@ -80,14 +80,18 @@ struct StaticKnotPoint{T,N,M,NM} <: AbstractKnotPoint{T,N,M}
     z::SVector{NM,T}
     _x::SVector{N,Int}
     _u::SVector{M,Int}
-    dt::T # time step
-    t::T  # total time
+    dt::Float64 # time step
+    t::Float64  # total time
 end
 
 function StaticKnotPoint(x::SVector{n,T}, u::SVector{m,T}, dt=zero(T), t=zero(T)) where {n,m,T}
     ix = SVector{n}(1:n)
     iu = n .+ SVector{m}(1:m)
     StaticKnotPoint([x; u], ix, iu, dt, t)
+end
+
+function StaticKnotPoint(z0::AbstractKnotPoint, z::StaticVector)
+    StaticKnotPoint(z, z0._x, z0._u, z0.dt, z0.t)
 end
 
 """ A vector of KnotPoints """

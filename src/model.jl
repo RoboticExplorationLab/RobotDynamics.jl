@@ -28,6 +28,8 @@ n,m = size(model)
 """
 abstract type AbstractModel end
 
+abstract type LieGroupModel <: AbstractModel end
+
 
 """ $(TYPEDEF)
 Abstraction of a dynamical system with free-body dynamics, with a 12 or 13-dimensional state
@@ -53,28 +55,28 @@ can be used:
 * [`MRP`](@ref): Modified Rodrigues Parameters
 * [`RPY`](@ref): Roll-Pitch-Yaw Euler angles
 """
-abstract type RigidBody{R<:Rotation} <: AbstractModel end
+abstract type RigidBody{R<:Rotation} <: LieGroupModel end
 
 "Integration rule for approximating the continuous integrals for the equations of motion"
 abstract type QuadratureRule end
 
 "Integration rules of the form x′ = f(x,u), where x′ is the next state"
-abstract type Implicit <: QuadratureRule end
-
-"Integration rules of the form x′ = f(x,u,x′,u′), where x′,u′ are the states and controls at the next time step."
 abstract type Explicit <: QuadratureRule end
 
+"Integration rules of the form x′ = f(x,u,x′,u′), where x′,u′ are the states and controls at the next time step."
+abstract type Implicit <: QuadratureRule end
+
 "Fourth-order Runge-Kutta method with zero-order-old on the controls"
-abstract type RK4 <: Implicit end
+abstract type RK4 <: Explicit end
 
 "Second-order Runge-Kutta method with zero-order-old on the controls"
-abstract type RK3 <: Implicit end
+abstract type RK3 <: Explicit end
 
 "Second-order Runge-Kutta method with zero-order-old on the controls"
-abstract type RK2 <: Implicit end
+abstract type RK2 <: Explicit end
 
 "Third-order Runge-Kutta method with first-order-hold on the controls"
-abstract type HermiteSimpson <: Explicit end
+abstract type HermiteSimpson <: Implicit end
 
 "Default quadrature rule"
 const DEFAULT_Q = RK3
@@ -168,12 +170,12 @@ x′ = discrete_dynamics(Q, model, z::KnotPoint)
 
 The default integration scheme is stored in `TrajectoryOptimization.DEFAULT_Q`
 """
-@inline discrete_dynamics(::Type{Q}, model::AbstractModel, z::KnotPoint) where Q<:Implicit =
+@inline discrete_dynamics(::Type{Q}, model::AbstractModel, z::KnotPoint) where Q<:Explicit =
     discrete_dynamics(Q, model, state(z), control(z), z.t, z.dt)
 
 
 "Propagate the dynamics forward, storing the result in the next knot point"
-function propagate_dynamics(::Type{Q}, model::AbstractModel, z_::KnotPoint, z::KnotPoint) where Q<:Implicit
+function propagate_dynamics(::Type{Q}, model::AbstractModel, z_::KnotPoint, z::KnotPoint) where Q<:Explicit
     x_next = discrete_dynamics(Q, model, z)
     set_state!(z_, x_next)
 end
@@ -189,7 +191,7 @@ Methods:
 where `s = [x; u; dt]`, `t` is the time, and `ix` and `iu` are the indices to extract the state and controls.
 """
 function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
-		z::AbstractKnotPoint{T,N,M}) where {T,N,M,Q<:Implicit}
+		z::AbstractKnotPoint{T,N,M}) where {T,N,M,Q<:Explicit}
     ix,iu,idt = z._x, z._u, N+M+1
     t = z.t
     fd_aug(s) = discrete_dynamics(Q, model, s[ix], s[iu], t, z.dt)
