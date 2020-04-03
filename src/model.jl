@@ -237,7 +237,7 @@ function error_expansion!(D::DynamicsExpansion,G1,G2)
     mul!(D.B, Transpose(G2), D.tmpB)
 end
 
-@inline error_expansion(D::DynamicsExpansion, model::RigidBody) = D.A, D.B
+@inline error_expansion(D::DynamicsExpansion, model::LieGroupModel) = D.A, D.B
 @inline error_expansion(D::DynamicsExpansion, model::AbstractModel) = D.tmpA, D.tmpB
 @inline DynamicsExpansion(model::AbstractModel) = DynamicsExpansion{Float64}(model)
 @inline function DynamicsExpansion{T}(model::AbstractModel) where T
@@ -255,6 +255,13 @@ state_diff(model::AbstractModel, x, x0) = x - x0
 @inline state_diff_size(model::AbstractModel) = size(model)[1]
 
 @inline state_diff_jacobian!(G, model::AbstractModel, Z::Traj) = nothing
+@inline state_diff_jacobian!(G, model::AbstractModel, z::AbstractModel) =
+	state_diff_jacobian!(G, model, state(z))
+function state_diff_jacobian!(G, model::AbstractModel, x::StaticVector)
+	for i in 1:length(x)
+		G[i,i] = 1
+	end
+end
 
 function ∇²differential!(G, model::AbstractModel, x::SVector, dx::AbstractVector)
 	G .= ∇²differential(model, x, dx)

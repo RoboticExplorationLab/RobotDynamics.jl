@@ -159,6 +159,10 @@ function state_diff(model::RigidBody, x::SVector{N}, x0::SVector{N}) where {N}
     build_state(model, δr, δq, δv, δω)
 end
 
+function state_diff_jacobian!(G, model::RigidBody, z::AbstractKnotPoint)
+    G .= state_diff_jacobian(model, state(z))
+end
+
 function state_diff_jacobian(model::RigidBody{<:UnitQuaternion},
         x0::SVector)
     q0 = orientation(model, x0)
