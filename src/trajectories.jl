@@ -5,6 +5,8 @@
 # 	set_states!,
 # 	set_controls!
 
+Traj(Z::Traj) = Z
+
 traj_size(Z::Vector{<:KnotPoint{T,N,M}}) where {T,N,M} = N,M,length(Z)
 
 function Base.copy(Z::Vector{<:KnotPoint{T,N,M}}) where {T,N,M}
@@ -99,11 +101,11 @@ function error_expansion!(D::Vector{<:DynamicsExpansion}, model::LieGroupModel, 
 	end
 end
 
+@inline state_diff_jacobian!(G, model::AbstractModel, Z::Traj) = nothing
 function state_diff_jacobian!(G, model::LieGroupModel, Z::Traj)
-    for k in eachindex(Z)
+	for k in eachindex(Z)
 		state_diff_jacobian!(G[k], model, Z[k])
-        # G[k] .= state_diff_jacobian(model, state(Z[k]))
-    end
+	end
 end
 
 function rollout!(model::AbstractModel, Z::Traj, x0)

@@ -121,7 +121,7 @@ end
 ẋ = dynamics(model, z::KnotPoint)
 ```
 Compute the continuous dynamics of a dynamical system given a KnotPoint"""
-@inline dynamics(model::AbstractModel, z::KnotPoint) = dynamics(model, state(z), control(z), z.t)
+@inline dynamics(model::AbstractModel, z::AbstractKnotPoint) = dynamics(model, state(z), control(z), z.t)
 
 # Default to not passing in t
 @inline dynamics(model::AbstractModel, x, u, t) = dynamics(model, x, u)
@@ -156,7 +156,7 @@ end
 ############################################################################################
 
 # Set default integrator
-@inline discrete_dynamics(model::AbstractModel, z::KnotPoint) =
+@inline discrete_dynamics(model::AbstractModel, z::AbstractKnotPoint) =
     discrete_dynamics(DEFAULT_Q, model, z)
 
 """ Compute the discretized dynamics of `model` using implicit integration scheme `Q<:QuadratureRule`.
@@ -170,12 +170,12 @@ x′ = discrete_dynamics(Q, model, z::KnotPoint)
 
 The default integration scheme is stored in `TrajectoryOptimization.DEFAULT_Q`
 """
-@inline discrete_dynamics(::Type{Q}, model::AbstractModel, z::KnotPoint) where Q<:Explicit =
+@inline discrete_dynamics(::Type{Q}, model::AbstractModel, z::AbstractKnotPoint) where Q<:Explicit =
     discrete_dynamics(Q, model, state(z), control(z), z.t, z.dt)
 
 
 "Propagate the dynamics forward, storing the result in the next knot point"
-function propagate_dynamics(::Type{Q}, model::AbstractModel, z_::KnotPoint, z::KnotPoint) where Q<:Explicit
+function propagate_dynamics(::Type{Q}, model::AbstractModel, z_::AbstractKnotPoint, z::AbstractKnotPoint) where Q<:Explicit
     x_next = discrete_dynamics(Q, model, z)
     set_state!(z_, x_next)
 end
@@ -195,7 +195,7 @@ function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
     ix,iu,idt = z._x, z._u, N+M+1
     t = z.t
     fd_aug(s) = discrete_dynamics(Q, model, s[ix], s[iu], t, z.dt)
-    ∇f .= ForwardDiff.jacobian(fd_aug, z.z)
+    ∇f .= ForwardDiff.jacobian(fd_aug, SVector{N+M}(z.z))
 	return nothing
 end
 
@@ -254,15 +254,15 @@ state_diff(model::AbstractModel, x, x0) = x - x0
 @inline state_diff_jacobian(model::AbstractModel, x::SVector{N,T}) where {N,T} = I
 @inline state_diff_size(model::AbstractModel) = size(model)[1]
 
-@inline state_diff_jacobian!(G, model::AbstractModel, Z::Traj) = nothing
-@inline state_diff_jacobian!(G, model::AbstractModel, z::AbstractModel) =
+@inline state_diff_jacobian!(G, model::AbstractModel, z::AbstractKnotPoint) =
 	state_diff_jacobian!(G, model, state(z))
+
 function state_diff_jacobian!(G, model::AbstractModel, x::StaticVector)
 	for i in 1:length(x)
 		G[i,i] = 1
 	end
 end
 
-function ∇²differential!(G, model::AbstractModel, x::SVector, dx::AbstractVector)
-	G .= ∇²differential(model, x, dx)
-end
+# function ∇²differential!(G, model::AbstractModel, x::StaticVector, dx::AbstractVector)
+# 	G .= ∇²differential(model, x, dx)
+# end

@@ -44,6 +44,11 @@ mutable struct GeneralKnotPoint{T,N,M,V} <: AbstractKnotPoint{T,N,M}
     t::T  # total time
 end
 
+function GeneralKnotPoint(n::Int, m::Int, z::AbstractVector, dt::T, t=zero(T)) where T
+    _x = SVector{n}(1:n)
+    _u = SVector{m}(n .+ (1:m))
+    GeneralKnotPoint(z, _x, _u, dt, t)
+end
 
 const KnotPoint{T,N,M,NM} = GeneralKnotPoint{T,N,M,SVector{NM,T}} where {T,N,M,NM}
 
@@ -71,7 +76,7 @@ end
 @inline state(z::AbstractKnotPoint) = z.z[z._x]
 @inline control(z::AbstractKnotPoint) = z.z[z._u]
 @inline is_terminal(z::AbstractKnotPoint) = z.dt == 0
-
+@inline get_z(z::RobotDynamics.AbstractKnotPoint) = RobotDynamics.is_terminal(z) ? state(z) : z.z
 
 set_state!(z::KnotPoint, x) = z.z = [x; control(z)]
 set_control!(z::KnotPoint, u) = z.z = [state(z); u]
@@ -90,9 +95,23 @@ function StaticKnotPoint(x::SVector{n,T}, u::SVector{m,T}, dt=zero(T), t=zero(T)
     StaticKnotPoint([x; u], ix, iu, dt, t)
 end
 
-function StaticKnotPoint(z0::AbstractKnotPoint, z::StaticVector)
+function StaticKnotPoint(z0::AbstractKnotPoint, z::StaticVector=z0.z)
     StaticKnotPoint(z, z0._x, z0._u, z0.dt, z0.t)
 end
 
-""" A vector of KnotPoints """
+function Base.:+(z1::AbstractKnotPoint, z2::AbstractKnotPoint)
+	StaticKnotPoint(z1.z + z2.z, z1._x, z1._u, z1.dt, z1.t)
+end
+
+"""
+    Traj
+
+A vector of KnotPoints
+
+# Constructors
+    Traj(n, m, dt, N, equal=false)
+    Traj(x, u, dt, N, equal=false)
+    Traj(X, U, dt, t)
+    Traj(X, U, dt)
+"""
 const Traj = AbstractVector{<:AbstractKnotPoint}
