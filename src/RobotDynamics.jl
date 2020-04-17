@@ -59,5 +59,6 @@ include("rigidbody.jl")
 include("integration.jl")
 include("trajectories.jl")
 include("rbstate.jl")
+include("liestate.jl")
 
 end # module

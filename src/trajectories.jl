@@ -93,15 +93,16 @@ end
 
 @inline error_expansion!(D::Vector{<:DynamicsExpansion}, model::AbstractModel, G) = nothing
 
-function error_expansion!(D::Vector{<:DynamicsExpansion}, model::RigidBody, G)
+function error_expansion!(D::Vector{<:DynamicsExpansion}, model::LieGroupModel, G)
 	for k in eachindex(D)
 		error_expansion!(D[k], G[k], G[k+1])
 	end
 end
 
-function state_diff_jacobian!(G, model::RigidBody, Z::Traj)
+function state_diff_jacobian!(G, model::LieGroupModel, Z::Traj)
     for k in eachindex(Z)
-        G[k] .= state_diff_jacobian(model, state(Z[k]))
+		state_diff_jacobian!(G[k], model, Z[k])
+        # G[k] .= state_diff_jacobian(model, state(Z[k]))
     end
 end
 
