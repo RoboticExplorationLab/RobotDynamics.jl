@@ -82,7 +82,19 @@ function shift_fill!(Z::Traj)
     end
 end
 
+function Base.copyto!(Z::Traj, Z0::Traj)
+	@assert length(Z) == length(Z0)
+	for k in eachindex(Z)
+		copyto!(Z[k].z, Z0[k].z)
+	end
+end
 
+function Base.copyto!(Z::Vector{<:KnotPoint}, Z0::Traj)
+	@assert length(Z) == length(Z0)
+	for k in eachindex(Z)
+		Z[k].z = Z0[k].z
+	end
+end
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~ FUNCTIONS ON TRAJECTORIES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 

@@ -76,10 +76,14 @@ end
 @inline state(z::AbstractKnotPoint) = z.z[z._x]
 @inline control(z::AbstractKnotPoint) = z.z[z._u]
 @inline is_terminal(z::AbstractKnotPoint) = z.dt == 0
-@inline get_z(z::RobotDynamics.AbstractKnotPoint) = RobotDynamics.is_terminal(z) ? state(z) : z.z
+@inline get_z(z::RobotDynamics.AbstractKnotPoint) = is_terminal(z) ? state(z) : z.z
 
+set_state!(z::AbstractKnotPoint, x) = for i in z._x; z.z[i] = x[i]; end
+set_control!(z::AbstractKnotPoint, u) = for (i,j) in enumerate(z._u); z.z[j] = u[i]; end
+set_z!(z::AbstractKnotPoint, z_) = is_terminal(z) ? set_state!(z, z_) : copyto!(z.z, z_)
 set_state!(z::KnotPoint, x) = z.z = [x; control(z)]
 set_control!(z::KnotPoint, u) = z.z = [state(z); u]
+set_z!(z::KnotPoint, z_) = z.z = z_
 
 struct StaticKnotPoint{T,N,M,NM} <: AbstractKnotPoint{T,N,M}
     z::SVector{NM,T}
@@ -95,12 +99,23 @@ function StaticKnotPoint(x::SVector{n,T}, u::SVector{m,T}, dt=zero(T), t=zero(T)
     StaticKnotPoint([x; u], ix, iu, dt, t)
 end
 
-function StaticKnotPoint(z0::AbstractKnotPoint, z::StaticVector=z0.z)
-    StaticKnotPoint(z, z0._x, z0._u, z0.dt, z0.t)
+function StaticKnotPoint(z0::AbstractKnotPoint{T,n,m}, z::AbstractVector=z0.z) where {T,n,m}
+	if length(z) == n
+		z = [SVector{n}(z); @SVector zeros(m)]
+	end
+    StaticKnotPoint{eltype(z),n,m,n+m}(z, z0._x, z0._u, z0.dt, z0.t)
 end
 
 function Base.:+(z1::AbstractKnotPoint, z2::AbstractKnotPoint)
 	StaticKnotPoint(z1.z + z2.z, z1._x, z1._u, z1.dt, z1.t)
+end
+
+function Base.:+(z1::AbstractKnotPoint, x::AbstractVector)
+	StaticKnotPoint(z1.z + x, z1._x, z1._u, z1.dt, z1.t)
+end
+
+function Base.:*(a::Real, z::AbstractKnotPoint{<:Any,n,m}) where {n,m}
+	StaticKnotPoint(z.z*a, SVector{n,Int}(z._x), SVector{m,Int}(z._u), z.dt, z.t)
 end
 
 """
