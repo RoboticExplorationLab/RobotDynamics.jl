@@ -204,8 +204,10 @@ end
 
 state_diff_size(::RigidBody) = 12
 
+@inline ∇²differential!(∇G, model::RigidBody, x::StaticVector, dx::AbstractVector) =
+    ∇G .= ∇²differential( model, x, dx)
 function ∇²differential(model::RigidBody,
-        x::SVector, dx::AbstractVector)
+        x::StaticVector, dx::AbstractVector)
       q = orientation(model, x)
       dq = Rotations.params(orientation(model, dx, false))
       G2 = Rotations.∇²differential(q, dq)
