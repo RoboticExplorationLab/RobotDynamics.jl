@@ -105,13 +105,6 @@ function discrete_dynamics!(f, model, Z::Traj)
     end
 end
 
-@inline error_expansion!(D::Vector{<:DynamicsExpansion}, model::AbstractModel, G) = nothing
-
-function error_expansion!(D::Vector{<:DynamicsExpansion}, model::LieGroupModel, G)
-	for k in eachindex(D)
-		error_expansion!(D[k], G[k], G[k+1])
-	end
-end
 
 @inline state_diff_jacobian!(G, model::AbstractModel, Z::Traj) = nothing
 function state_diff_jacobian!(G, model::LieGroupModel, Z::Traj)

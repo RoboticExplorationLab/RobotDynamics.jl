@@ -51,7 +51,6 @@ export
     HermiteSimpson
 
 
-include("expansion.jl")
 include("knotpoint.jl")
 include("model.jl")
 include("rigidbody.jl")

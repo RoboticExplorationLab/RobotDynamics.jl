@@ -203,52 +203,6 @@ function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
 	return nothing
 end
 
-function dynamics_expansion!(D::Vector{<:DynamicsExpansion}, model::AbstractModel,
-		Z::Traj)
-	for k in eachindex(D)
-		discrete_jacobian!(RK3, D[k].∇f, model, Z[k])
-		D[k].tmpA .= D[k].A_  # avoids allocations later
-		D[k].tmpB .= D[k].B_
-	end
-end
-
-function linearize(::Type{Q}, model::AbstractModel, z::AbstractKnotPoint) where Q
-	D = DynamicsExpansion(model)
-	linearize!(Q, D, model, z)
-end
-
-function linearize!(::Type{Q}, D::DynamicsExpansion{<:Any,<:Any,N,M}, model::AbstractModel,
-		z::AbstractKnotPoint) where {N,M,Q}
-	discrete_jacobian!(Q, D.∇f, model, z)
-	D.tmpA .= D.A_  # avoids allocations later
-	D.tmpB .= D.B_
-	return D.tmpA, D.tmpB
-end
-
-function linearize!(::Type{Q}, D::DynamicsExpansion, model::RigidBody) where Q
-	discrete_jacobian!(Q, D.∇f, model, z)
-	D.tmpA .= D.A_  # avoids allocations later
-	D.tmpB .= D.B_
-	G1 = state_diff_jacobian(model, state(z))
-	G2 = state_diff_jacobian(model, x1)
-	error_expansion!(D, G1, G2)
-	return D.A, D.B
-end
-
-function error_expansion!(D::DynamicsExpansion,G1,G2)
-    mul!(D.tmp, D.tmpA, G1)
-    mul!(D.A, Transpose(G2), D.tmp)
-    mul!(D.B, Transpose(G2), D.tmpB)
-end
-
-@inline error_expansion(D::DynamicsExpansion, model::LieGroupModel) = D.A, D.B
-@inline error_expansion(D::DynamicsExpansion, model::AbstractModel) = D.tmpA, D.tmpB
-@inline DynamicsExpansion(model::AbstractModel) = DynamicsExpansion{Float64}(model)
-@inline function DynamicsExpansion{T}(model::AbstractModel) where T
-	n,m = size(model)
-	n̄ = state_diff_size(model)
-	DynamicsExpansion{T}(n,n̄,m)
-end
 
 ############################################################################################
 #                               STATE DIFFERENTIALS                                        #
