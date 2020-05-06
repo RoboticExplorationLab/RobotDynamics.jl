@@ -119,16 +119,3 @@ end
 function Base.:*(a::Real, z::AbstractKnotPoint{<:Any,n,m}) where {n,m}
 	StaticKnotPoint(z.z*a, SVector{n,Int}(z._x), SVector{m,Int}(z._u), z.dt, z.t)
 end
-
-"""
-    Traj
-
-A vector of KnotPoints
-
-# Constructors
-    Traj(n, m, dt, N, equal=false)
-    Traj(x, u, dt, N, equal=false)
-    Traj(X, U, dt, t)
-    Traj(X, U, dt)
-"""
-const Traj = AbstractVector{<:AbstractKnotPoint}

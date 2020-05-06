@@ -36,9 +36,9 @@ function RBState(model::RigidBody, x::SVector)
     RBState(r,UnitQuaternion(q),v,ω)
 end
 
-function RBState(model::RigidBody, Z::Traj)
-    [RBState(model, state(z)) for z in Z]
-end
+# function RBState(model::RigidBody, Z::Traj)
+#     [RBState(model, state(z)) for z in Z]
+# end
 
 @inline Base.position(x::RBState) = x.r
 @inline orientation(x::RBState) = x.q
@@ -92,25 +92,25 @@ function LinearAlgebra.norm(s::RBState)
     sqrt(s.r's.r + s.v's.v + s.ω's.ω + LinearAlgebra.norm2(s.q))
 end
 
-function Traj(model::RigidBody,
-        X::Vector{<:RBState}, U::Vector{<:AbstractVector}, dt)
-    N = length(X)
-    equal = N == length(U)
-    map(1:length(X)) do k
-        x = build_state(model, X[k])
-        if k == N
-            if equal
-                u = U[k]
-            else
-                try
-                    u = trim_controls(model)
-                catch
-                    u = zeros(model)[2]
-                end
-            end
-        else
-            u = U[k]
-        end
-        KnotPoint(x,u,dt,dt*(k-1))
-    end
-end
+# function Traj(model::RigidBody,
+#         X::Vector{<:RBState}, U::Vector{<:AbstractVector}, dt)
+#     N = length(X)
+#     equal = N == length(U)
+#     map(1:length(X)) do k
+#         x = build_state(model, X[k])
+#         if k == N
+#             if equal
+#                 u = U[k]
+#             else
+#                 try
+#                     u = trim_controls(model)
+#                 catch
+#                     u = zeros(model)[2]
+#                 end
+#             end
+#         else
+#             u = U[k]
+#         end
+#         KnotPoint(x,u,dt,dt*(k-1))
+#     end
+# end
