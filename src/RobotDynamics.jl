@@ -1,6 +1,5 @@
 module RobotDynamics
 
-using DocStringExtensions
 using Rotations
 using StaticArrays
 using LinearAlgebra

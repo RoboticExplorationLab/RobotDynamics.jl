@@ -5,7 +5,9 @@ export
 
 abstract type AbstractKnotPoint{T,N,M} end
 
-""" $(TYPEDEF)
+"""
+	GeneralKnotPoint{T,N,M,V} <: AbstractKnotPoint{T,N,M}
+
 Stores critical information corresponding to each knot point in the trajectory optimization
 problem, including the state and control values, as well as the time and time step length.
 

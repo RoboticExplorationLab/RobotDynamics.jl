@@ -18,7 +18,9 @@
 #     HermiteSimpson
 
 
-""" $(TYPEDEF)
+"""
+ 	AbstractModel
+
 Abstraction of a model of a dynamical system of the form ẋ = f(x,u), where x is the n-dimensional state vector
 and u is the m-dimensional control vector.
 
@@ -31,7 +33,9 @@ abstract type AbstractModel end
 abstract type LieGroupModel <: AbstractModel end
 
 
-""" $(TYPEDEF)
+"""
+	RigidBody{R<:Rotation} <: LieGroupModel
+
 Abstraction of a dynamical system with free-body dynamics, with a 12 or 13-dimensional state
 vector: `[p; q; v; ω]`
 where `p` is the 3D position, `q` is the 3 or 4-dimension attitude representation, `v` is the
