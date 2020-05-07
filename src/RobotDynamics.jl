@@ -34,7 +34,6 @@ export
     AbstractKnotPoint,
     KnotPoint,
     StaticKnotPoint,
-    Traj,
     state,
     control,
     states,
