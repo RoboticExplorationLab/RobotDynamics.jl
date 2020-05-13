@@ -24,7 +24,7 @@ function Base.zeros(model::RigidBody{D}) where D
     v = @SVector zeros(3)
     ω = @SVector zeros(3)
     x = build_state(model, r, q, v, ω)
-    u = @SVector rand(m)  # NOTE: this is type unstable
+    u = @SVector zeros(m)  # NOTE: this is type unstable
     return x,u
 end
 
@@ -125,7 +125,11 @@ function dynamics(model::RigidBody{D}, x, u) where D
 
     xdot = v
     qdot = Rotations.kinematics(q,ω)
-    vdot = M\F
+    if velocity_frame(model) == :world
+        vdot = M\F
+    elseif velocity_frame(model) == :body
+        vdot = M\(q*F) - ω × v
+    end
     ωdot = Jinv*(τ - ω × (J*ω))
 
     build_state(model, xdot, qdot, vdot, ωdot)
@@ -142,7 +146,7 @@ end
 @inline moments(::RigidBody, x, u)::SVector{3} = throw(ErrorException("Not implemented"))
 @inline inertia(::RigidBody, x, u)::SMatrix{3,3} = throw(ErrorException("Not implemented"))
 @inline inertia_inv(::RigidBody, x, u)::SMatrix{3,3} = throw(ErrorException("Not implemented"))
-
+@inline velocity_frame(::RigidBody) = :world # :body or :world
 
 ############################################################################################
 #                          STATE DIFFERENTIAL METHODS
