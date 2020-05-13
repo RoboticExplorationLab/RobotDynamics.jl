@@ -95,7 +95,7 @@ struct StaticKnotPoint{T,N,M,NM} <: AbstractKnotPoint{T,N,M}
     t::Float64  # total time
 end
 
-function StaticKnotPoint(x::SVector{n,T}, u::SVector{m,T}, dt=zero(T), t=zero(T)) where {n,m,T}
+function StaticKnotPoint(x::SVector{n}, u::SVector{m}, dt=0.0, t=0.0) where {n,m,T}
     ix = SVector{n}(1:n)
     iu = n .+ SVector{m}(1:m)
     StaticKnotPoint([x; u], ix, iu, dt, t)
