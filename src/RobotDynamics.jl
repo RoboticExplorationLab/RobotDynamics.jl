@@ -4,6 +4,9 @@ using Rotations
 using StaticArrays
 using LinearAlgebra
 using ForwardDiff
+using UnsafeArrays
+
+using Rotations: skew
 
 export
     AbstractModel,
