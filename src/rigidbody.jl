@@ -118,35 +118,106 @@ function dynamics(model::RigidBody{D}, x, u) where D
 
     r,q,v,ω = parse_state(model, x)
 
-    F,τ = wrenches(model, x, u)
-    M = mass_matrix(model, x, u)
-    J = inertia(model, x, u)
-    Jinv = inertia_inv(model, x, u)
+    ξ = wrenches(model, x, u)
+    F = SA[ξ[1], ξ[2], ξ[3]]  # forces in world frame
+    τ = SA[ξ[4], ξ[5], ξ[6]]  # torques in body frame
+    m = mass(model)
+    J = inertia(model)
+    Jinv = inertia_inv(model)
 
     xdot = v
     qdot = Rotations.kinematics(q,ω)
     if velocity_frame(model) == :world
-        vdot = M\F
+        vdot = F ./ m
     elseif velocity_frame(model) == :body
-        vdot = M\(q*F) - ω × v
+        vdot = q*(F ./ m) - ω × v
     end
     ωdot = Jinv*(τ - ω × (J*ω))
 
     build_state(model, xdot, qdot, vdot, ωdot)
 end
 
-function wrenches(model::RigidBody, x::SVector, u::SVector)
+@inline wrenches(model::RigidBody, z::AbstractKnotPoint) = wrenches(model, state(z), control(z))
+function wrenches(model::RigidBody, x, u)
     F = forces(model, x, u)
     M = moments(model, x, u)
-    return F,M
+    return SA[F[1], F[2], F[3], M[1], M[2], M[3]]
 end
 
-@inline mass_matrix(::RigidBody, x, u) = throw(ErrorException("Not Implemented"))
+# @inline mass_matrix(::RigidBody, x, u) = throw(ErrorException("Not Implemented"))
+@inline mass(::RigidBody) = throw(ErrorException("Not implemented"))
+@inline inertia(::RigidBody)::SMatrix{3,3} = throw(ErrorException("Not implemented"))
+@inline inertia_inv(model::RigidBody) = inv(inertia(model))
 @inline forces(::RigidBody, x, u)::SVector{3} = throw(ErrorException("Not implemented"))
 @inline moments(::RigidBody, x, u)::SVector{3} = throw(ErrorException("Not implemented"))
-@inline inertia(::RigidBody, x, u)::SMatrix{3,3} = throw(ErrorException("Not implemented"))
-@inline inertia_inv(::RigidBody, x, u)::SMatrix{3,3} = throw(ErrorException("Not implemented"))
 @inline velocity_frame(::RigidBody) = :world # :body or :world
+
+function rb_jacobian!(F, model::RigidBody{<:UnitQuaternion}, z::AbstractKnotPoint)
+    iF = SA[1,2,3]
+    iM = SA[4,5,6]
+    ir,iq,iv,iω,iu = gen_inds(model)
+
+    # Extract the info from the state and model
+    r,q,v,ω = parse_state(model, state(z))
+    u = control(z)
+    m = mass(model)
+    J = inertia(model)
+    Jinv = inertia_inv(model)
+
+    # Calculate the Jacobian wrt the wrench and multiply the blocks according to the sparsity
+    F .= 0
+    Jw = uview(get_data(F), 8:13, :)
+    wrench_jacobian!(Jw, model, z)
+    js = wrench_sparsity(model)
+    js[1,1] && (Jw[iF, ir] ./= m)
+    js[1,2] && (Jw[iF, iq] ./= m)
+    js[1,3] && (Jw[iF, iv] ./= m)
+    js[1,4] && (Jw[iF, iω] ./= m)
+    js[1,5] && (Jw[iF, iu] ./= m)
+    js[2,1] && (Jw[iM, ir] .= Jinv * Jw[iM, ir])
+    js[2,2] && (Jw[iM, iq] .= Jinv * Jw[iM, iq])
+    js[2,3] && (Jw[iM, iv] .= Jinv * Jw[iM, iv])
+    js[2,4] && (Jw[iM, iω] .= Jinv * Jw[iM, iω])
+    js[2,5] && (Jw[iM, iu] .= Jinv * Jw[iM, iu])
+
+
+    # Add in the parts of the Jacobian that are not functions of the wrench
+    F[iq, iq] .= 0.5 * Rotations.rmult(Rotations.pure_quaternion(ω))
+    F[iq, iω] .= 0.5 * Rotations.lmult(q) * Rotations.hmat()
+    F[iω, iω] .= Jinv*(skew(J*ω) - skew(ω)*J) + F[iω,iω]
+    if velocity_frame(model) == :world
+        F[1,8] += 1
+        F[2,9] += 1
+        F[3,10] += 1
+    end
+
+    return F
+end
+
+function wrench_jacobian!(F, model::RigidBody, z)
+    function w(x)
+        wrenches(model, StaticKnotPoint(z, x))
+    end
+    ForwardDiff.jacobian!(F, w, z.z)
+end
+
+wrench_sparsity(model::RigidBody) = @SMatrix ones(Bool,2,5)
+
+@generated function gen_inds(model::RigidBody{R}) where R
+    iF = SA[1,2,3]
+    iM = SA[4,5,6]
+    ir, iq, iv, iω = SA[1,2,3], SA[4,5,6], SA[7,8,9], SA[10,11,12]
+    if R <: UnitQuaternion
+        iq = push(iq, 7)
+        iv = iv .+ 1
+        iω = iω .+ 1
+    end
+    quote
+        m = control_dim(model)
+        iu = $iω[end] .+ SVector{m}(1:m)
+        return (r=$ir, q=$iq, v=$iv, ω=$iω, u=iu)
+    end
+end
 
 ############################################################################################
 #                          STATE DIFFERENTIAL METHODS

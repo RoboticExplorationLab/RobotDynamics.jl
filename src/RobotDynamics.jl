@@ -53,6 +53,7 @@ export
     HermiteSimpson
 
 
+include("jacobian.jl")
 include("knotpoint.jl")
 include("model.jl")
 include("rigidbody.jl")

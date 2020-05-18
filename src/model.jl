@@ -138,13 +138,28 @@ Compute the Jacobian of the continuous-time dynamics using ForwardDiff. The inpu
 a static vector of the concatenated state and control, or a KnotPoint. They must be concatenated
 to avoid unnecessary memory allocations.
 """
-@inline jacobian!(∇c::SizedMatrix, model::AbstractModel, z::AbstractKnotPoint) =
-	jacobian!(∇c.data, model, z)
-function jacobian!(∇c::Matrix, model::AbstractModel, z::AbstractKnotPoint)
+@inline jacobian!(∇f::SizedMatrix, model::AbstractModel, z::AbstractKnotPoint) =
+	jacobian!(∇f.data, model, z)
+function jacobian!(∇f::Matrix, model::AbstractModel, z::AbstractKnotPoint)
     ix, iu = z._x, z._u
-    f_aug(z) = dynamics(model, z[ix], z[iu])
+	t = z.t
+    f_aug(z) = dynamics(model, z[ix], z[iu], t)
     s = z.z
-	ForwardDiff.jacobian!(∇c, f_aug, s)
+	ForwardDiff.jacobian!(∇f, f_aug, s)
+end
+function jacobian!(∇f::DynamicsJacobian, model::AbstractModel, z::AbstractKnotPoint, mode=:all)
+	if mode == :all
+		jacobian!(∇f.data, model, z)
+	elseif mode == :state
+		fx(x) = dynamics(model, x, control(z), z.t)
+		∇f.A .= ForwardDiff.jacobian(fx, state(z))
+	elseif mode == :control
+		fu(u) = dynamics(model, state(z), u, z.t)
+		∇f.B .= ForwardDiff.jacobian(fu, control(z))
+	else
+		throw(ArgumentError("Jacobian mode $mode not recognized. Must be one of [:all, :state, :control]"))
+	end
+	return ∇f
 end
 
 # # QUESTION: is this one needed?
@@ -202,7 +217,6 @@ function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
     ∇f .= ForwardDiff.jacobian(fd_aug, SVector{N+M}(z.z))
 	return nothing
 end
-
 
 ############################################################################################
 #                               STATE DIFFERENTIALS                                        #
