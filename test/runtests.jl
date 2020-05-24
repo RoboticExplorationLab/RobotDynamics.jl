@@ -1,6 +1,7 @@
-using RobotDynamics
 using Test
+using RobotDynamics
 using StaticArrays
+using ForwardDiff
 
 include("cartpole_model.jl")
 
