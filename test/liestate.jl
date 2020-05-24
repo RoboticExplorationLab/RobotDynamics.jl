@@ -22,7 +22,7 @@ function error_state_rp(x::AbstractVector, x0::AbstractVector)
        dx[7], dx[8],        dq2[1], dq2[2], dq2[3], dx[12], dx[13], dx[14]]
 end
 
-# [1,2,3], (4,5,6,7), [8,9], (10,11,12,13), [14,15,16]
+# Test index functions
 R = UnitQuaternion{Float64}
 P = (3,2,3)
 s = LieState{R,P}()
@@ -39,7 +39,7 @@ x  = @MVector rand(n)
 x0 = @MVector rand(n)
 @test RobotDynamics.state_diff(s, x, x0) ≈ error_state_quat(x, x0)
 
-# [1,2,3], (4,5,6), [7,8], (9,10,11), [12,13,14]
+# Test with RP
 R = RodriguesParam{Float64}
 P = (3,2,3)
 s = LieState{R,P}()

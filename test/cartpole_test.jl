@@ -3,16 +3,13 @@ using Test
 using StaticArrays
 
 struct Cartpole{T} <: AbstractModel
-    n::Int
-    m::Int
     mc::T
     mp::T
     l::T
     g::T
 end
 
-Cartpole() = Cartpole(4,1,
-    1.0, 0.2, 0.5, 9.81)
+Cartpole() = Cartpole(1.0, 0.2, 0.5, 9.81)
 
 function RobotDynamics.dynamics(model::Cartpole, x, u)
     mc = model.mc  # mass of the cart in kg (10)
@@ -35,6 +32,9 @@ function RobotDynamics.dynamics(model::Cartpole, x, u)
     return [qd; qdd]
 end
 
+RobotDynamics.state_dim(::Cartpole) = 4
+RobotDynamics.control_dim(::Cartpole) = 1
+
 model = Cartpole()
 x,u = zeros(model)
 @test sum(x) == 0
@@ -53,18 +53,9 @@ jacobian!(F, model, z)
 @test sum(F) != 0
 
 D = RobotDynamics.DynamicsJacobian(n,m)
-jacobian!(D, model, z, :state)
-@test D.A == F[:,1:n]
-@test D.B == zeros(n,m)
-D = RobotDynamics.DynamicsJacobian(n,m)
-jacobian!(D, model, z, :control)
-@test D.A == zeros(n,n)
-@test D.B == F[:,n .+ (1:m)]
-D = RobotDynamics.DynamicsJacobian(n,m)
 jacobian!(D, model, z)
 @test D.A == F[:,1:n]
-@test D.B == F[:,n .+ (1:m)]
-@test_throws ArgumentError jacobian!(D, model, z, :both)
+@test D.B ≈ F[:,n .+ (1:m)]
 
 @test discrete_dynamics(RK3, model, x, u, 0.0, dt) ≈
     discrete_dynamics(RK3, model, z)
@@ -72,14 +63,13 @@ jacobian!(D, model, z)
 
 F = zeros(n,n+m)
 discrete_jacobian!(RK3, F, model, z)
-F
 
 tmp = [RobotDynamics.DynamicsJacobian(n,m) for k = 1:3]
 jacobian!(RK3, D, model, z, tmp)
-D.A ≈ F[1:n,1:n]
-D.B ≈ F[1:n,n .+ (1:m)]
-
-@btime discrete_jacobian!($RK3, $F, $model, $z)
-@btime jacobian!($RK3, $D, $model, $z, $tmp)
+@test D.A ≈ F[1:n,1:n]
+@test D.B ≈ F[1:n,n .+ (1:m)]
 @test sum(F) != 0
 @test F[1] == 1
+
+# @btime discrete_jacobian!($RK3, $F, $model, $z)
+# @btime jacobian!($RK3, $D, $model, $z, $tmp)
