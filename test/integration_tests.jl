@@ -1,9 +1,8 @@
 using RobotDynamics
 using ForwardDiff
-using RobotZoo
 using LinearAlgebra
 
-model = RobotZoo.Cartpole()
+model = Cartpole()
 x,u = rand(model)
 n,m = size(model)
 dt = 0.01

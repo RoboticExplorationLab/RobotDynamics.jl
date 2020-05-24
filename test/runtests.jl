@@ -2,6 +2,8 @@ using RobotDynamics
 using Test
 using StaticArrays
 
+include("cartpole_model.jl")
+
 @testset "Basic Dynamics" begin
     @testset "Cartpole" begin
         include("cartpole_test.jl")
@@ -18,7 +20,7 @@ end
         include("liestate.jl")
     end
 
-    @testset "RBState" begin
+    @testset "Single Rigid Body" begin
         include("rbstate.jl")
         include("rigidbody.jl")
     end
