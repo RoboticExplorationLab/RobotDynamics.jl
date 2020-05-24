@@ -2,43 +2,59 @@ export
     RBState,
     randbetween
 
-struct RBState{T}
+struct RBState{T} <: StaticVector{13,T}
     r::SVector{3,T}
     q::UnitQuaternion{T}
     v::SVector{3,T}
     ω::SVector{3,T}
+    function RBState{T}(r, q::Rotation, v, ω) where T
+        @assert length(r) == 3
+        @assert length(v) == 3
+        @assert length(ω) == 3
+        new{T}(r, UnitQuaternion{T}(q), v, ω)
+    end
+    @inline function RBState{T}(x::RBState) where T
+        RBState{T}(x.r, x.q, x.v, x.ω)
+    end
 end
 
 function RBState(r::AbstractVector, q::Rotation, v::AbstractVector, ω::AbstractVector)
-    r_ = @SVector [r[1],r[2],r[3]]
-    q_ = UnitQuaternion(q)
-    v_ = @SVector [v[1],v[2],v[3]]
-    ω_ = @SVector [ω[1],ω[2],ω[3]]
-    RBState(r_, q_, v_, ω_)
+    T = promote_type(eltype(r), eltype(q), eltype(v), eltype(ω))
+    RBState{T}(r, q, v, ω)
 end
 
-function RBState(r::AbstractVector, q::AbstractVector, v::AbstractVector, ω::AbstractVector)
-    @assert length(q) == 4
-    q = UnitQuaternion(q...)
-    RBState(r, q, v, ω)
+@inline function RBState(r::AbstractVector, q::AbstractVector, v::AbstractVector, ω::AbstractVector)
+    RBState(r, UnitQuaternion(q), v, ω)
 end
 
-function RBState(x::SVector{13})
-    r_ = @SVector [x[1],x[2],x[3]]
-    q_ = UnitQuaternion(x[4], x[5], x[6], x[7])
-    v_ = @SVector [x[8],x[9],x[10]]
-    ω_ = @SVector [x[11],x[12],x[13]]
-    RBState(r_, q_, v_, ω_)
-end
+@inline RBState(x::RBState) = x
 
-function RBState(model::RigidBody, x::SVector)
-    r,q,v,ω = parse_state(model, x)
-    RBState(r,UnitQuaternion(q),v,ω)
+# Static Arrays interface
+function (::Type{RB})(x::NTuple{13}) where RB <: RBState
+    RB(
+        SA[x[1], x[2], x[3]],
+        UnitQuaternion(x[4], x[5], x[6], x[7]),  # will renormalize
+        SA[x[8], x[9], x[10]],
+        SA[x[11], x[12], x[13]]
+    )
 end
-
-# function RBState(model::RigidBody, Z::Traj)
-#     [RBState(model, state(z)) for z in Z]
-# end
+Base.@propagate_inbounds function Base.getindex(x::RBState, i::Int)
+    if i < 4
+        x.r[i]
+    elseif i < 8
+        Rotations.params(x.q)[i-3]
+    elseif i < 11
+        x.v[i-7]
+    else
+        x.ω[i-10]
+    end
+end
+Base.Tuple(x::RBState) = (
+    x.r[1], x.r[2], x.r[3],
+    x.q.w, x.q.x, x.q.y, x.q.z,
+    x.v[1], x.v[2], x.v[3],
+    x.ω[1], x.ω[2], x.ω[3]
+)
 
 @inline Base.position(x::RBState) = x.r
 @inline orientation(x::RBState) = x.q
@@ -47,6 +63,13 @@ end
 
 function build_state(model::RigidBody{R}, rbs::RBState) where R
     build_state(model, rbs.r, rbs.q, rbs.v, rbs.ω)
+end
+
+function Base.isapprox(x1::RBState, x2::RBState; kwargs...)
+    isapprox(x1.r, x2.r; kwargs...) &&
+        isapprox(x1.v, x2.v; kwargs...) &&
+        isapprox(x1.ω, x2.ω; kwargs...) &&
+        isapprox(principal_value(x1.q), principal_value(x2.q); kwargs...)
 end
 
 function Base.:+(s1::RBState, s2::RBState)
@@ -59,7 +82,7 @@ end
 
 function Rotations.:⊖(s1::RBState, s2::RBState, rmap=ExponentialMap)
     dx = s1.r-s2.r
-    dq = rmap(s2.q\s1.q)
+    dq = Rotations.rotation_error(s1.q, s2.q, rmap)
     dv = s1.v-s2.v
     dw = s1.ω-s2.ω
     @SVector [dx[1], dx[2], dx[3], dq[1], dq[2], dq[3],
@@ -89,28 +112,6 @@ function randbetween(xmin::RBState, xmax::RBState)
 end
 
 function LinearAlgebra.norm(s::RBState)
-    sqrt(s.r's.r + s.v's.v + s.ω's.ω + LinearAlgebra.norm2(s.q))
+    q = Rotations.params(s.q)
+    sqrt(s.r's.r + s.v's.v + s.ω's.ω + q'q)
 end
-
-# function Traj(model::RigidBody,
-#         X::Vector{<:RBState}, U::Vector{<:AbstractVector}, dt)
-#     N = length(X)
-#     equal = N == length(U)
-#     map(1:length(X)) do k
-#         x = build_state(model, X[k])
-#         if k == N
-#             if equal
-#                 u = U[k]
-#             else
-#                 try
-#                     u = trim_controls(model)
-#                 catch
-#                     u = zeros(model)[2]
-#                 end
-#             end
-#         else
-#             u = U[k]
-#         end
-#         KnotPoint(x,u,dt,dt*(k-1))
-#     end
-# end
