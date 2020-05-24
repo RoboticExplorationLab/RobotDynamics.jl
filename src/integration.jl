@@ -38,9 +38,9 @@ function jacobian!(::Type{RK3}, ∇f::DynamicsJacobian{n,nm}, model, z::Abstract
 	k2 = dynamics(model, z2)*dt
 	z3 = StaticKnotPoint([x - k1 + 2*k2; u], z._x, z._u, dt, t + dt)
 	k3 = dynamics(model, z3)*dt
-	rb_jacobian!(tmp[1], model, z1)
-	rb_jacobian!(tmp[2], model, z2)
-	rb_jacobian!(tmp[3], model, z3)
+	jacobian!(tmp[1], model, z1)
+	jacobian!(tmp[2], model, z2)
+	jacobian!(tmp[3], model, z3)
 	A1 = SMatrix{n,n}(tmp[1].A)
 	A2 = SMatrix{n,n}(tmp[2].A)
 	A3 = SMatrix{n,n}(tmp[3].A)

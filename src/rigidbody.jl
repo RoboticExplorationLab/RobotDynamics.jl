@@ -3,8 +3,8 @@
 #     linear_velocity,
 #     angular_velocity
 
-@inline Base.size(model::RigidBody{<:UnitQuaternion}) = 13, control_dim(model)
-@inline Base.size(model::RigidBody) = 12, control_dim(model)
+@inline state_dim(::RigidBody{<:UnitQuaternion}) = 13
+@inline state_dim(::RigidBody) = 12
 
 function Base.rand(model::RigidBody{D}) where {D}
     n,m = size(model)
@@ -125,12 +125,13 @@ function dynamics(model::RigidBody{D}, x, u) where D
     J = inertia(model)
     Jinv = inertia_inv(model)
 
-    xdot = v
     qdot = Rotations.kinematics(q,ω)
     if velocity_frame(model) == :world
+        xdot = v
         vdot = F ./ m
     elseif velocity_frame(model) == :body
-        vdot = q*(F ./ m) - ω × v
+        xdot = q * v
+        vdot = q\(F ./ m) - ω × v
     end
     ωdot = Jinv*(τ - ω × (J*ω))
 
@@ -152,7 +153,7 @@ end
 @inline moments(::RigidBody, x, u)::SVector{3} = throw(ErrorException("Not implemented"))
 @inline velocity_frame(::RigidBody) = :world # :body or :world
 
-function rb_jacobian!(F, model::RigidBody{<:UnitQuaternion}, z::AbstractKnotPoint)
+function jacobian!(F::AbstractMatrix, model::RigidBody{<:UnitQuaternion}, z::AbstractKnotPoint)
     iF = SA[1,2,3]
     iM = SA[4,5,6]
     ir,iq,iv,iω,iu = gen_inds(model)
@@ -164,22 +165,30 @@ function rb_jacobian!(F, model::RigidBody{<:UnitQuaternion}, z::AbstractKnotPoin
     J = inertia(model)
     Jinv = inertia_inv(model)
 
+    ξ = wrenches(model, z)
+    f = SA[ξ[1], ξ[2], ξ[3]]  # forces in world frame
+    τ = SA[ξ[4], ξ[5], ξ[6]]  # torques in body frame
+
     # Calculate the Jacobian wrt the wrench and multiply the blocks according to the sparsity
     F .= 0
     Jw = uview(get_data(F), 8:13, :)
     wrench_jacobian!(Jw, model, z)
     js = wrench_sparsity(model)
-    js[1,1] && (Jw[iF, ir] ./= m)
-    js[1,2] && (Jw[iF, iq] ./= m)
-    js[1,3] && (Jw[iF, iv] ./= m)
-    js[1,4] && (Jw[iF, iω] ./= m)
-    js[1,5] && (Jw[iF, iu] ./= m)
+    if velocity_frame(model) == :world
+        tmp = I * 1/m
+    else
+        tmp = 1/m * RotMatrix(inv(q))
+    end
+    js[1,1] && (Jw[iF, ir] .= tmp * Jw[iF, ir])
+    js[1,2] && (Jw[iF, iq] .= tmp * Jw[iF, iq])
+    js[1,3] && (Jw[iF, iv] .= tmp * Jw[iF, iv])
+    js[1,4] && (Jw[iF, iω] .= tmp * Jw[iF, iω])
+    js[1,5] && (Jw[iF, iu] .= tmp * Jw[iF, iu])
     js[2,1] && (Jw[iM, ir] .= Jinv * Jw[iM, ir])
     js[2,2] && (Jw[iM, iq] .= Jinv * Jw[iM, iq])
     js[2,3] && (Jw[iM, iv] .= Jinv * Jw[iM, iv])
     js[2,4] && (Jw[iM, iω] .= Jinv * Jw[iM, iω])
     js[2,5] && (Jw[iM, iu] .= Jinv * Jw[iM, iu])
-
 
     # Add in the parts of the Jacobian that are not functions of the wrench
     F[iq, iq] .= 0.5 * Rotations.rmult(Rotations.pure_quaternion(ω))
@@ -189,6 +198,12 @@ function rb_jacobian!(F, model::RigidBody{<:UnitQuaternion}, z::AbstractKnotPoin
         F[1,8] += 1
         F[2,9] += 1
         F[3,10] += 1
+    else
+        F[ir,iq] .+= Rotations.∇rotate(q, v)
+        F[ir,iv] .+= RotMatrix(q)
+        F[iv,iq] .+= 1/m * Rotations.∇rotate(inv(q), f) * Rotations.tmat()
+        F[iv,iv] .+= -Rotations.skew(ω)
+        F[iv,iω] .+=  Rotations.skew(v)
     end
 
     return F

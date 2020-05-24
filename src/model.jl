@@ -116,7 +116,7 @@ end
 @inline state_dim(::AbstractModel) = throw(ErrorException("state_dim not implemented"))
 
 """Default size method for model (assumes model has fields n and m)"""
-@inline Base.size(model::AbstractModel) = model.n, model.m
+@inline Base.size(model::AbstractModel) = state_dim(model), control_dim(model) 
 
 ############################################################################################
 #                               CONTINUOUS TIME METHODS                                    #
@@ -140,26 +140,12 @@ to avoid unnecessary memory allocations.
 """
 @inline jacobian!(∇f::SizedMatrix, model::AbstractModel, z::AbstractKnotPoint) =
 	jacobian!(∇f.data, model, z)
-function jacobian!(∇f::Matrix, model::AbstractModel, z::AbstractKnotPoint)
+function jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint)
     ix, iu = z._x, z._u
 	t = z.t
     f_aug(z) = dynamics(model, z[ix], z[iu], t)
     s = z.z
 	ForwardDiff.jacobian!(∇f, f_aug, s)
-end
-function jacobian!(∇f::DynamicsJacobian, model::AbstractModel, z::AbstractKnotPoint, mode=:all)
-	if mode == :all
-		jacobian!(∇f.data, model, z)
-	elseif mode == :state
-		fx(x) = dynamics(model, x, control(z), z.t)
-		∇f.A .= ForwardDiff.jacobian(fx, state(z))
-	elseif mode == :control
-		fu(u) = dynamics(model, state(z), u, z.t)
-		∇f.B .= ForwardDiff.jacobian(fu, control(z))
-	else
-		throw(ArgumentError("Jacobian mode $mode not recognized. Must be one of [:all, :state, :control]"))
-	end
-	return ∇f
 end
 
 # # QUESTION: is this one needed?
