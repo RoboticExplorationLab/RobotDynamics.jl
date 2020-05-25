@@ -20,8 +20,13 @@ end
 end
 
 @testset "Rigid Bodies" begin
-    @testset "Single Rigid Body" begin
+    @testset "RBState" begin
         include("rbstate.jl")
+    end
+    @testset "Dynamics" begin
         include("rigidbody.jl")
     end
+    # @testset "Jacobians"
+    #     include("rigid_body_jacobians.jl")
+    # end
 end
