@@ -7,11 +7,11 @@ using BenchmarkTools
 using ForwardDiff
 
 # Temporary fix for Rotations
-function Rotations∇rotate(q::UnitQuaternion, r::AbstractVector)
-    check_length(r, 3)
+function Rotations.∇rotate(q::UnitQuaternion, r::AbstractVector)
+    Rotations.check_length(r, 3)
     rhat = UnitQuaternion(zero(eltype(r)), r[1], r[2], r[3], false)
-    R = rmult(q)
-    2vmat()*rmult(q)'rmult(rhat)
+    R = Rotations.rmult(q)
+    2*Rotations.vmat()*Rotations.rmult(q)'*Rotations.rmult(rhat)
 end
 
 v = @SVector rand(3)
@@ -27,19 +27,20 @@ function RobotDynamics.wrenches(model::Body, x, u)
     M = SA[u[4], u[5], u[6]]      # moments in the body frame
     SA[F[1], F[2], F[3], M[1], M[2], M[3]]
 end
-# function RobotDynamics.wrench_jacobian!(F, model::Body, z::AbstractKnotPoint)
-#     inds = RobotDynamics.gen_inds(model)
-#     r,q,v,ω = RobotDynamics.parse_state(model, state(z))
-#     u = control(z)
-#     i3 = SA[1,2,3]
-#     f = u[i3]
-#     F[i3, inds.q] .= Rotations.∇rotate(q, f)
-#     F[i3, inds.u[i3]] .= RotMatrix(q)
-#     for i = 4:6
-#         F[i, inds.u[i]] = 1
-#     end
-#     return F
-# end
+
+function RobotDynamics.wrench_jacobian!(F, model::Body, z::AbstractKnotPoint)
+    inds = RobotDynamics.gen_inds(model)
+    r,q,v,ω = RobotDynamics.parse_state(model, state(z))
+    u = control(z)
+    i3 = SA[1,2,3]
+    f = u[i3]
+    F[i3, inds.q] .= Rotations.∇rotate(q, f)
+    F[i3, inds.u[i3]] .= RotMatrix(q)
+    for i = 4:6
+        F[i, inds.u[i]] = 1
+    end
+    return F
+end
 
 function testind(model)
     ir,iq,iv,iω,iu = gen_inds(model)
@@ -126,10 +127,6 @@ AD_jacobian!(F, model, z)
 F2 = zero(F)
 jacobian!(F2, model, z)
 @test F2 ≈ F
-F[iv,iq]
-F2[iv,iq]
-ξ = RobotDynamics.wrenches(model, z)
-Rotations.∇rotate(q, ξ[1:3])
 
 D = RobotDynamics.DynamicsJacobian(13,6)
 jacobian!(D, model, z)
@@ -145,13 +142,6 @@ AD_jacobian!(F3, model, z)
 @test !(F3 ≈ F)
 jacobian!(D, model, z)
 @test D ≈ F3
-D .≈ F3
-D[ir,iq]
-F3[ir,iq]
-Rotations.∇rotate(q, v)
-ForwardDiff.jacobian(q->UnitQuaternion(q,false)*v, Rotations.params(q))
-D[iv,iq]
-F3[iv,iq]
 
 # @btime AD_jacobian!($F, $model, $z)
 # @btime jacobian!($F, $model, $z)

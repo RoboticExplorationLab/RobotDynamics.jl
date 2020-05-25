@@ -15,12 +15,11 @@ include("cartpole_model.jl")
     end
 end
 
+@testset "Lie State" begin
+    include("liestate.jl")
+end
 
 @testset "Rigid Bodies" begin
-    @testset "Lie State" begin
-        include("liestate.jl")
-    end
-
     @testset "Single Rigid Body" begin
         include("rbstate.jl")
         include("rigidbody.jl")
