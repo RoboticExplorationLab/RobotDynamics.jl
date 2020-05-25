@@ -10,10 +10,10 @@ v = @SVector rand(3)
 ω = @SVector rand(3)
 
 x = RBState{Float64}(r, q, v, ω)
-@test x[1:3] == r == position(x)
-@test x[4:7] == Rotations.params(q)
-@test x[8:10] == v == linear_velocity(x)
-@test x[11:13] == ω == angular_velocity(x)
+@test x[1:3] ≈ r ≈ position(x)
+@test x[4:7] ≈ Rotations.params(q)
+@test x[8:10] ≈ v ≈ linear_velocity(x)
+@test x[11:13] ≈ ω ≈ angular_velocity(x)
 @test length(x) == 13
 
 x32 = RBState{Float32}(r, q, v, ω)
@@ -57,8 +57,8 @@ x_ = [r; 2q_; v; ω]
 x = RBState(x_)
 @test position(x) ≈ r
 @test orientation(x) ≈ q  # should renormalize
-@test linear_velocity(x) == v
-@test angular_velocity(x) == ω
+@test linear_velocity(x) ≈ v
+@test angular_velocity(x) ≈ ω
 
 @test RBState{Float32}(x_) isa RBState{Float32}
 @test RBState(Vector(x_)) isa RBState{Float64}
@@ -66,6 +66,6 @@ x = RBState(x_)
 # Test comparison (with double-cover)
 x1 = RBState(r, q, v, ω)
 x2 = RBState(r, -q, v, ω)
-@test x1[4:7] == -x2[4:7]
+@test x1[4:7] ≈ -x2[4:7]
 @test x1 ≈ x2
 @test !(SVector(x1) ≈ SVector(x2))
