@@ -30,6 +30,11 @@ n,m = size(model)
 """
 abstract type AbstractModel end
 
+"""
+	LieGroupModel <: AbstractModel
+
+Abstraction of a dynamical system whose state contains at least one arbitrary rotation.
+"""
 abstract type LieGroupModel <: AbstractModel end
 
 
@@ -76,7 +81,7 @@ abstract type RK4 <: Explicit end
 "Second-order Runge-Kutta method with zero-order-old on the controls"
 abstract type RK3 <: Explicit end
 
-"Second-order Runge-Kutta method with zero-order-old on the controls"
+"Second-order Runge-Kutta method with zero-order-old on the controls (i.e. midpoint)"
 abstract type RK2 <: Explicit end
 
 "Third-order Runge-Kutta method with first-order-hold on the controls"
@@ -116,27 +121,29 @@ end
 @inline state_dim(::AbstractModel) = throw(ErrorException("state_dim not implemented"))
 
 """Default size method for model (assumes model has fields n and m)"""
-@inline Base.size(model::AbstractModel) = state_dim(model), control_dim(model) 
+@inline Base.size(model::AbstractModel) = state_dim(model), control_dim(model)
 
 ############################################################################################
 #                               CONTINUOUS TIME METHODS                                    #
 ############################################################################################
-"""```
-ẋ = dynamics(model, z::KnotPoint)
-```
-Compute the continuous dynamics of a dynamical system given a KnotPoint"""
+"""
+	ẋ = dynamics(model, z::AbstractKnotPoint)
+	ẋ = dynamics(model, x, u, [t=0])
+
+Compute the continuous dynamics of a forced dynamical given the states `x`, controls `u` and
+time `t` (optional).
+"""
 @inline dynamics(model::AbstractModel, z::AbstractKnotPoint) = dynamics(model, state(z), control(z), z.t)
 
 # Default to not passing in t
 @inline dynamics(model::AbstractModel, x, u, t) = dynamics(model, x, u)
 
-"""```
-∇f = jacobian!(∇c, model, z::KnotPoint)
-∇f = jacobian!(∇c, model, z::SVector)
-```
-Compute the Jacobian of the continuous-time dynamics using ForwardDiff. The input can be either
-a static vector of the concatenated state and control, or a KnotPoint. They must be concatenated
-to avoid unnecessary memory allocations.
+"""
+	∇f = jacobian!(∇f, model, z::AbstractKnotPoint)
+
+Compute the `n × (n + m)` Jacobian `∇f` of the continuous-time dynamics using ForwardDiff.
+Only accepts an `AbstractKnotPoint` as input in order to avoid potential allocations
+associated with concatenation.
 """
 @inline jacobian!(∇f::SizedMatrix, model::AbstractModel, z::AbstractKnotPoint) =
 	jacobian!(∇f.data, model, z)
@@ -148,13 +155,6 @@ function jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPo
 	ForwardDiff.jacobian!(∇f, f_aug, s)
 end
 
-# # QUESTION: is this one needed?
-# function jacobian!(∇c, model::AbstractModel, z::SVector)
-#     n,m = size(model)
-#     ix,iu = 1:n, n .+ (1:m)
-#     f_aug(z) = dynamics(model, view(z,ix), view(z,iu))
-#     ForwardDiff.jacobian!(∇c, f_aug, z)
-# end
 
 ############################################################################################
 #                          IMPLICIT DISCRETE TIME METHODS                                  #
@@ -164,7 +164,7 @@ end
 @inline discrete_dynamics(model::AbstractModel, z::AbstractKnotPoint) =
     discrete_dynamics(DEFAULT_Q, model, z)
 
-""" Compute the discretized dynamics of `model` using implicit integration scheme `Q<:QuadratureRule`.
+""" Compute the discretized dynamics of `model` using explicit integration scheme `Q<:QuadratureRule`.
 
 Methods:
 ```
@@ -185,15 +185,11 @@ function propagate_dynamics(::Type{Q}, model::AbstractModel, z_::AbstractKnotPoi
     set_state!(z_, x_next)
 end
 
-""" Compute the discrete dynamics Jacobian of `model` using implicit integration scheme `Q<:QuadratureRule`
+"""
+	∇f = discrete_jacobian!(Q, ∇f, model, z::AbstractKnotPoint)
 
-Methods:
-```
-∇f = discrete_dynamics(model, z::KnotPoint)  # uses $(DEFAULT_Q) as the default integration scheme
-∇f = discrete_jacobian(Q, model, z::KnotPoint)
-∇f = discrete_jacobian(Q, model, s::SVector{NM1}, t, ix::SVector{N}, iu::SVector{M})
-```
-where `s = [x; u; dt]`, `t` is the time, and `ix` and `iu` are the indices to extract the state and controls.
+Compute the `n × (n+m)` discrete dynamics Jacobian `∇f` of `model` using explicit
+integration scheme `Q<:QuadratureRule`.
 """
 function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
 		z::AbstractKnotPoint{T,N,M}) where {T,N,M,Q<:Explicit}

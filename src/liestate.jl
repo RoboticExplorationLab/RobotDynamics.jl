@@ -71,6 +71,7 @@ end
 num_rotations(::LieState{<:Any,P}) where P = length(P) - 1
 
 Base.length(s::LieState{R,P}) where {R,P} = params(R)*num_rotations(s) + sum(P)
+Base.length(::Type{LieState{R,P}}) where {R,P} = params(R)*(length(P)-1) + sum(P)
 
 state_diff_size(s::LieState{R,P}) where {R,P} = 3*num_rotations(s) + sum(P)
 
@@ -82,6 +83,79 @@ vec_inds(R,P, i::Int) =
     ((i > 1 ? sum(P[1:i-1]) : 0) + (i-1)*params(R)) .+ (1:P[i])
 inds(R,P, i::Int) = isodd(i) ? vec_inds(R,P, 1+i÷2) : rot_inds(R,P, i÷2)
 rot_state(R,P, i::Int, sym=:x) = [:($(sym)[$j]) for j in rot_inds(R,P,i)]
+
+"""
+    vec_states(model::LieGroupModel, x)
+    vec_states(s::LieState, x)
+
+Extracts the "vector" states out of the state vector `x` for a `LieGroupModel`. Returns
+a tuple `v` of `SVector`s, where `length(v[i])` is equal to the length specified by the
+`LieState`.
+"""
+@generated function vec_states(s::LieState{R,P}, x) where {R,P}
+    T = eltype(x)
+    inds = [vec_inds(R,P,i) for i = 1:length(P)]
+    states = [[:(x[$i]) for i in ind] for ind in inds]
+    vecs = [:(SVector{$(length(inds)),$T}($(inds...))) for inds in states]
+    quote
+        tuple($(vecs...))
+    end
+end
+@inline vec_states(model::LieGroupModel, x) = vec_states(LieState(model), x)
+
+"""
+    vec_states(model::LieGroupModel, x)
+    vec_states(s::LieState, x)
+
+Extracts the rotations out of the state vector `x` for a `LieGroupModel`. Returns
+a tuple rotations, whose type matches the rotation type specified in the `LieState`.
+"""
+@generated function rot_states(s::LieState{R,P}, x) where {R,P}
+    T = eltype(x)
+    inds = [rot_inds(R,P,i) for i = 1:length(P)-1]
+    states = [[:(x[$i]) for i in ind] for ind in inds]
+    if R <: UnitQuaternion
+        vecs = [:(R($(inds...),false)) for inds in states]
+    else
+        vecs = [:(R($(inds...))) for inds in states]
+    end
+    quote
+        tuple($(vecs...))
+    end
+end
+@inline rot_states(model::LieGroupModel, x) = rot_states(LieState(model), x)
+
+@generated function Base.rand(s::LieState{R,P}) where {R,P}
+    nr = length(P) - 1   # number of rotations
+    np = nr + length(P)  # number of partitions
+    n = length(s)
+
+    q = [:($(Symbol("q$i")) = Rotations.params(rand(R))) for i = 1:nr]
+
+    x = Expr[]
+    for i = 1:np
+        if isodd(i)  # vector part
+            vi = inds(R,P,i)
+            for j in vi
+                push!(x, :(rand()))
+            end
+        else
+            r = i ÷ 2
+            ri = inds(R,P,i)
+            for j = 1:Rotations.params(R)
+                push!(x, :($(Symbol("q$r"))[$j]))
+            end
+        end
+    end
+    quote
+        $(Expr(:block, q...))
+        $(:(SVector{$n}(tuple($(x...)))))
+    end
+end
+
+function Base.rand(model::LieGroupModel)
+    rand(LieState(model)), @SVector rand(control_dim(model))
+end
 
 @inline state_dim(model::LieGroupModel) = length(LieState(model))
 
