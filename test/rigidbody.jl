@@ -61,6 +61,7 @@ model = Body{UnitQuaternion{Float64}}()
 x,u = rand(model)
 q = orientation(model, x)
 @test Rotations.params(q) == x[4:7]
+@test norm(q) ≈ 1
 z = KnotPoint(x,u,0.01)
 @test length(x) == 13
 @test length(u) == 6

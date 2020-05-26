@@ -57,9 +57,8 @@ include("rbstate.jl")
 include("jacobian.jl")
 include("knotpoint.jl")
 include("model.jl")
+include("liestate.jl")
 include("rigidbody.jl")
 include("integration.jl")
-# include("trajectories.jl")
-include("liestate.jl")
 
 end # module

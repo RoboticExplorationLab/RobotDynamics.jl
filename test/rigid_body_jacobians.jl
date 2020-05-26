@@ -83,3 +83,6 @@ b = @SVector rand(13)
 @test size(∇G) == (12,12)
 RobotDynamics.∇²differential!(∇G, model, x, b)
 @test ∇G ≈ cat(zeros(3,3), ∇G0, zeros(6,6), dims=(1,2))
+
+# @btime RobotDynamics.state_diff_jacobian!($G, $model, $z)
+# @btime RobotDynamics.∇²differential!($∇G, $model, $x, $b)

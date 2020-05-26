@@ -3,8 +3,10 @@
 #     linear_velocity,
 #     angular_velocity
 
-@inline state_dim(::RigidBody{<:UnitQuaternion}) = 13
-@inline state_dim(::RigidBody) = 12
+# @inline state_dim(::RigidBody{<:UnitQuaternion}) = 13
+# @inline state_dim(::RigidBody) = 12
+
+LieState(::RigidBody{R}) where R = LieState(R, (3,6))
 
 function Base.rand(model::RigidBody{D}) where {D}
     n,m = size(model)
@@ -109,6 +111,13 @@ function build_state(model::RigidBody{R}, args...) where R <: Rotation
     build_state(model, x_)
 end
 
+function fill_state(model::RigidBody{<:UnitQuaternion}, x::Real, q::Real, v::Real, ω::Real)
+    @SVector [x,x,x, q,q,q,q, v,v,v, ω,ω,ω]
+end
+
+function fill_state(model::RigidBody, x::Real, q::Real, v::Real, ω::Real)
+    @SVector [x,x,x, q,q,q, v,v,v, ω,ω,ω]
+end
 
 ############################################################################################
 #                                DYNAMICS
@@ -145,7 +154,6 @@ function wrenches(model::RigidBody, x, u)
     return SA[F[1], F[2], F[3], M[1], M[2], M[3]]
 end
 
-# @inline mass_matrix(::RigidBody, x, u) = throw(ErrorException("Not Implemented"))
 @inline mass(::RigidBody) = throw(ErrorException("Not implemented"))
 @inline inertia(::RigidBody)::SMatrix{3,3} = throw(ErrorException("Not implemented"))
 @inline inertia_inv(model::RigidBody) = inv(inertia(model))
@@ -217,149 +225,3 @@ function wrench_jacobian!(F, model::RigidBody, z)
 end
 
 wrench_sparsity(model::RigidBody) = @SMatrix ones(Bool,2,5)
-
-
-############################################################################################
-#                          STATE DIFFERENTIAL METHODS
-############################################################################################
-@inline get_error_map(::RigidBody) = CayleyMap()
-
-function state_diff(model::RigidBody, x::SVector{N}, x0::SVector{N}) where {N}
-    r,q,v,ω = parse_state(model, x)
-    r0,q0,v0,ω0 = parse_state(model, x0)
-    δr = r - r0
-    δq = q ⊖ q0
-    δv = v - v0
-    δω = ω - ω0
-    SA[
-        δr[1], δr[2], δr[3],
-        δq[1], δq[2], δq[3],
-        δv[1], δv[2], δv[3],
-        δω[1], δω[2], δω[3],
-    ]
-end
-
-function state_diff_jacobian!(G, model::RigidBody, z::AbstractKnotPoint)
-    G .= state_diff_jacobian(model, state(z))
-end
-
-function state_diff_jacobian(model::RigidBody{<:UnitQuaternion},
-        x0::SVector)
-    q0 = orientation(model, x0)
-    G = Rotations.∇differential(q0)
-    I1 = @SMatrix [1 0 0 0 0 0 0 0 0 0 0 0;
-                   0 1 0 0 0 0 0 0 0 0 0 0;
-                   0 0 1 0 0 0 0 0 0 0 0 0;
-                   0 0 0 G[1] G[5] G[ 9] 0 0 0 0 0 0;
-                   0 0 0 G[2] G[6] G[10] 0 0 0 0 0 0;
-                   0 0 0 G[3] G[7] G[11] 0 0 0 0 0 0;
-                   0 0 0 G[4] G[8] G[12] 0 0 0 0 0 0;
-                   0 0 0 0 0 0 1 0 0 0 0 0;
-                   0 0 0 0 0 0 0 1 0 0 0 0;
-                   0 0 0 0 0 0 0 0 1 0 0 0;
-                   0 0 0 0 0 0 0 0 0 1 0 0;
-                   0 0 0 0 0 0 0 0 0 0 1 0;
-                   0 0 0 0 0 0 0 0 0 0 0 1.]
-end
-
-function state_diff_jacobian(model::RigidBody, x0::SVector)
-    q0 = orientation(model, x0)
-    G = Rotations.∇differential(q0)
-    return @SMatrix [
-        1 0 0 0 0 0 0 0 0 0 0 0;
-        0 1 0 0 0 0 0 0 0 0 0 0;
-        0 0 1 0 0 0 0 0 0 0 0 0;
-        0 0 0 G[1] G[4] G[7] 0 0 0 0 0 0;
-        0 0 0 G[2] G[5] G[8] 0 0 0 0 0 0;
-        0 0 0 G[3] G[6] G[9] 0 0 0 0 0 0;
-        0 0 0 0 0 0 1 0 0 0 0 0;
-        0 0 0 0 0 0 0 1 0 0 0 0;
-        0 0 0 0 0 0 0 0 1 0 0 0;
-        0 0 0 0 0 0 0 0 0 1 0 0;
-        0 0 0 0 0 0 0 0 0 0 1 0;
-        0 0 0 0 0 0 0 0 0 0 0 1;
-    ]
-    # return I # I1 = Diagonal(@SVector ones(N))
-end
-
-state_diff_size(::RigidBody) = 12
-
-@inline ∇²differential!(∇G, model::RigidBody, x::StaticVector, dx::AbstractVector) =
-    ∇G .= ∇²differential( model, x, dx)
-function ∇²differential(model::RigidBody,
-        x::StaticVector, dx::AbstractVector)
-      q = orientation(model, x)
-      dq = Rotations.params(orientation(model, dx, false))
-      G2 = Rotations.∇²differential(q, dq)
-      return @SMatrix [
-            0 0 0 0 0 0 0 0 0 0 0 0;
-            0 0 0 0 0 0 0 0 0 0 0 0;
-            0 0 0 0 0 0 0 0 0 0 0 0;
-            0 0 0 G2[1] G2[4] G2[7] 0 0 0 0 0 0;
-            0 0 0 G2[2] G2[5] G2[8] 0 0 0 0 0 0;
-            0 0 0 G2[3] G2[6] G2[9] 0 0 0 0 0 0;
-            0 0 0 0 0 0 0 0 0 0 0 0;
-            0 0 0 0 0 0 0 0 0 0 0 0;
-            0 0 0 0 0 0 0 0 0 0 0 0;
-            0 0 0 0 0 0 0 0 0 0 0 0;
-            0 0 0 0 0 0 0 0 0 0 0 0;
-            0 0 0 0 0 0 0 0 0 0 0 0;
-      ]
-end
-
-function inverse_map_jacobian(model::RigidBody{<:UnitQuaternion},
-        x::SVector)
-    q = orientation(model, x)
-    G = Rotations.inverse_map_jacobian(q)
-    return @SMatrix [
-            1 0 0 0 0 0 0 0 0 0 0 0 0;
-            0 1 0 0 0 0 0 0 0 0 0 0 0;
-            0 0 1 0 0 0 0 0 0 0 0 0 0;
-            0 0 0 G[1] G[4] G[7] G[10] 0 0 0 0 0 0;
-            0 0 0 G[2] G[5] G[8] G[11] 0 0 0 0 0 0;
-            0 0 0 G[3] G[6] G[9] G[12] 0 0 0 0 0 0;
-            0 0 0 0 0 0 0 1 0 0 0 0 0;
-            0 0 0 0 0 0 0 0 1 0 0 0 0;
-            0 0 0 0 0 0 0 0 0 1 0 0 0;
-            0 0 0 0 0 0 0 0 0 0 1 0 0;
-            0 0 0 0 0 0 0 0 0 0 0 1 0;
-            0 0 0 0 0 0 0 0 0 0 0 0 1;
-    ]
-end
-
-# function ∇²differential(model::RigidBody{UnitQuaternion{T,IdentityMap}},
-#         x::SVector, dx::SVector) where T
-#     return I*0
-# end
-#
-function inverse_map_jacobian(model::RigidBody, x::SVector)
-    return I
-end
-
-function inverse_map_∇jacobian(model::RigidBody{<:UnitQuaternion},
-        x::SVector, b::SVector)
-    q = orientation(model, x)
-    bq = @SVector [b[4], b[5], b[6]]
-    ∇G = Rotations.inverse_map_∇jacobian(q, bq)
-    return @SMatrix [
-        0 0 0 0 0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0 0 0 0 0;
-        0 0 0 ∇G[1] ∇G[5] ∇G[ 9] ∇G[13] 0 0 0 0 0 0;
-        0 0 0 ∇G[2] ∇G[6] ∇G[10] ∇G[14] 0 0 0 0 0 0;
-        0 0 0 ∇G[3] ∇G[7] ∇G[11] ∇G[15] 0 0 0 0 0 0;
-        0 0 0 ∇G[4] ∇G[8] ∇G[12] ∇G[16] 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0 0 0 0 0;
-        0 0 0 0 0 0 0 0 0 0 0 0 0;
-    ]
-
-end
-
-function inverse_map_∇jacobian(model::RigidBody,
-        x::SVector, b::SVector)
-    return I*0
-end

@@ -83,6 +83,8 @@ vec_inds(R,P, i::Int) =
 inds(R,P, i::Int) = isodd(i) ? vec_inds(R,P, 1+i÷2) : rot_inds(R,P, i÷2)
 rot_state(R,P, i::Int, sym=:x) = [:($(sym)[$j]) for j in rot_inds(R,P,i)]
 
+@inline state_dim(model::LieGroupModel) = length(LieState(model))
+
 @inline state_diff(model::LieGroupModel, x::AbstractVector, x0::AbstractVector) =
     state_diff(LieState(model), x, x0)
 @generated function state_diff(s::LieState{R,P}, x::AbstractVector, x0::AbstractVector) where {R,P}

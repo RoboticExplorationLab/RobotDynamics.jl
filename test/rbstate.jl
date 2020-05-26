@@ -49,14 +49,14 @@ q_ = Rotations.params(q)
 x = RBState(r, q_, v, ω)
 @test orientation(x) ≈ q
 x = RBState(r, 2q_, v, ω)
-@test orientation(x) ≈ q  # should renormalize
+@test orientation(x) ≈ 2q  # shouldnt renormalize
 @test RBState(Float32.(r), Float32.(q_), Float32.(v), Float32.(ω)) isa RBState{Float32}
 
 # Pass in a vector for the entire state
 x_ = [r; 2q_; v; ω]
 x = RBState(x_)
 @test position(x) ≈ r
-@test orientation(x) ≈ q  # should renormalize
+@test orientation(x) ≈ 2q  # shouldnt renormalize
 @test linear_velocity(x) ≈ v
 @test angular_velocity(x) ≈ ω
 
