@@ -4,6 +4,7 @@ model = Body{UnitQuaternion{Float64}}()
 x,u = rand(model)
 z = KnotPoint(x,u,0.01)
 q = orientation(model, x)
+ir,iq,iv,iω,iu = RobotDynamics.gen_inds(model)
 
 # Test analytical continuous-time Jacobian
 RobotDynamics.velocity_frame(::Body) = :world
@@ -20,6 +21,11 @@ AD_jacobian!(F, model, z)
 F2 = zero(F)
 jacobian!(F2, model, z)
 @test F2 ≈ F
+
+ω = angular_velocity(model, x)
+ForwardDiff.jacobian(q->Rotations.kinematics(UnitQuaternion(q,false), ω), Rotations.params(q))
+Rotations.kinematics(q, ω)
+
 
 D = RobotDynamics.DynamicsJacobian(13,6)
 jacobian!(D, model, z)
@@ -70,7 +76,6 @@ G = zeros(state_dim(model), RobotDynamics.state_diff_size(model))
 @test size(G) == (13,12)
 RobotDynamics.state_diff_jacobian!(G, model, z)
 @test G ≈ cat(I(3), G0, I(6), dims=(1,2))
-G
 
 b = @SVector rand(13)
 ∇G0 = Rotations.∇²differential(q, b[SA[4,5,6,7]])

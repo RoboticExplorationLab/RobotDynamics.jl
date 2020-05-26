@@ -30,26 +30,47 @@ end
 
 @inline rotation_type(::RigidBody{D}) where D = D
 
+@generated function gen_inds(model::RigidBody{R}) where R
+    iF = SA[1,2,3]
+    iM = SA[4,5,6]
+    ir, iq, iv, iω = SA[1,2,3], SA[4,5,6], SA[7,8,9], SA[10,11,12]
+    if R <: UnitQuaternion
+        iq = push(iq, 7)
+        iv = iv .+ 1
+        iω = iω .+ 1
+    end
+    quote
+        m = control_dim(model)
+        iu = $iω[end] .+ SVector{m}(1:m)
+        return (r=$ir, q=$iq, v=$iv, ω=$iω, u=iu)
+    end
+end
 
-@inline Base.position(model::RigidBody, x) = SVector{3}(x[1],x[2],x[3])
+# Getters
+@inline Base.position(model::RigidBody, x) = x[gen_inds(model).r]
+@inline linear_velocity(model::RigidBody, x) = x[gen_inds(model).v]
+@inline angular_velocity(model::RigidBody, x) = x[gen_inds(model).ω]
+
 orientation(model::RigidBody{R}, x::AbstractVector{T}, renorm=false) where {R,T} =
     R(x[4],x[5],x[6])
-@inline linear_velocity(model::RigidBody, x) = SVector{3}(x[7],x[8],x[9])
-@inline angular_velocity(model::RigidBody, x) = SVector{3}(x[10],x[11],x[12])
-
 function orientation(model::RigidBody{<:UnitQuaternion}, x::AbstractVector,
         renorm=false)
     q = UnitQuaternion(x[4],x[5],x[6],x[7], renorm)
     return q
 end
-@inline linear_velocity(model::RigidBody{<:UnitQuaternion}, x) = SVector{3}(x[8],x[9],x[10])
-@inline angular_velocity(model::RigidBody{<:UnitQuaternion}, x) = SVector{3}(x[11],x[12],x[13])
 
 function flipquat(model::RigidBody{<:UnitQuaternion}, x)
     return @SVector [x[1], x[2], x[3], -x[4], -x[5], -x[6], -x[7],
         x[8], x[9], x[10], x[11], x[12], x[13]]
 end
 
+"""
+    parse_state(model::RigidBody{R}, x, renorm=false)
+
+Return the position, orientation, linear velocity, and angular velocity as separate vectors.
+The orientation will be of type `R`. If `renorm=true` and `R <: UnitQuaternion` the quaternion
+will be renormalized.
+"""
 function parse_state(model::RigidBody, x, renorm=false)
     r = position(model, x)
     p = orientation(model, x, renorm)
@@ -58,58 +79,36 @@ function parse_state(model::RigidBody, x, renorm=false)
     return r, p, v, ω
 end
 
-function build_state(model::RigidBody{R}, x, q::Rotation, v, ω) where R <: Rotation
-    q = Rotations.params(R(q))
-    build_state(model, x, q, v, ω)
+"""
+    build_state(model::RigidBody{R}, x::RBState) where R
+    build_state(model::RigidBody{R}, x::AbstractVector) where R
+    build_state(model::RigidBody{R}, r, q, v, ω) where R
+
+Build the state vector for `model` using the `RBState` `x`. If `R <: UnitQuaternion` this
+    returns `x` cast as an `SVector`, otherwise it will convert the quaternion in `x` to
+    a rotation of type `R`.
+
+Also accepts as arguments any arguments that can be passed to the constructor of `RBState`.
+"""
+@inline build_state(model::RigidBody{<:UnitQuaternion}, x::RBState) = SVector(x)
+function build_state(model::RigidBody{R}, x::RBState) where R
+    r = position(x)
+    q = R(orientation(x))
+    v = angular_velocity(x)
+    ω = angular_velocity(x)
+    SA[
+        r[1], r[2], r[3],
+        q[1], q[2], q[3],
+        v[1], v[2], v[3],
+        ω[1], ω[2], ω[3],
+    ]
 end
 
-function build_state(model::RigidBody{R}, x, q::SVector{4}, v, ω) where R <: Rotation
-    @SVector [x[1], x[2], x[3],
-              q[1], q[2], q[3], q[4],
-              v[1], v[2], v[3],
-              ω[1], ω[2], ω[3]]
+function build_state(model::RigidBody{R}, args...) where R <: Rotation
+    x_ = RBState(args...)
+    build_state(model, x_)
 end
 
-function build_state(model::RigidBody{R}, x, q::StaticVector{3}, v, ω) where R <: Rotation
-    @SVector [x[1], x[2], x[3],
-              q[1], q[2], q[3],
-              v[1], v[2], v[3],
-              ω[1], ω[2], ω[3]]
-end
-
-function build_state(model::RigidBody{R}, x, q::Vector, v, ω) where R <: Rotation
-    @SVector [x[1], x[2], x[3],
-              q[1], q[2], q[3],
-              v[1], v[2], v[3],
-              ω[1], ω[2], ω[3]]
-end
-
-function build_state(model::RigidBody{<:UnitQuaternion}, x, q::Vector, v, ω) where R <: Rotation
-    if length(q) == 3
-        push!(q,q[1])
-    end
-    @SVector [x[1], x[2], x[3],
-              q[1], q[2], q[3], q[4],
-              v[1], v[2], v[3],
-              ω[1], ω[2], ω[3]]
-end
-
-function fill_state(model::RigidBody{<:UnitQuaternion}, x::Real, q::Real, v::Real, ω::Real)
-    @SVector [x,x,x, q,q,q,q, v,v,v, ω,ω,ω]
-end
-
-function fill_state(model::RigidBody, x::Real, q::Real, v::Real, ω::Real)
-    @SVector [x,x,x, q,q,q, v,v,v, ω,ω,ω]
-end
-
-function fill_error_state(model::RigidBody, x::Real, q::Real, v::Real, ω::Real)
-    @SVector [x,x,x, q,q,q, v,v,v, ω,ω,ω]
-end
-
-# function fill_error_state(model::RigidBody{UnitQuaternion{T,IdentityMap}},
-#         x::Real, q::Real, v::Real, ω::Real) where T
-#     @SVector [x,x,x, q,q,q,q, v,v,v, ω,ω,ω]
-# end
 
 ############################################################################################
 #                                DYNAMICS
@@ -136,6 +135,7 @@ function dynamics(model::RigidBody{D}, x, u) where D
     ωdot = Jinv*(τ - ω × (J*ω))
 
     build_state(model, xdot, qdot, vdot, ωdot)
+    # [xdot; qdot; vdot; ωdot]
 end
 
 @inline wrenches(model::RigidBody, z::AbstractKnotPoint) = wrenches(model, state(z), control(z))
@@ -218,21 +218,6 @@ end
 
 wrench_sparsity(model::RigidBody) = @SMatrix ones(Bool,2,5)
 
-@generated function gen_inds(model::RigidBody{R}) where R
-    iF = SA[1,2,3]
-    iM = SA[4,5,6]
-    ir, iq, iv, iω = SA[1,2,3], SA[4,5,6], SA[7,8,9], SA[10,11,12]
-    if R <: UnitQuaternion
-        iq = push(iq, 7)
-        iv = iv .+ 1
-        iω = iω .+ 1
-    end
-    quote
-        m = control_dim(model)
-        iu = $iω[end] .+ SVector{m}(1:m)
-        return (r=$ir, q=$iq, v=$iv, ω=$iω, u=iu)
-    end
-end
 
 ############################################################################################
 #                          STATE DIFFERENTIAL METHODS
@@ -246,7 +231,12 @@ function state_diff(model::RigidBody, x::SVector{N}, x0::SVector{N}) where {N}
     δq = q ⊖ q0
     δv = v - v0
     δω = ω - ω0
-    build_state(model, δr, δq, δv, δω)
+    SA[
+        δr[1], δr[2], δr[3],
+        δq[1], δq[2], δq[3],
+        δv[1], δv[2], δv[3],
+        δω[1], δω[2], δω[3],
+    ]
 end
 
 function state_diff_jacobian!(G, model::RigidBody, z::AbstractKnotPoint)

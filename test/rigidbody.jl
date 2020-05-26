@@ -6,13 +6,15 @@ using StaticArrays
 using BenchmarkTools
 using ForwardDiff
 
+using RobotDynamics: mass, inertia
+
 # Temporary fix for Rotations
-function Rotations.∇rotate(q::UnitQuaternion, r::AbstractVector)
-    Rotations.check_length(r, 3)
-    rhat = UnitQuaternion(zero(eltype(r)), r[1], r[2], r[3], false)
-    R = Rotations.rmult(q)
-    2*Rotations.vmat()*Rotations.rmult(q)'*Rotations.rmult(rhat)
-end
+# function Rotations.∇rotate(q::UnitQuaternion, r::AbstractVector)
+#     Rotations.check_length(r, 3)
+#     rhat = UnitQuaternion(zero(eltype(r)), r[1], r[2], r[3], false)
+#     R = Rotations.rmult(q)
+#     2*Rotations.vmat()*Rotations.rmult(q)'*Rotations.rmult(rhat)
+# end
 
 v = @SVector rand(3)
 q = rand(UnitQuaternion)
@@ -53,6 +55,7 @@ RobotDynamics.inertia(::Body) = Diagonal(SA[2,3,1.])
 RobotDynamics.wrench_sparsity(::RigidBody) = SA[false true  false false true;
                                                 false false false false true]
 
+#---
 model = Body{UnitQuaternion{Float64}}()
 @test size(model) == (13,6)
 x,u = rand(model)
@@ -63,7 +66,6 @@ z = KnotPoint(x,u,0.01)
 @test length(u) == 6
 @test norm(x[4:7]) ≈ 1
 
-r,q,v,ω = RobotDynamics.parse_state(model, x)
 
 # Test gen_inds
 inds = RobotDynamics.gen_inds(model)
@@ -78,9 +80,21 @@ inds = RobotDynamics.gen_inds(model2)
 @test inds.v == 7:9
 @test inds.u == 13:18
 
+# Test state building methods
+r,q,v,ω = RobotDynamics.parse_state(model, x)
 ir,iq,iv,iω,iu = RobotDynamics.gen_inds(model)
+@test r == x[ir]
+@test Rotations.params(q) == x[iq]
+@test v == x[iv]
+@test ω == x[iω]
 
-using RobotDynamics: mass, inertia
+x_ = RBState(r, q, v, ω)
+@test RobotDynamics.build_state(model, r, q, v, ω) ≈ x
+@test RobotDynamics.build_state(model, r, MRP(q), v, ω) ≈ x
+@test RobotDynamics.build_state(model, Vector(r), MRP(q), v, ω) ≈ x
+@test RobotDynamics.build_state(model, x_) ≈ x
+@test RobotDynamics.build_state(model, SVector(x_)) ≈ x
+@test RobotDynamics.build_state(model, Vector(x_)) ≈ x
 
 # Test dynamics
 RobotDynamics.velocity_frame(::Body) = :world
@@ -90,7 +104,7 @@ xdot = dynamics(model, x, u)
 xdot = RBState(xdot)
 x_ = RBState(x)
 @test position(xdot) ≈ linear_velocity(x_)
-@test Rotations.params(orientation(xdot)) ≈ normalize(Rotations.kinematics(orientation(x_), angular_velocity(x_)))
+@test Rotations.params(orientation(xdot)) ≈ Rotations.kinematics(orientation(x_), angular_velocity(x_))
 ξ = RobotDynamics.wrenches(model, z)
 F = ξ[SA[1,2,3]]
 T = ξ[SA[4,5,6]]
@@ -107,7 +121,7 @@ xdot = RBState(xdot)
 x_ = RBState(x)
 q = orientation(x_)
 @test position(xdot) ≈ q * linear_velocity(x_)
-@test Rotations.params(orientation(xdot)) ≈ normalize(Rotations.kinematics(orientation(x_), angular_velocity(x_)))
+@test Rotations.params(orientation(xdot)) ≈ Rotations.kinematics(orientation(x_), angular_velocity(x_))
 @test linear_velocity(xdot) ≈ q \ (F / mass(model)) - angular_velocity(x_) × linear_velocity(x_)
 @test angular_velocity(xdot) ≈
 	inertia(model) \ (T - angular_velocity(x_) × (inertia(model) * angular_velocity(x_)))
