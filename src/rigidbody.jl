@@ -53,8 +53,11 @@ end
 @inline linear_velocity(model::RigidBody, x) = x[gen_inds(model).v]
 @inline angular_velocity(model::RigidBody, x) = x[gen_inds(model).ω]
 
-orientation(model::RigidBody{R}, x::AbstractVector{T}, renorm=false) where {R,T} =
-    R(x[4],x[5],x[6])
+for rot in [RodriguesParam, MRP, RotMatrix, RotationVec, AngleAxis]
+    @eval orientation(model::RigidBody{<:$rot}, x::AbstractVector, renorm=false) = ($rot)(x[4],x[5],x[6])
+end
+# orientation(model::RigidBody{R}, x::AbstractVector{T}, renorm=false) where {R,T} =
+#     R(x[4],x[5],x[6])
 function orientation(model::RigidBody{<:UnitQuaternion}, x::AbstractVector,
         renorm=false)
     q = UnitQuaternion(x[4],x[5],x[6],x[7], renorm)
@@ -81,6 +84,21 @@ function parse_state(model::RigidBody, x, renorm=false)
     return r, p, v, ω
 end
 
+function RBState(model::RigidBody, x, renorm=false)
+    RBState(parse_state(model, x, renorm)...)
+end
+
+function RBState(model::RigidBody, x::RBState, renorm=false)
+    if renorm
+        renorm(x)
+    else
+        x
+    end
+end
+
+@inline RBState(model::RigidBody, z::AbstractKnotPoint, renorm=false) = RBState(model, state(z), renorm)
+
+
 """
     build_state(model::RigidBody{R}, x::RBState) where R
     build_state(model::RigidBody{R}, x::AbstractVector) where R
@@ -93,10 +111,10 @@ Build the state vector for `model` using the `RBState` `x`. If `R <: UnitQuatern
 Also accepts as arguments any arguments that can be passed to the constructor of `RBState`.
 """
 @inline build_state(model::RigidBody{<:UnitQuaternion}, x::RBState) = SVector(x)
-function build_state(model::RigidBody{R}, x::RBState) where R
+function build_state(model::RigidBody{R}, x::RBState) where R <: Rotation
     r = position(x)
-    q = R(orientation(x))
-    v = angular_velocity(x)
+    q = Rotations.params(R(orientation(x)))
+    v = linear_velocity(x)
     ω = angular_velocity(x)
     SA[
         r[1], r[2], r[3],
@@ -109,6 +127,28 @@ end
 function build_state(model::RigidBody{R}, args...) where R <: Rotation
     x_ = RBState(args...)
     build_state(model, x_)
+end
+
+@inline function build_state(model::RigidBody,
+        r::AbstractVector, q::AbstractVector, v::AbstractVector, ω::AbstractVector)
+    @assert length(q) == 3
+    SA[
+        r[1], r[2], r[3],
+        q[1], q[2], q[3],
+        v[1], v[2], v[3],
+        ω[1], ω[2], ω[3],
+    ]
+end
+
+@inline function build_state(model::RigidBody{<:UnitQuaternion},
+        r::AbstractVector, q::AbstractVector, v::AbstractVector, ω::AbstractVector)
+    @assert length(q) == 4
+    SA[
+        r[1], r[2], r[3],
+        q[1], q[2], q[3], q[4],
+        v[1], v[2], v[3],
+        ω[1], ω[2], ω[3],
+    ]
 end
 
 function fill_state(model::RigidBody{<:UnitQuaternion}, x::Real, q::Real, v::Real, ω::Real)
