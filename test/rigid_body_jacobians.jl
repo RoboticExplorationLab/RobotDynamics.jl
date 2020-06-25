@@ -65,10 +65,10 @@ jacobian!(RK3, D, model, z, tmp)
 # Test state error functions
 x0 = rand(model)[1]
 dx = RobotDynamics.state_diff(model, x, x0)
-@test dx[ir] == (x - x0)[ir]
-@test dx[iv .- 1] == (x - x0)[iv]
-@test dx[iω .- 1] == (x - x0)[iω]
-@test dx[4:6] == orientation(model, x) ⊖ orientation(model, x0)
+@test dx[ir] ≈ (x - x0)[ir]
+@test dx[iv .- 1] ≈ (x - x0)[iv]
+@test dx[iω .- 1] ≈ (x - x0)[iω]
+@test dx[4:6] ≈ orientation(model, x) ⊖ orientation(model, x0)
 
 G0 = Rotations.∇differential(q)
 G = zeros(state_dim(model), RobotDynamics.state_diff_size(model))
