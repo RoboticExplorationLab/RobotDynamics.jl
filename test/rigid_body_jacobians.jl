@@ -26,7 +26,6 @@ jacobian!(F2, model, z)
 ForwardDiff.jacobian(q->Rotations.kinematics(UnitQuaternion(q,false), ω), Rotations.params(q))
 Rotations.kinematics(q, ω)
 
-
 D = RobotDynamics.DynamicsJacobian(13,6)
 jacobian!(D, model, z)
 @test D ≈ F

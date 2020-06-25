@@ -66,7 +66,22 @@ z = KnotPoint(x,u,0.01)
 @test length(x) == 13
 @test length(u) == 6
 @test norm(x[4:7]) ≈ 1
+@test RobotDynamics.LieState(model) === RobotDynamics.LieState(UnitQuaternion{Float64},(3,6))
+@test RobotDynamics.rotation_type(model) == UnitQuaternion{Float64}
 
+# Test initializers
+x0,u0 = zeros(model)
+@test RBState(model, x0) ≈ zero(RBState)
+@test u0 ≈ zeros(control_dim(model))
+
+# Test diferent rotations
+for R in [UnitQuaternion{Float64}, MRP{Float64}, RodriguesParam{Float64}]
+	model = Body{R}()
+	@test state_dim(model) == 9 + Rotations.params(R)
+	RobotDynamics.rotation_type(model) == R
+	x0,u0 = zeros(model)
+	@test RBState(model, x0) ≈ zero(RBState)
+end
 
 # Test gen_inds
 inds = RobotDynamics.gen_inds(model)
@@ -97,6 +112,24 @@ x_ = RBState(r, q, v, ω)
 @test RobotDynamics.build_state(model, SVector(x_)) ≈ x
 @test RobotDynamics.build_state(model, Vector(x_)) ≈ x
 
+model2 = Body{MRP{Float64}}()
+g = Rotations.params(MRP(q))
+x2 = [r; g; v; ω]
+@test RobotDynamics.build_state(model2, r, q, v, ω) ≈ x2
+@test RobotDynamics.build_state(model2, r, MRP(q), v, ω) ≈ x2
+@test RobotDynamics.build_state(model2, r, g, v, ω) ≈ x2
+
+@test RobotDynamics.fill_state(model, 1, 2, 3, 4) isa SVector{13,Int}
+@test RobotDynamics.fill_state(model2, 1, 2, 3, 4) isa SVector{12,Int}
+@test RobotDynamics.fill_state(model, 1, 2, 3, 4.) isa SVector{13,Float64}
+x_ = RobotDynamics.fill_state(model, 1, 2, 3, 4)
+@test position(model, x_) ≈ fill(1,3)
+@test Rotations.params(orientation(model, x_)) ≈ fill(2,4)
+@test linear_velocity(model, x_) ≈ fill(3,3)
+@test angular_velocity(model, x_) ≈ fill(4,3)
+@test RobotDynamics.fill_state(model2, 1, 2, 3, 4.)[4:6] ≈ fill(2,3)
+
+
 # Test dynamics
 RobotDynamics.velocity_frame(::Body) = :world
 xdot = dynamics(model, x, u)
@@ -126,3 +159,17 @@ q = orientation(x_)
 @test linear_velocity(xdot) ≈ q \ (F / mass(model)) - angular_velocity(x_) × linear_velocity(x_)
 @test angular_velocity(xdot) ≈
 	inertia(model) \ (T - angular_velocity(x_) × (inertia(model) * angular_velocity(x_)))
+
+# Test flipquad
+x = rand(model)[1]
+x_ = RobotDynamics.flipquat(model, x)
+@test orientation(model, x) ≈ orientation(model, x_)
+@test Rotations.params(orientation(model, x)) ≈ -Rotations.params(orientation(model, x_))
+
+# Test RBState methods
+x_ = RBState(model, x)
+@test position(model, x) ≈ position(x_)
+@test orientation(model, x) ≈ orientation(x_)
+@test linear_velocity(model, x) ≈ linear_velocity(x_)
+@test angular_velocity(model, x) ≈ angular_velocity(x_)
+@test RBState(model, x_) isa RBState

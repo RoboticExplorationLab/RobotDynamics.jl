@@ -22,6 +22,13 @@ function error_state_rp(x::AbstractVector, x0::AbstractVector)
        dx[7], dx[8],        dq2[1], dq2[2], dq2[3], dx[12], dx[13], dx[14]]
 end
 
+# Test params
+@test Rotations.params(UnitQuaternion) == 4
+@test Rotations.params(RodriguesParam) == 3
+@test Rotations.params(MRP) == 3
+@test Rotations.params(RotMatrix3) == 9
+@test Rotations.params(RotMatrix2) == 4
+
 # Test index functions
 R = UnitQuaternion{Float64}
 P = (3,2,3)
@@ -33,6 +40,11 @@ s = LieState{R,P}()
 @test RobotDynamics.vec_inds(R,P,2) == 8:9   == RobotDynamics.inds(R,P,3)
 @test RobotDynamics.rot_inds(R,P,2) == 10:13 == RobotDynamics.inds(R,P,4)
 @test RobotDynamics.vec_inds(R,P,3) == 14:16 == RobotDynamics.inds(R,P,5)
+@test RobotDynamics.QuatState(16, SA[4,10]) === s
+@test RobotDynamics.QuatState(16, @MVector [4,10]) === s
+@test RobotDynamics.QuatState(16, (4,10)) === s
+@test RobotDynamics.num_rotations(s) == 2
+@test length(typeof(s)) == length(s)
 
 n = length(s)
 x  = @MVector rand(n)
@@ -43,6 +55,8 @@ x0 = @MVector rand(n)
 R = RodriguesParam{Float64}
 P = (3,2,3)
 s = LieState{R,P}()
+@test LieState(R,P) === s
+@test LieState(R,3,2,3) === s
 @test length(s) == 14
 @test state_diff_size(s) == 14
 @test RobotDynamics.vec_inds(R,P,1) == 1:3   == RobotDynamics.inds(R,P,1)
@@ -80,5 +94,18 @@ dq2 = SVector(dx[10],dx[11],dx[12],dx[13])
 RobotDynamics.∇²differential!(∇G, s, x, dx)
 ∇G1 = Rotations.∇²differential(q1, dq1)
 ∇G2 = Rotations.∇²differential(q2, dq2)
-G0 = cat(zeros(3,3), ∇G1, zeros(2,2), ∇G2, zeros(3,3), dims=(1,2))
-@test G0 ≈ ∇G
+∇G0 = cat(zeros(3,3), ∇G1, zeros(2,2), ∇G2, zeros(3,3), dims=(1,2))
+@test ∇G0 ≈ ∇G
+
+struct LieBody <:LieGroupModel end
+RobotDynamics.control_dim(::LieBody) = 4
+RobotDynamics.LieState(::LieBody) = LieState(UnitQuaternion{Float64},(3,2,3))
+
+model = LieBody()
+@test s === LieState(model)
+G .= 0
+∇G .= 0
+RobotDynamics.state_diff_jacobian!(G, model, x)
+RobotDynamics.∇²differential!(∇G, model, x, dx)
+@test G0 ≈ G
+@test ∇G0 ≈ ∇G

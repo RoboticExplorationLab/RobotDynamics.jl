@@ -2,6 +2,7 @@ using Test
 using RobotDynamics
 using StaticArrays
 using ForwardDiff
+using LinearAlgebra
 
 include("cartpole_model.jl")
 
@@ -26,7 +27,7 @@ end
     @testset "Dynamics" begin
         include("rigidbody.jl")
     end
-    # @testset "Jacobians"
-    #     include("rigid_body_jacobians.jl")
-    # end
+    @testset "Jacobians"
+        include("rigid_body_jacobians.jl")
+    end
 end

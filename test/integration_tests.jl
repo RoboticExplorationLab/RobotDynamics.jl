@@ -8,6 +8,20 @@ n,m = size(model)
 dt = 0.01
 t = 0.0
 z = KnotPoint(x,u,dt,t)
+
+# Test RK2
+_k1 = dynamics(model, x, u)*dt
+_k2 = dynamics(model, x + _k1/2, u)*dt
+@test discrete_dynamics(RK2, model, z) ≈ x + _k2
+
+# Test RK4
+_k1 = dynamics(model, x, u)*dt
+_k2 = dynamics(model, x + _k1/2, u)*dt
+_k3 = dynamics(model, x + _k2/2, u)*dt
+_k4 = dynamics(model, x + _k3, u)*dt
+@test discrete_dynamics(RK4, model, z) ≈ x + (_k1 + 2*_k2 + 2*_k3 + _k4)/6
+
+# Test RK3 and jacobian
 k1(x) = dynamics(model, x,             u, t       )*dt;
 k2(x) = dynamics(model, x + k1(x)/2,      u, t + dt/2)*dt;
 k3(x) = dynamics(model, x - k1(x) + 2*k2(x), u, t + dt  )*dt;

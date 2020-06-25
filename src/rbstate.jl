@@ -81,7 +81,7 @@ Base.Tuple(x::RBState) = (
 
 Re-normalize the unit quaternion.
 """
-@inline renorm(x::RBState) = RBState(x.r, UnitQuaternion(x.q), x.v, x.ω)
+@inline renorm(x::RBState) = RBState(x.r, normalize(x.q), x.v, x.ω)
 
 """
     position(x::RBState)
@@ -149,7 +149,7 @@ end
 Compute the 12-dimensional error state, calculated by substracting thep position, linear,
     and angular velocities, and using `Rotations.rotation_error` for the orientation.
 """
-function Rotations.:⊖(s1::RBState, s2::RBState, rmap=ExponentialMap)
+function Rotations.:⊖(s1::RBState, s2::RBState, rmap=CayleyMap())
     dx = s1.r-s2.r
     dq = Rotations.rotation_error(s1.q, s2.q, rmap)
     dv = s1.v-s2.v
@@ -159,9 +159,10 @@ function Rotations.:⊖(s1::RBState, s2::RBState, rmap=ExponentialMap)
 end
 
 Base.zero(s1::RBState) = zero(RBState)
-function Base.zero(::Type{<:RBState})
-    RBState((@SVector zeros(3)), UnitQuaternion(I),
-        (@SVector zeros(3)), (@SVector zeros(3)))
+@inline Base.zero(::Type{<:RBState}) = zero(RBState{Float64})
+function Base.zero(::Type{<:RBState{T}}) where T
+    RBState((@SVector zeros(T,3)), UnitQuaternion{T}(I),
+        (@SVector zeros(T,3)), (@SVector zeros(T,3)))
 end
 
 function Base.rand(::Type{RBState})

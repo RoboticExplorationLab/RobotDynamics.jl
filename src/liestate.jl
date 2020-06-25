@@ -45,6 +45,7 @@ end
 
 """
     QuatState(n::Int, Q::StaticVector{<:Any,Int})
+    QuatState(n::Int, Q::NTuple{<:Any,Int})
 
 Create a `n`-dimensional `LieState` assuming `R = UnitQuaternion{Float64}` and `Q[i]` is the
 first index of each quaternion in the state vector.
@@ -57,15 +58,20 @@ unit quaternion. Since the first quaternion starts at index 4, and the second st
 call `QuatState(16, SA[4,10])`.
 """
 @generated function QuatState(n::Int, Q::StaticVector{NR,Int}) where {NR}
-    diffs = [:(Q[$i] - Q[$(i-1)] - 4) for i = 2:NR]
-    P0 = :(SVector{NR-1}(tuple($(diffs...))))
+    if NR == 1
+        P0 = SVector{0,Int}()
+    else
+        diffs = [:(Q[$i] - Q[$(i-1)] - 4) for i = 2:NR]
+        P0 = :(SVector{NR-1}(tuple($(diffs...))))
+    end
     quote
         P = $P0
         P = push(P, n - (Q[end] + 4) + 1)
         P = pushfirst(P, Q[1] - 1)
-        return P
+        return LieState(UnitQuaternion{Float64}, Tuple(P))
     end
 end
+@inline QuatState(n::Int, Q::NTuple{<:Any,Int}) = QuatState(n, SVector(Q))
 
 "number of rotations"
 num_rotations(::LieState{<:Any,P}) where P = length(P) - 1

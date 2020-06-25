@@ -110,7 +110,7 @@ for method in [:rand, :zeros, :ones]
         end
     end
 end
-function Base.fill(model::AbstractModel, val)
+function Base.fill(model::AbstractModel, val::Real)
     n,m = size(model)
     x = @SVector fill(val,n)
     u = @SVector fill(val,m)
@@ -145,14 +145,12 @@ Compute the `n × (n + m)` Jacobian `∇f` of the continuous-time dynamics using
 Only accepts an `AbstractKnotPoint` as input in order to avoid potential allocations
 associated with concatenation.
 """
-@inline jacobian!(∇f::SizedMatrix, model::AbstractModel, z::AbstractKnotPoint) =
-	jacobian!(∇f.data, model, z)
 function jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint)
     ix, iu = z._x, z._u
 	t = z.t
     f_aug(z) = dynamics(model, z[ix], z[iu], t)
     s = z.z
-	ForwardDiff.jacobian!(∇f, f_aug, s)
+	ForwardDiff.jacobian!(get_data(∇f), f_aug, s)
 end
 
 

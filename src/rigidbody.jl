@@ -188,11 +188,6 @@ function dynamics(model::RigidBody{D}, x, u) where D
 end
 
 @inline wrenches(model::RigidBody, z::AbstractKnotPoint) = wrenches(model, state(z), control(z))
-function wrenches(model::RigidBody, x, u)
-    F = forces(model, x, u)
-    M = moments(model, x, u)
-    return SA[F[1], F[2], F[3], M[1], M[2], M[3]]
-end
 
 @inline mass(::RigidBody) = throw(ErrorException("Not implemented"))
 @inline inertia(::RigidBody)::SMatrix{3,3} = throw(ErrorException("Not implemented"))
