@@ -69,6 +69,7 @@ x = RBState(x_)
 @test RBState(Vector(x_)) isa RBState{Float64}
 
 # Test comparison (with double-cover)
+q = rand(UnitQuaternion)
 x1 = RBState(r, q, v, ω)
 x2 = RBState(r, -q, v, ω)
 @test x1[4:7] ≈ -x2[4:7]
@@ -76,6 +77,7 @@ x2 = RBState(r, -q, v, ω)
 @test !(SVector(x1) ≈ SVector(x2))
 
 # Test indexing
+x = RBState(r, q, v, ω)
 @test x[1:3] ≈ r
 @test x[4:7] ≈ Rotations.params(q)
 @test x[8:10] ≈ v

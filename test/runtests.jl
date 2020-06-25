@@ -18,6 +18,7 @@ end
 
 @testset "Lie State" begin
     include("liestate.jl")
+    include("liemodel.jl")
 end
 
 @testset "Rigid Bodies" begin
@@ -27,7 +28,7 @@ end
     @testset "Dynamics" begin
         include("rigidbody.jl")
     end
-    @testset "Jacobians"
+    @testset "Jacobians" begin
         include("rigid_body_jacobians.jl")
     end
 end

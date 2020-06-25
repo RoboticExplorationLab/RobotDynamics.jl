@@ -160,7 +160,9 @@ q = orientation(x_)
 @test angular_velocity(xdot) ≈
 	inertia(model) \ (T - angular_velocity(x_) × (inertia(model) * angular_velocity(x_)))
 
-# Test flipquad
+
+
+# Test flipquat
 x = rand(model)[1]
 x_ = RobotDynamics.flipquat(model, x)
 @test orientation(model, x) ≈ orientation(model, x_)
@@ -173,3 +175,12 @@ x_ = RBState(model, x)
 @test linear_velocity(model, x) ≈ linear_velocity(x_)
 @test angular_velocity(model, x) ≈ angular_velocity(x_)
 @test RBState(model, x_) isa RBState
+
+# Not Implemented Body
+struct FakeBody{R} <: RigidBody{R} end
+model = FakeBody{MRP{Float64}}()
+@test_throws ErrorException("Not implemented") mass(model)
+@test_throws ErrorException("Not implemented") inertia(model)
+@test_throws ErrorException("Not implemented") RobotDynamics.forces(model, x, u)
+@test_throws ErrorException("Not implemented") RobotDynamics.moments(model, x, u)
+@test RobotDynamics.velocity_frame(model) == :world
