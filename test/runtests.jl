@@ -14,6 +14,9 @@ include("cartpole_model.jl")
         include("jacobian_test.jl")
         include("integration_tests.jl")
     end
+    @testset "KnotPoints" begin
+        include("knotpoints.jl")
+    end
 end
 
 @testset "Lie State" begin
@@ -28,7 +31,7 @@ end
     @testset "Dynamics" begin
         include("rigidbody.jl")
     end
-    @testset "Jacobians" begin
-        include("rigid_body_jacobians.jl")
-    end
+end
+@testset "Jacobians" begin
+    include("rigid_body_jacobians.jl")
 end
