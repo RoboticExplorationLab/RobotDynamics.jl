@@ -1,5 +1,5 @@
 ```@meta
-CurrentModule =
+CurrentModule = RobotDynamics
 ```
 
 # Discretization

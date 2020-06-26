@@ -32,6 +32,12 @@ end
 
 @inline rotation_type(::RigidBody{D}) where D = D
 
+"""
+    gen_inds(model::RigidBody)
+
+Generate a `NamedTuple` containing the indices of the position (`r`), orientation (`q`),
+linear velocity (`v`), and angular velocity (`ω`) from the state vector for `model`.
+"""
 @generated function gen_inds(model::RigidBody{R}) where R
     iF = SA[1,2,3]
     iM = SA[4,5,6]
@@ -162,11 +168,12 @@ end
 ############################################################################################
 #                                DYNAMICS
 ############################################################################################
-function dynamics(model::RigidBody{D}, x, u) where D
+function dynamics(model::RigidBody{D}, x, u, t=0) where D
 
     r,q,v,ω = parse_state(model, x)
 
-    ξ = wrenches(model, x, u)
+    z = StaticKnotPoint(x, u, 0.0, t)
+    ξ = wrenches(model, z)
     F = SA[ξ[1], ξ[2], ξ[3]]  # forces in world frame
     τ = SA[ξ[4], ξ[5], ξ[6]]  # torques in body frame
     m = mass(model)
@@ -188,6 +195,11 @@ function dynamics(model::RigidBody{D}, x, u) where D
 end
 
 @inline wrenches(model::RigidBody, z::AbstractKnotPoint) = wrenches(model, state(z), control(z))
+function wrenches(model::RigidBody, x::StaticVector, u::StaticVector)
+    F = forces(model, x, u)
+    M = moments(model, x, u)
+    SA[F[1], F[2], F[3], M[1], M[2], M[3]]
+end
 
 @inline mass(::RigidBody) = throw(ErrorException("Not implemented"))
 @inline inertia(::RigidBody)::SMatrix{3,3} = throw(ErrorException("Not implemented"))
@@ -259,4 +271,29 @@ function wrench_jacobian!(F, model::RigidBody, z)
     ForwardDiff.jacobian!(F, w, z.z)
 end
 
+"""
+    wrench_sparsity(model::RigidBody)
+
+Specify the sparsity of the wrench Jacobian of `model` as a `js = SMatrix{2,5,Bool,10}`.
+The elements of `js` correspond to the block elements of the wrench Jacobian:
+
+```julia
+[∂F/∂r ∂F/∂q ∂F/∂v ∂F/∂ω ∂F/∂u;
+ ∂M/∂r ∂M/∂q ∂M/∂v ∂M/∂ω ∂M/∂u]
+```
+
+where `js[i,j] = false` if the corresponding partial derivative is always zero.
+
+Note that this is only for performance improvement of continuous-time Jacobians of rigid bodies;
+specifying the sparsity is completely optional.
+
+# Example
+For a fully-actuated satellite where `F = q*u[1:3]` and `M = u[4:6]`, the wrench sparsity
+would be
+
+```julia
+SA[false true  false false true;
+   false false false false true]
+```
+"""
 wrench_sparsity(model::RigidBody) = @SMatrix ones(Bool,2,5)

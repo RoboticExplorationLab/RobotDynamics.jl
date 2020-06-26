@@ -53,16 +53,19 @@ following interface:
 forces(::MyRigidBody, x, u)  # return the forces in the world frame
 moments(::MyRigidBody, x, u) # return the moments in the body frame
 inertia(::MyRigidBody, x, u) # return the 3x3 inertia matrix
-inertia_inv(::MyRigidBody, x, u)  # return the 3x3 inverse of the inertia matrix
-mass_matrix(::MyRigidBody, x, u)  # return the 3x3 mass matrix
+mass(::MyRigidBody, x, u)  # return the mass as a real scalar
 ```
 
+Instead of defining `forces` and `moments` you can define the higher-level `wrenches` function
+	wrenches(model::MyRigidbody, z::AbstractKnotPoint)
+	wrenches(model::MyRigidbody, x, u)
+
 # Rotation Parameterization
-A `RigidBody` model must specify the rotational representation being used. Any of the following
-can be used:
-* [`UnitQuaternion`](@ref): Unit Quaternion. Note that this representation needs to be further parameterized.
-* [`MRP`](@ref): Modified Rodrigues Parameters
-* [`RPY`](@ref): Roll-Pitch-Yaw Euler angles
+A `RigidBody` model must specify the rotational representation being used. Any `Rotations.Rotation{3}`
+can be used, but we suggest one of the following:
+* `UnitQuaternion`
+* `MRP`
+* `RodriguesParam`
 """
 abstract type RigidBody{R<:Rotation} <: LieGroupModel end
 

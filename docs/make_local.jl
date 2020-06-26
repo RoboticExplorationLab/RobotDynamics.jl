@@ -13,7 +13,8 @@ makedocs(
         "Documentation" => [
             "discretization.md",
             "knotpoints.md",
-            "liemodel.md"
+            "liemodel.md",
+            "rigidbody.md"
         ]
     ]
 )

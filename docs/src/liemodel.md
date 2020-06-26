@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = RobotDynamics
+```
+
 # Models with Rotations
 
 In robotics, the state of our robot often depends on one or more arbitrary 3D rotations

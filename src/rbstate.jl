@@ -20,7 +20,11 @@ Implements the `StaticArrays` interface so can be treated as an `SVector` with a
 
 where `r`, `v`, and `ω` are three-dimensional vectors, `q` is either a `Rotation` or a
     four-dimenional vector representing the parameters of unit quaternion, and `x` is a
-    13-dimensional vector (or tuple).
+    13-dimensional vector (or tuple),
+
+# Converting to a State Vector
+An `RBState` can be converted to a state vector for a `RigidBody` using
+    RBState(model::RBstate, x, [renorm=false])
 """
 struct RBState{T} <: StaticVector{13,T}
     r::SVector{3,T}
