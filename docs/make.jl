@@ -7,12 +7,14 @@ makedocs(
     pages = [
         "Introduction" => "index.md",
         "Getting Started" => [
-            "models.md"
+            "models.md",
+            "dynamics_evaluation.md"
         ],
         "Documentation" => [
             "discretization.md",
             "knotpoints.md",
-            "liemodel.md"
+            "liemodel.md",
+            "rigidbody.md"
         ]
     ]
 )
