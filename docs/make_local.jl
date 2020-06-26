@@ -22,4 +22,7 @@ makedocs(
 # for more information.
 deploydocs(
     repo = "github.com/RoboticExplorationLab/RobotDynamics.jl.git",
+    deploy_config=Documenter.Travis(),
+    devbranch = "master",
+    push_preview = true
 )
