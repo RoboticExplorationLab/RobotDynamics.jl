@@ -153,6 +153,7 @@ function jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPo
 	ForwardDiff.jacobian!(get_data(∇f), f_aug, s)
 end
 
+DynamicsJacobian(model::AbstractModel) = DynamicsJacobian(state_dim(model), control_dim(model))
 
 ############################################################################################
 #                          IMPLICIT DISCRETE TIME METHODS                                  #
@@ -177,7 +178,14 @@ The default integration scheme is stored in `TrajectoryOptimization.DEFAULT_Q`
     discrete_dynamics(Q, model, state(z), control(z), z.t, z.dt)
 
 
-"Propagate the dynamics forward, storing the result in the next knot point"
+"""
+	propagate_dynamics(::Type{Q}, model, z_, z)
+
+Evaluate the discrete dynamics of `model` using integration method `Q` at knot point `z`,
+storing the result in the states of knot point `z_`.
+
+Useful for propagating dynamics along a trajectory of knot points.
+"""
 function propagate_dynamics(::Type{Q}, model::AbstractModel, z_::AbstractKnotPoint, z::AbstractKnotPoint) where Q<:Explicit
     x_next = discrete_dynamics(Q, model, z)
     set_state!(z_, x_next)
