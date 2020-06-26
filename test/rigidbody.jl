@@ -23,7 +23,7 @@ ForwardDiff.jacobian(q->UnitQuaternion(q,false)*v, Rotations.params(q)) ≈ Rota
 struct Body{R} <: RigidBody{R} end
 RobotDynamics.control_dim(::Body) = 6
 
-function RobotDynamics.wrenches(model::Body, x, u)
+function RobotDynamics.wrenches(model::Body, x::StaticVector, u::StaticVector)
     q = orientation(model, x)
     F = q * SA[u[1], u[2], u[3]]  # forces in the body frame
     M = SA[u[4], u[5], u[6]]      # moments in the body frame
