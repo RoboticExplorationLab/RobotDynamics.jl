@@ -46,7 +46,19 @@ the following method for a new rule `MyQ`:
 
 ```julia
 abstract type MyQ <: RobotDynamics.Explicit end
-x′ = discrete_dynamics(::Type{MyQ}, model::AbstractModel, x, u, dt)
+x′ = discrete_dynamics(::Type{MyQ}, model::AbstractModel, x, u, t, dt)
+```
+which will make calls to the continuous-time dynamics function `dynamics(model, x, u, t)`.
+
+Below is an example of the default integration method [`RK3`](@ref), a third-order Runge-Kutta method:
+```julia
+function discrete_dynamics(::Type{RK3}, model::AbstractModel,
+		x::StaticVector, u::StaticVector, t, dt)
+    k1 = dynamics(model, x,             u, t       )*dt;
+    k2 = dynamics(model, x + k1/2,      u, t + dt/2)*dt;
+    k3 = dynamics(model, x - k1 + 2*k2, u, t + dt  )*dt;
+    x + (k1 + 4*k2 + k3)/6
+end
 ```
 
 ### Implicit Methods (experimental)

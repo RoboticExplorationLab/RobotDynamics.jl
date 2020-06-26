@@ -2,7 +2,7 @@
 
 In robotics, the state of our robot often depends on one or more arbitrary 3D rotations
 (a.k.a. orientation, attitude). Effectively representing the non-trivial group structure
-of rotations has been a topic of student for over 100 years, and as a result many
+of rotations has been a topic of study for over 100 years, and as a result many
 parameterizations exists. RobotDynamics supports the types defined in
 [Rotations.jl](https://github.com/JuliaGeometry/Rotations.jl).
 

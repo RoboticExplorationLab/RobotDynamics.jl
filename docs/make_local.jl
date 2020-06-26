@@ -7,7 +7,8 @@ makedocs(
     pages = [
         "Introduction" => "index.md",
         "Getting Started" => [
-            "models.md"
+            "models.md",
+            "dynamics_evaluation.md"
         ],
         "Documentation" => [
             "discretization.md",

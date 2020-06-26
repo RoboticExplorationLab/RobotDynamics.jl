@@ -7,7 +7,11 @@ CurrentModule = RobotDynamics
 Pages = ["models.md"]
 ```
 ## Overview
-The Model type holds information about the dynamics of the system. All dynamics are assumed to be state-space models of the system of the form ``\dot{x} = f(x,u)`` where ``\dot{x}`` is the state derivative, ``x`` an ``n``-dimensional state vector, and ``u`` in an ``m``-dimensional control input vector. The function ``f`` can be any nonlinear function.
+The Model type holds information about the dynamics of the system.
+All dynamics are assumed to be state-space models of the system of the form
+``\dot{x} = f(x,u)`` where ``\dot{x}`` is the state derivative,
+``x`` an ``n``-dimensional state vector, and ``u`` in an ``m``-dimensional control input vector.
+The function ``f`` can be any nonlinear function.
 
 Many numerical methods require discrete dynamics of the form
 ``x_{k+1} = f(x_k, u_k)``, where ``k`` is the time step.
@@ -34,7 +38,7 @@ import RobotDynamics: dynamics  # the dynamics function must be imported
 
 function dynamics(model::Cartpole, x, u)
     mc = model.mc   # mass of the cart in kg (10)
-    mp = model.mp   # mass of the pole (point mass at the end) in kg
+    mp = model.mp   # mass of the pole j(point mass at the end) in kg
     l = model.l     # length of the pole in m
     g = model.g     # gravity m/s^2
 
@@ -125,6 +129,43 @@ end
 
 RobotDynamics.state_dim(::CartpoleTimeVarying) = 4
 RobotDynamics.control_dim(::CartpoleTimeVarying) = 1
+```
+
+## Discrete Dynamical Systems
+Most models are assumed to be continuous in nature, and require some integration scheme
+(such as a Runge-Kutta method) to convert to discrete-time dynamics. However, some systems
+are naturally discrete or perhaps the user has a custom integration method already applied
+to their system. Instead of defining the continuous dynamics function, we can directly
+define the discrete dynamics instead:
+
+```julia
+# Define a custom integration method
+abstract type CartpoleEuler <: RobotDynamics.QuadratureRule end
+
+# Define the discrete dynamics function
+function RobotDynamics.discrete_dynamics(::Type{CartpoleEuler}, model::Cartpole,
+        x::StaticVector, u::StaticVector, t, dt)
+
+    mc = model.mc   # mass of the cart in kg (10)
+    mp = model.mp   # mass of the pole j(point mass at the end) in kg
+    l = model.l     # length of the pole in m
+    g = model.g     # gravity m/s^2
+
+    q  = x[SA[1,2]]
+    qd = x[SA[3,4]]
+
+    s = sin(q[2])
+    c = cos(q[2])
+
+    H = SA[mc+mp mp*l*c; mp*l*c mp*l^2]
+    C = SA[0 -mp*qd[2]*l*s; 0 0]
+    G = SA[0, mp*g*l*s]
+    B = SA[1, 0]
+
+    qdd = -H\(C*qd + G - B*u[1])
+    xdot = [qd; qdd]
+    return x + xdot * dt  # simple Euler integration
+end
 ```
 
 ## Models with 3D Rotations
