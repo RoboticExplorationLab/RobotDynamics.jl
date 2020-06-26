@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.com/RoboticExplorationLab/RobotDynamics.jl.svg?branch=master)](https://travis-ci.com/RoboticExplorationLab/RobotDynamics.jl)
 ![CI](https://github.com/RoboticExplorationLab/RobotDynamics.jl/workflows/CI/badge.svg)
+[![codecov](https://codecov.io/gh/RoboticExplorationLab/RobotDynamics.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/RoboticExplorationLab/RobotDynamics.jl)
 
 # RobotDynamics.jl
 
