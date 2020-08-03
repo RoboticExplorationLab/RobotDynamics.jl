@@ -83,11 +83,12 @@ state_diff_size(s::LieState{R,P}) where {R,P} = 3*num_rotations(s) + sum(P)
 
 state_diff_size(model::LieGroupModel) = state_diff_size(LieState(model))
 
-# Usefull functions for meta-programming
+# Useful functions for meta-programming
 rot_inds(R,P, i::Int) = (sum(P[1:i]) + (i-1)*params(R)) .+ (1:params(R))
 vec_inds(R,P, i::Int) =
     ((i > 1 ? sum(P[1:i-1]) : 0) + (i-1)*params(R)) .+ (1:P[i])
 inds(R,P, i::Int) = isodd(i) ? vec_inds(R,P, 1+i÷2) : rot_inds(R,P, i÷2)
+@inline inds(s::LieState{R,P}, i::Int) where {R,P} = inds(R, P, i)
 rot_state(R,P, i::Int, sym=:x) = [:($(sym)[$j]) for j in rot_inds(R,P,i)]
 
 """

@@ -53,6 +53,23 @@ end
 
 @inline RBState(x::RBState) = x
 
+@generated function RBState(::Type{R}, x) where R<:Rotation{3}
+    ir = SA[1,2,3]
+    iq = SA[4,5,6]
+    iv = SA[7,8,9]
+    iω = SA[10,11,12]
+    if R <: UnitQuaternion
+        iq = SA[4,5,6,7]
+        iv = iv .+ 1
+        iω = iω .+ 1
+    end
+    quote
+        q = UnitQuaternion(R(x[$iq]))
+        RBState(x[$ir], q, x[$iv], x[$iω])
+    end
+end
+
+
 # Static Arrays interface
 function (::Type{RB})(x::NTuple{13}) where RB <: RBState
     RB(

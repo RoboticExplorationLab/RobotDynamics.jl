@@ -159,7 +159,7 @@ end
 DynamicsJacobian(model::AbstractModel) = DynamicsJacobian(state_dim(model), control_dim(model))
 
 ############################################################################################
-#                          IMPLICIT DISCRETE TIME METHODS                                  #
+#                          EXPLICIT DISCRETE TIME METHODS                                  #
 ############################################################################################
 
 # Set default integrator
