@@ -53,7 +53,7 @@ end
 
 @inline RBState(x::RBState) = x
 
-@generated function RBState(::Type{R}, x) where R<:Rotation{3}
+@generated function RBState(::Type{R}, x::AbstractVector) where R<:Rotation{3}
     ir = SA[1,2,3]
     iq = SA[4,5,6]
     iv = SA[7,8,9]
