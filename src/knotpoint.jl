@@ -102,6 +102,10 @@ function GeneralKnotPoint(n::Int, m::Int, z::AbstractVector, dt::T, t=zero(T)) w
     GeneralKnotPoint(z, _x, _u, dt, t)
 end
 
+function Base.copy(z::GeneralKnotPoint)
+    GeneralKnotPoint(Base.copy(z.z), z._x, z._u, z.dt, z.t)
+end
+
 """
 	KnotPoint{T,n,m,nm}
 
@@ -149,6 +153,7 @@ end
 set_state!(z::KnotPoint, x) = z.z = [x; control(z)]
 set_control!(z::KnotPoint, u) = z.z = [state(z); u]
 set_z!(z::KnotPoint, z_) = z.z = z_
+
 
 """
 	StaticKnotPoint{T,n,m,nm} <: AbstractKnotPoint{T,n,m}
