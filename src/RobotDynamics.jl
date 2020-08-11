@@ -31,6 +31,22 @@ export
     linear_velocity,
     angular_velocity
 
+# linear model
+export
+    AbstractLinearModel,
+    DiscreteLinearModel,
+    DiscreteLTV,
+    DiscreteLTI,
+    DiscreteLinearQuadrature,
+    ContinuousLinearModel,
+    ContinuousLTV,
+    ContinuousLTI,
+    get_A,
+    get_B,
+    get_d,
+    is_affine,
+    is_time_varying
+
 
 # knotpoints
 export
@@ -60,5 +76,6 @@ include("model.jl")
 include("liestate.jl")
 include("rigidbody.jl")
 include("integration.jl")
+include("linearmodel.jl")
 
 end # module
