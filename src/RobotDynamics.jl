@@ -5,6 +5,7 @@ using StaticArrays
 using LinearAlgebra
 using ForwardDiff
 using UnsafeArrays
+using RecipesBase
 
 using Rotations: skew
 
@@ -62,5 +63,6 @@ include("liestate.jl")
 include("rigidbody.jl")
 include("integration.jl")
 include("trajectories.jl")
+include("plot_recipes.jl")
 
 end # module
