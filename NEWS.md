@@ -1,4 +1,4 @@
-# New in v0.1.3
+# New in v0.2
 ## Trajectory Types
 Moved trajectory types from TrajectoryOptimization.jl to RobotDynamics.jl.
 * `AbstractTrajectory` represents a vector of `AbstractKnotPoints`
