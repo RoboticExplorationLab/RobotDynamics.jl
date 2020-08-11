@@ -1,17 +1,19 @@
 name = "RobotDynamics"
 uuid = "38ceca67-d8d3-44e8-9852-78a5596522e1"
 authors = ["Brian Jackson <bjack205@gmail.com>"]
-version = "0.1.2"
+version = "0.2"
 
 [deps]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 UnsafeArrays = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
 
 [compat]
 ForwardDiff = "0.10"
+RecipesBase = "1"
 Rotations = "1"
 StaticArrays = "0.12"
 UnsafeArrays = "1"

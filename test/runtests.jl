@@ -16,6 +16,7 @@ include("cartpole_model.jl")
     end
     @testset "KnotPoints" begin
         include("knotpoints.jl")
+        include("trajectories.jl")
     end
 end
 
@@ -34,4 +35,8 @@ end
 end
 @testset "Jacobians" begin
     include("rigid_body_jacobians.jl")
+end
+
+@testset "Plotting" begin
+    include("plotting.jl")
 end

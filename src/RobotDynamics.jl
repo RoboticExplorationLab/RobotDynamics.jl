@@ -5,6 +5,7 @@ using StaticArrays
 using LinearAlgebra
 using ForwardDiff
 using UnsafeArrays
+using RecipesBase
 
 using Rotations: skew
 
@@ -53,6 +54,7 @@ export
     AbstractKnotPoint,
     KnotPoint,
     StaticKnotPoint,
+    Traj,
     state,
     control,
     states,
@@ -77,5 +79,7 @@ include("liestate.jl")
 include("rigidbody.jl")
 include("integration.jl")
 include("linearmodel.jl")
+include("trajectories.jl")
+include("plot_recipes.jl")
 
 end # module

@@ -76,10 +76,10 @@ x0,u0 = zeros(model)
 
 # Test diferent rotations
 for R in [UnitQuaternion{Float64}, MRP{Float64}, RodriguesParam{Float64}]
-	model = Body{R}()
+    local model = Body{R}()
 	@test state_dim(model) == 9 + Rotations.params(R)
 	RobotDynamics.rotation_type(model) == R
-	x0,u0 = zeros(model)
+	local x0,u0 = zeros(model)
 	@test RBState(model, x0) ≈ zero(RBState)
 end
 
