@@ -142,7 +142,7 @@ xmin = RBState(fill(-1,3), one(UnitQuaternion), fill(-2,3), fill(-3,3))
 xmax = RBState(fill(+1,3), one(UnitQuaternion), fill(+2,3), fill(+3,3))
 @test randbetween(xmin, xmax) isa RBState{Float64}
 for k = 1:10
-    x = randbetween(xmin, xmax)
+    local x = randbetween(xmin, xmax)
     @test all(position(xmin) .<= position(x) .<= position(xmax))
     @test all(linear_velocity(xmin) .<= linear_velocity(x) .<= linear_velocity(xmax))
     @test all(angular_velocity(xmin) .<= angular_velocity(x) .<= angular_velocity(xmax))
