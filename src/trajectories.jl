@@ -18,9 +18,6 @@ function controls(Z::AbstractTrajectory)
 	return [control(Z[k]) for k in eachcontrol(Z) ]
 end
 
-states(x) = states(get_trajectory(x))
-controls(x) = controls(get_trajectory(x))
-
 """
     Traj{n,m,T,KP}
 
