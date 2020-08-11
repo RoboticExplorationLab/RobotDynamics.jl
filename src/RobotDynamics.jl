@@ -37,6 +37,7 @@ export
     AbstractKnotPoint,
     KnotPoint,
     StaticKnotPoint,
+    Traj,
     state,
     control,
     states,
@@ -60,5 +61,6 @@ include("model.jl")
 include("liestate.jl")
 include("rigidbody.jl")
 include("integration.jl")
+include("trajectories.jl")
 
 end # module
