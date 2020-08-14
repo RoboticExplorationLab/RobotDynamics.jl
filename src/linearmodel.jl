@@ -79,7 +79,7 @@ get_d(model::AbstractLinearModel) = throw(ErrorException("get_d not implemented"
 abstract type Exponential <: Explicit end
 abstract type DiscreteLinearQuadrature <: Explicit end
 
-get_k(t, model::AbstractLinearModel) = is_time_varying(model) ? searchsortedfirst(get_times(model), t) : 1
+get_k(t, model::AbstractLinearModel) = is_time_varying(model) ? searchsortedlast(get_times(model), t) : 1
 get_times(model::AbstractLinearModel) = throw(ErrorException("get_times not implemented"))
 
 function dynamics(model::ContinuousLinearModel, x, u, t)
@@ -100,8 +100,12 @@ function jacobian!(∇f::AbstractMatrix, model::ContinuousLinearModel, z::Abstra
 	t = z.t
     k = get_k(t, model)
 
-    # TODO: make this better for general arrays with dispatch?
-    get_data(∇f) = [get_A(model, k) get_B(model, k)]
+    n = state_dim(model)
+    m = control_dim(model)
+
+    ∇f[1:n, 1:n] .= get_A(model, k)
+    ∇f[1:n, (n+1):(n+m)] .= get_B(model, k)
+    true
 end
 
 function discrete_dynamics(::Type{DiscreteLinearQuadrature}, model::DiscreteLinearModel, x::StaticVector, u::StaticVector, t, dt)
@@ -121,10 +125,14 @@ end
 function discrete_jacobian!(::Type{DiscreteLinearQuadrature}, ∇f, model::DiscreteLinearModel, z::AbstractKnotPoint)
     t = z.t
     k = get_k(t, model)
+    
+    n = state_dim(model)
+    m = control_dim(model)
 
     # TODO: make this better for general arrays with dispatch?
-    ∇f .= [get_A(model, k) get_B(model, k)]
-    nothing
+    ∇f[1:n, 1:n] .= get_A(model, k)
+    ∇f[1:n, (n+1):(n+m)] .= get_B(model, k)
+    true
 end
 
 discrete_dynamics(::Type{Exponential}, model::M, x, u, t, dt) where M = throw(ErrorException("Exponential integration not defined for model type $M"))
