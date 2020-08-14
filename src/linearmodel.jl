@@ -1,3 +1,14 @@
+#=
+Type tree:
+                 AbstractLinearModel <: AbstractModel
+                ↙                                    ↘
+         DiscreteLinearModel                   ContinuousLinearModel
+         ↙               ↘                       ↙                ↘
+ DiscreteLTI           DiscreteLTV       ContinuousLTI          ContinuousLTV
+                                
+=#
+
+
 """
     AbstractLinearModel <: AbstractModel
 
@@ -68,13 +79,10 @@ is_time_varying(::DiscreteLTV) = true
 is_time_varying(::ContinuousLTV) = true
 
 # default to not passing in k
-get_A(model::AbstractLinearModel, k::Integer) = get_A(model)
-get_B(model::AbstractLinearModel, k::Integer) = get_B(model)
-get_d(model::AbstractLinearModel, k::Integer) = get_d(model)
-
-get_A(model::AbstractLinearModel) = throw(ErrorException("get_A not implemented"))
-get_B(model::AbstractLinearModel) = throw(ErrorException("get_B not implemented"))
-get_d(model::AbstractLinearModel) = throw(ErrorException("get_d not implemented"))
+for method ∈ (:get_A, :get_B, :get_d)
+    @eval $method(model::AbstractLinearModel, k::Integer) = $method(model)
+    @eval $method(model::M) where M <: AbstractLinearModel = throw(ErrorException("$method not implemented for $M")) 
+end
 
 abstract type Exponential <: Explicit end
 abstract type DiscreteLinearQuadrature <: Explicit end
@@ -118,12 +126,15 @@ function _discrete_dynamics(::Val{false}, model::DiscreteLinearModel, x::StaticV
     get_A(model, k)*x + get_B(model, k)*u
 end
 
-function discrete_jacobian!(::Type{DiscreteLinearQuadrature}, ∇f, model::DiscreteLinearModel, z::AbstractKnotPoint)
+function discrete_jacobian!(::Type{DiscreteLinearQuadrature}, ∇f, model::DiscreteLinearModel, z::AbstractKnotPoint{<:Any,n,m}) where {n,m}
     t = z.t
     k = get_k(t, model)
 
-    # TODO: make this better for general arrays with dispatch?
-    ∇f .= [get_A(model, k) get_B(model, k)]
+    ix = 1:n
+    iu = n .+ (1:m)
+    ∇f[ix,ix] .= get_A(model, k)
+    ∇f[ix,iu] .= get_B(model, k)
+
     nothing
 end
 
