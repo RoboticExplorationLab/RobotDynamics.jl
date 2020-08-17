@@ -186,65 +186,41 @@ function discrete_jacobian!(::Type{DiscreteSystemQuadrature}, ∇f, model::Discr
     nothing
 end
 
-# abstract type Exponential <: Explicit end
+abstract type Exponential <: Explicit end
 
-# ## Continuous integration: 
-# discrete_dynamics(::Type{Exponential}, model::M, x, u, t, dt) where M = throw(ErrorException("Exponential integration not defined for model type $M"))
+function _discretize(::Type{Exponential}, ::Val{false}, model::ContinuousLinearModel, k::Integer, dt)
+    A_c = get_A(model, k)
+    B_c = get_B(model, k)
+    n = size(A_c, 1)
+    m = size(B_c, 2)
 
-# function discrete_dynamics(::Type{Exponential}, model::ContinuousLinearModel, x, u, t, dt) 
-#     _discrete_dynamics(Exponential, is_affine(model), model::ContinuousLinearModel, x, u, t, dt)
-# end
+    continuous_system = zero(SizedMatrix{n+m, n+m})
+    continuous_system[1:n, 1:n] .= A_c
+    continuous_system[1:n, n .+ (1:m)] .= B_c
 
-# function _discrete_dynamics(::Type{Exponential}, ::Val{false}, model::ContinuousLinearModel, x, u, t, dt)
-#     k = get_k(t, model)
-#     (A_d, B_d) = _integrate(Exponential, Val{false}(), model, k, dt)
+    discrete_system = exp(continuous_system*dt)
+    A_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(1,n)]
+    B_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+1,n+m)]
 
-#     A_d*x + B_d*u
-# end
+    return (A_d, B_d)
+end
 
-# function _discrete_dynamics(::Type{Exponential}, ::Val{true}, model::ContinuousLinearModel, x, u, t, dt)
-#     k = get_k(t, model)
-#     (A_d, B_d, D_d) = _integrate(Exponential, Val{true}(), model, k, dt)
-    
-#     k = get_k(t, model)
-#     d = get_d(model, k)
+function _discretize(::Type{Exponential}, ::Val{true}, model::ContinuousLinearModel, k::Integer, dt)
+    A_c = get_A(model, k)
+    B_c = get_B(model, k)
+    n = size(A_c, 1)
+    D_c = oneunit(SizedMatrix{n, n})
+    m = size(B_c, 2)
 
-#     A_d*x + B_d*u + D_d*d
-# end
+    continuous_system = zero(SizedMatrix{(2*n)+m, (2*n)+m})
+    continuous_system[1:n, 1:n] .= A_c
+    continuous_system[1:n, n .+ (1:m)] .= B_c
+    continuous_system[1:n, n + m .+ (1:n)] .= D_c
 
-# function _integrate(::Type{Exponential}, ::Val{false}, model::ContinuousLinearModel, k::Integer, dt)
-#     A_c = get_A(model, k)
-#     B_c = get_B(model, k)
-#     n = size(A_c, 1)
-#     m = size(B_c, 2)
+    discrete_system = exp(continuous_system*dt)
+    A_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(1,n)]
+    B_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+1,n+m)]
+    D_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+m+1,2*n+m)]
 
-#     continuous_system = zero(SizedMatrix{n+m, n+m})
-#     continuous_system[1:n, 1:n] .= A_c
-#     continuous_system[1:n, n .+ (1:m)] .= B_c
-
-#     discrete_system = exp(continuous_system*dt)
-#     A_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(1,n)]
-#     B_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+1,n+m)]
-
-#     return (A_d, B_d)
-# end
-
-# function _integrate(::Type{Exponential}, ::Val{true}, model::ContinuousLinearModel, k::Integer, dt)
-#     A_c = get_A(model, k)
-#     B_c = get_B(model, k)
-#     n = size(A_c, 1)
-#     D_c = oneunit(SizedMatrix{n, n})
-#     m = size(B_c, 2)
-
-#     continuous_system = zero(SizedMatrix{(2*n)+m, (2*n)+m})
-#     continuous_system[1:n, 1:n] .= A_c
-#     continuous_system[1:n, n .+ (1:m)] .= B_c
-#     continuous_system[1:n, n + m .+ (1:n)] .= D_c
-
-#     discrete_system = exp(continuous_system*dt)
-#     A_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(1,n)]
-#     B_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+1,n+m)]
-#     D_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+m+1,2*n+m)]
-
-#     return (A_d, B_d, D_d)
-# end
+    return (A_d, B_d, D_d)
+end
