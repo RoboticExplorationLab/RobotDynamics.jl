@@ -38,7 +38,7 @@ export
     DiscreteLinearModel,
     DiscreteLTV,
     DiscreteLTI,
-    DiscreteLinearQuadrature,
+    DiscreteSystemQuadrature,
     ContinuousLinearModel,
     ContinuousLTV,
     ContinuousLTI,
