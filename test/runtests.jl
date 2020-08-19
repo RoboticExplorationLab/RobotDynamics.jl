@@ -3,8 +3,11 @@ using RobotDynamics
 using StaticArrays
 using ForwardDiff
 using LinearAlgebra
+using Random
 
 include("cartpole_model.jl")
+include("random_linear.jl")
+include("quadrotor.jl")
 
 @testset "Basic Dynamics" begin
     @testset "Cartpole" begin
@@ -25,6 +28,13 @@ end
     include("liemodel.jl")
 end
 
+@testset "Linear Systems" begin
+    include("double_integrator.jl")
+    include("test_random_linear.jl")
+    include("linear_quad.jl")
+    include("linear_tests.jl")
+end
+
 @testset "Rigid Bodies" begin
     @testset "RBState" begin
         include("rbstate.jl")
@@ -37,6 +47,9 @@ end
     include("rigid_body_jacobians.jl")
 end
 
-@testset "Plotting" begin
-    include("plotting.jl")
+# only test plotting on a desktop since it takes a while to compile Plots on CI...
+if !haskey(ENV, "CI")
+    @testset "Plotting" begin
+        include("plotting.jl")
+    end
 end
