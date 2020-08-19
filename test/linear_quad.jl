@@ -10,11 +10,11 @@ struct LinearQuad{T} <: DiscreteLTI
     B::SMatrix{12,4,T,48}
 end 
 function LinearQuad(model::Quadrotor, x0, u0, dt::Real)
-    F = RobotDynamics.DynamicsJacobian(quad)
+    F = RobotDynamics.DynamicsJacobian(model)
     z = KnotPoint(x0,u0,dt)
-    discrete_jacobian!(RK3, F, quad, z) 
+    discrete_jacobian!(RK3, F, model, z) 
     G = @MMatrix zeros(n,n-1)
-    RobotDynamics.state_diff_jacobian!(G, quad, z)
+    RobotDynamics.state_diff_jacobian!(G, model, z)
     A = RobotDynamics.get_A(F)
     B = RobotDynamics.get_B(F)
     A = G'A*G
@@ -57,16 +57,16 @@ F = RobotDynamics.DynamicsJacobian(model)
 @test_throws MethodError jacobian!(F, model, z) 
 
 # Test discrete dynamics
-x2 = discrete_dynamics(DiscreteLinearQuadrature, model, x, u, t, dt)
+x2 = discrete_dynamics(DiscreteSystemQuadrature, model, x, u, t, dt)
 @test x2 ≈ A*x + B*u
-@test (@ballocated discrete_dynamics(DiscreteLinearQuadrature, $model, $x, $u, $t, $dt)) == 0
-x2 = discrete_dynamics(DiscreteLinearQuadrature, model, z) 
+@test (@ballocated discrete_dynamics(DiscreteSystemQuadrature, $model, $x, $u, $t, $dt)) == 0
+x2 = discrete_dynamics(DiscreteSystemQuadrature, model, z) 
 @test x2 ≈ A*x + B*u
 @test x2 isa SVector{12}
 
-discrete_jacobian!(DiscreteLinearQuadrature, F, model, z)
+discrete_jacobian!(DiscreteSystemQuadrature, F, model, z)
 @test F ≈ [A B]
-@test (@ballocated discrete_jacobian!(DiscreteLinearQuadrature, $F, $model, $z) samples=2 evals=2) == 0
+@test (@ballocated discrete_jacobian!(DiscreteSystemQuadrature, $F, $model, $z) samples=2 evals=2) == 0
 
 @test_throws MethodError discrete_dynamics(RK3, model, x, u, t, dt)
 @test_throws MethodError discrete_jacobian!(RK3, F, model, z)
