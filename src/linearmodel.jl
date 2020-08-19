@@ -80,8 +80,8 @@ is_time_varying(::ContinuousLTV) = true
 
 # default to not passing in k
 for method ∈ (:get_A, :get_B, :get_d)
-    @eval $method(model::AbstractLinearModel, k::Integer) = $method(model)
-    @eval $method(model::M) where M <: AbstractLinearModel = throw(ErrorException("$method not implemented for $M")) 
+    @eval ($method)(model::AbstractLinearModel, k::Integer) = ($method)(model)
+    @eval ($method)(model::M) where M <: AbstractLinearModel = throw(ErrorException("$($method) not implemented for $M")) 
 end
 
 abstract type Exponential <: Explicit end
@@ -134,9 +134,6 @@ function discrete_jacobian!(::Type{DiscreteLinearQuadrature}, ∇f, model::Discr
     t = z.t
     k = get_k(t, model)
     
-    n = state_dim(model)
-    m = control_dim(model)
-
     ix = 1:n
     iu = n .+ (1:m)
     ∇f[ix,ix] .= get_A(model, k)
