@@ -140,12 +140,14 @@ end
 
 function _dynamics(::Val{true}, model::ContinuousLinearModel, x, u, t)
     k = get_k(t, model)
-    return get_A(model, k)*x + get_B(model, k)*u + get_d(model, k)
+    return get_A(model, k)*x .+ get_B(model, k)*u .+ get_d(model, k)
 end
 
 function _dynamics(::Val{false}, model::ContinuousLinearModel, x, u, t)
     k = get_k(t, model)
-    return get_A(model, k)*x + get_B(model, k)*u
+    A = get_A(model, k)
+    B = get_B(model, k)
+    return A*x + B*u
 end
 
 function jacobian!(∇f::AbstractMatrix, model::ContinuousLinearModel, z::AbstractKnotPoint)
@@ -166,7 +168,7 @@ end
 
 function _discrete_dynamics(::Val{true}, model::DiscreteLinearModel, x::StaticVector, u::StaticVector, t, dt)
     k = get_k(t, model)
-    get_A(model, k)*x + get_B(model, k)*u + get_d(model, k)
+    get_A(model, k)*x .+ get_B(model, k)*u .+ get_d(model, k)
 end
 
 function _discrete_dynamics(::Val{false}, model::DiscreteLinearModel, x::StaticVector, u::StaticVector, t, dt)

@@ -32,6 +32,7 @@ end
     include("double_integrator.jl")
     include("test_random_linear.jl")
     include("linear_quad.jl")
+    include("linear_tests.jl")
 end
 
 @testset "Rigid Bodies" begin
