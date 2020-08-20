@@ -119,7 +119,6 @@ copyto!(Z2, Z)
 Z = Traj(X,U,fill(dt,N))
 @test Z[1] ≈ KnotPoint(X[1],U[1],dt)
 @test Z[end] ≈ KnotPoint(X[end], U[end], dt, dt*(N-1))
-VERSION.minor >= 4 && @test Z[1] === Z[begin]
 @test Base.IndexStyle(Z) == IndexLinear()
 Z_ = [z for z in Z] 
 @test Z_[1] === Z[1]
