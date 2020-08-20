@@ -49,6 +49,14 @@ x2 = RBState{Float64}(r, RotMatrix(q), v, ω)
 @test RBState(Float32.(r), q, Float32.(v), Float32.(ω)) isa RBState{Float64}
 @test RBState(r, UnitQuaternion{Float32}(q), Float32.(v), Float32.(ω)) isa RBState{Float64}
 
+# Convert from another rotation type
+x = [r; Rotations.params(MRP(q)); v; ω]
+@test RBState(MRP, x) ≈ RBState(r,q,v,ω)
+x = [r; Rotations.params(RodriguesParam(q)); v; ω]
+@test !(RBState(MRP, x) ≈ RBState(r,q,v,ω))
+@test RBState(RodriguesParam, x) ≈ RBState(r,q,v,ω)
+
+
 # Pass in a vector for the quaternion
 q_ = Rotations.params(q)
 x = RBState(r, q_, v, ω)
@@ -83,6 +91,10 @@ x = RBState(r, q, v, ω)
 @test x[8:10] ≈ v
 @test x[11:13] ≈ ω
 @test x[4] ≈ q.w
+
+@test getindex(x,2) == r[2]
+@test getindex(x,8) == v[1]
+@test getindex(x,13) == ω[3]
 
 # Renorm
 x2 = RBState(r,2*q,v,ω)

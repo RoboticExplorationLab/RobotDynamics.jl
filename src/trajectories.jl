@@ -5,6 +5,11 @@ traj_size(Z::AbstractTrajectory{n,m}) where {n,m} = n,m,length(Z)
 num_vars(Z::AbstractTrajectory) = num_vars(traj_size(Z)..., terminal_control(Z))
 eachcontrol(Z::AbstractTrajectory) = terminal_control(Z) ? Base.OneTo(length(Z)) : Base.OneTo(length(Z)-1)
 
+function num_vars(n::Int, m::Int, N::Int, equal::Bool=false)
+    Nu = equal ? N : N-1
+    return N*n + Nu*m
+end
+
 function Base.copyto!(Z1::AbstractTrajectory, Z2::AbstractTrajectory)
 	@assert traj_size(Z1) == traj_size(Z2)
 	for k = 1:length(Z1)
@@ -16,6 +21,10 @@ end
 @inline states(Z::AbstractTrajectory) = state.(Z)
 function controls(Z::AbstractTrajectory)
 	return [control(Z[k]) for k in eachcontrol(Z) ]
+end
+
+function Base.isapprox(Z1::AbstractTrajectory, Z2::AbstractTrajectory)
+    all(zs->zs[1] ≈ zs[2], zip(Z1,Z2))
 end
 
 """
@@ -42,7 +51,7 @@ end
 # AbstractArray interface
 @inline Base.iterate(Z::Traj, k::Int) = iterate(Z.data, k)
 Base.IteratorSize(Z::Traj) = Base.HasLength()
-Base.IteratorEltype(Z::Traj) = IteratorEltype(Z.data)
+Base.IteratorEltype(Z::Traj) = Base.IteratorEltype(Z.data)
 @inline Base.eltype(Z::Traj) = eltype(Z.data)
 @inline Base.length(Z::Traj) = length(Z.data)
 @inline Base.size(Z::Traj) = size(Z.data)
@@ -83,7 +92,7 @@ function Traj(X::Vector, U::Vector, dt::Vector, t=cumsum(dt) .- dt[1])
 end
 
 
-states(Z::Traj, i::Int) = [state(z)[i] for z in Z]
+states(Z::Traj, i) = [state(z)[i] for z in Z]
 
 function set_states!(Z::Traj, X)
     for k in eachindex(Z)
@@ -118,6 +127,7 @@ end
 function set_times!(Z::AbstractTrajectory, ts)
     for k in eachindex(ts)
         Z[k].t = ts[k]
+        k < length(ts) && (Z[k].dt = ts[k+1] - ts[k])
     end
 end
 
@@ -125,14 +135,23 @@ function get_times(Z::Traj)
     [z.t for z in Z]
 end
 
-function shift_fill!(Z::Traj)
+function shift_fill!(Z::Traj, n=1)
     N = length(Z)
-    for k in eachindex(Z)
-        Z[k].t += Z[k].dt
-        if k < N
-            Z[k].z = Z[k+1].z
+    isterm = is_terminal(Z[end])
+    for k = 1+n:N 
+        Z[k-n] = copy(Z[k])
+    end
+    xf = state(Z[N-n]) 
+    uf = control(Z[N-n])
+    dt = Z[N-n-1].dt
+    for k = N-n:N
+        set_state!(Z[k], xf) 
+        Z[k].t = Z[k-1].t + dt
+        if k == N && is_terminal(Z[k])
+            Z[k].dt = 0
         else
-            Z[k].t += Z[k-1].dt
+            set_control!(Z[k], uf) 
+            Z[k].dt = dt
         end
     end
 end

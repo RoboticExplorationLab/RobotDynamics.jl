@@ -77,6 +77,10 @@ Set both the states and controls in `z` from the stacked state-control vector `z
 """
 set_z!(z::AbstractKnotPoint, z_) = is_terminal(z) ? set_state!(z, z_) : copyto!(z.z, z_)
 
+function Base.isapprox(z1::AbstractKnotPoint, z2::AbstractKnotPoint)
+    get_z(z1) ≈ get_z(z2) && z1.t ≈ z2.t && z1.dt ≈ z2.dt
+end
+
 """
 	GeneralKnotPoint{T,n,m,V} <: AbstractKnotPoint{T,n,m}
 
