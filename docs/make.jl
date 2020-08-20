@@ -14,7 +14,8 @@ makedocs(
             "discretization.md",
             "knotpoints.md",
             "liemodel.md",
-            "rigidbody.md"
+            "rigidbody.md",
+            "linearmodel.md"
         ]
     ]
 )
