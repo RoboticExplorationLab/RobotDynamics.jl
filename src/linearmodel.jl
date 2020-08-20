@@ -19,29 +19,31 @@ abstract type AbstractLinearModel <: AbstractModel end
 """
     DiscreteLinearModel <: AbstractLinearModel
 
-An abstract subtype of AbstractLinearModel for discrete linear systems that contains LTI and LTV systems. The subtypes of this model automatically implement the discrete_dynamics and 
-discrete_jacobian! functions.
+An abstract subtype of `AbstractLinearModel` for discrete linear systems that contains LTI and LTV systems. The subtypes of this model automatically implement the `discrete_dynamics` and 
+`discrete_jacobian!` functions.
 """
 abstract type DiscreteLinearModel <: AbstractLinearModel end
 
 """
     DiscreteLTI<: DiscreteLinearModel
 
-An abstract subtype of DiscreteLinearModel for discrete LTI systems of the following form:
+An abstract subtype of `DiscreteLinearModel` for discrete LTI systems of the following form:
     ``x_{k+1} = Ax_k + Bu_k``
     or 
-    ``x_{k+1} = Ax_k + Bu_k + d``
+    ``x_{k+1} = Ax_k + Bu_k + d``  
 
 # Interface
-All instances of DiscreteLTI should support the following functions:
+All instances of `DiscreteLTI` should support the following functions:
+
     get_A(model::DiscreteLTI) 
     get_B(model::DiscreteLTI)
 
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify systems of the second form:
+By default, it is assumed that the system is truly linear (eg. not affine). In order to specify affine systems:
+
     is_affine(model::DiscreteLTI) = Val(true)
     get_d(model::DiscreteLTI)
 
-Subtypes of this model should use the integration type DiscreteSystemQuadrature. 
+Subtypes of this model should use the integration type `DiscreteSystemQuadrature`. 
 
 """
 abstract type DiscreteLTI <: DiscreteLinearModel end
@@ -49,21 +51,24 @@ abstract type DiscreteLTI <: DiscreteLinearModel end
 """
     DiscreteLTV<: DiscreteLinearModel
 
-An abstract subtype of DiscreteLinearModel for discrete LTV systems of the following form:
-    ``x_{k+1} = A_k x_k + B_k u_k``
+An abstract subtype of `DiscreteLinearModel` for discrete LTV systems of the following form:  
+    ``x_{k+1} = A_k x_k + B_k u_k``  
     or 
-    ``x_{k+1} = A_k x_k + B_k u_k + d_k``
+    ``x_{k+1} = A_k x_k + B_k u_k + d_k``  
 
 # Interface
-All instances of DiscreteLTV should support the following functions:
+All instances of `DiscreteLTV` should support the following functions:
+
     get_A(model::DiscreteLTV, k::Integer) 
     get_B(model::DiscreteLTV, k::Integer)
 
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify systems of the second form:
+By default, it is assumed that the system is truly linear (eg. not affine). In order to specify affine systems:
+
     is_affine(model::DiscreteLTV) = Val(true)
     get_d(model::DiscreteLTV, k::Integer)
+    get_times(model::DiscreteLTV)
 
-Subtypes of this model should use the integration type DiscreteSystemQuadrature. 
+Subtypes of this model should use the integration type `DiscreteSystemQuadrature`. 
 
 """
 abstract type DiscreteLTV <: DiscreteLinearModel end
@@ -71,8 +76,8 @@ abstract type DiscreteLTV <: DiscreteLinearModel end
 """
     ContinuousLinearModel <: AbstractLinearModel
 
-An abstract subtype of AbstractLinearModel for continuous linear systems that contains LTI and LTV systems. The subtypes of this model automatically implement the dynamics and 
-jacobian! functions. For trajectory optimization problems, it will generally be faster to integrate your system matrices externally and implement a DiscreteLinearModel. This
+An abstract subtype of `AbstractLinearModel` for continuous linear systems that contains LTI and LTV systems. The subtypes of this model automatically implement the `dynamics` and 
+`jacobian!` functions. For trajectory optimization problems, it will generally be faster to integrate your system matrices externally and implement a `DiscreteLinearModel`. This
 reduces unnecessary calls to the dynamics function and increases speed.
 """
 abstract type ContinuousLinearModel <: AbstractLinearModel end
@@ -80,17 +85,19 @@ abstract type ContinuousLinearModel <: AbstractLinearModel end
 """
     ContinuousLTI<: ContinuousLinearModel
 
-An abstract subtype of ContinuousLinearModel for continuous LTI systems of the following form:
-    ``ẋ = Ax + Bu``
-    or 
-    ``ẋ = Ax + Bu + d``
+An abstract subtype of `ContinuousLinearModel` for continuous LTI systems of the following form:  
+    ``ẋ = Ax + Bu``  
+    or
+     ``ẋ = Ax + Bu + d``  
 
 # Interface
-All instances of DiscreteLTI should support the following functions:
+All instances of `ContinuousLTI` should support the following functions:
+
     get_A(model::ContinuousLTI) 
     get_B(model::ContinuousLTI)
 
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify systems of the second form:
+By default, it is assumed that the system is truly linear (eg. not affine). In order to specify affine systems:
+
     is_affine(model::ContinuousLTI) = Val(true)
     get_d(model::ContinuousLTI)
 
@@ -100,19 +107,22 @@ abstract type ContinuousLTI <: ContinuousLinearModel end
 """
     ContinuousLTV<: ContinuousLinearModel
 
-An abstract subtype of ContinuousLinearModel for continuous LTV systems of the following form:
-    ``ẋ = A_k x + B_k u``
+An abstract subtype of `ContinuousLinearModel` for continuous LTV systems of the following form:  
+    ``ẋ = A_k x + B_k u``  
     or 
-    ``ẋ = A_k x + B_k u + d_k``
+    ``ẋ = A_k x + B_k u + d_k``  
 
 # Interface
-All instances of ContinuousLTV should support the following functions:
+All instances of `ContinuousLTV` should support the following functions:
+
     get_A(model::ContinuousLTV, k::Integer) 
     get_B(model::ContinuousLTV, k::Integer)
 
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify systems of the second form:
+By default, it is assumed that the system is truly linear (eg. not affine). In order to specify affine systems:
+
     is_affine(model::ContinuousLTV) = Val(true)
     get_d(model::ContinuousLTV, k::Integer)
+    get_times(model::ContinuousLTV)
 
 """
 abstract type ContinuousLTV <: ContinuousLinearModel end
@@ -132,6 +142,19 @@ end
 abstract type DiscreteSystemQuadrature <: Explicit end
 
 get_k(t, model::AbstractLinearModel) = is_time_varying(model) ? searchsortedlast(get_times(model), t) : 1
+
+"""
+    get_times(model::AbstractLinearModel)
+
+This function should be overloaded by the user to return the list of times for a time varying linear system. The index
+k of the time varying system gotten using `searchsortedlast` and the returned list. This only needs to be defined for
+time varying systems.
+
+    get_times(model::MyModel) = [0.0, 0.05, 0.1]
+
+In the above example, the system matrices for k = 1 are defined for t ∈ [0.0, 0.05). The system matrices for
+k = 2 are defined for t ∈ [0.05, 0.01). 
+"""
 get_times(model::AbstractLinearModel) = throw(ErrorException("get_times not implemented"))
 
 function dynamics(model::ContinuousLinearModel, x, u, t)

@@ -136,14 +136,11 @@ Most models are assumed to be continuous in nature, and require some integration
 (such as a Runge-Kutta method) to convert to discrete-time dynamics. However, some systems
 are naturally discrete or perhaps the user has a custom integration method already applied
 to their system. Instead of defining the continuous dynamics function, we can directly
-define the discrete dynamics instead:
+define the discrete dynamics instead with the predefined integration type `DiscreteSystemQuadrature`:
 
 ```julia
-# Define a custom integration method
-abstract type CartpoleEuler <: RobotDynamics.QuadratureRule end
-
 # Define the discrete dynamics function
-function RobotDynamics.discrete_dynamics(::Type{CartpoleEuler}, model::Cartpole,
+function RobotDynamics.discrete_dynamics(::Type{DiscreteSystemQuadrature}, model::Cartpole,
         x::StaticVector, u::StaticVector, t, dt)
 
     mc = model.mc   # mass of the cart in kg (10)
