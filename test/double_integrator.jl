@@ -1,35 +1,30 @@
 using RobotDynamics
+import Base: RefValue
 const RD = RobotDynamics
 
 using StaticArrays
 using Test
 using BenchmarkTools
 
-struct DoubleIntegrator{T} <: ContinuousLTI
-    A::SMatrix{2,2,T,4}
-    B::SMatrix{2,1,T,2}
-end
+n = 2
+m = 1
+A = @SMatrix [0.0 1.0; 0.0 0.0]
+B = @SMatrix [0.0; 1.0]
+model = @create_continuous_lti(DoubleIntegrator, n, m)
+set_A!(model, A)
+set_B!(model, B)
 
-function DoubleIntegrator()
-    A = [   0.0 1.0;
-            0.0 0.0 ]
-    B = [   0.0; 
-            1.0 ]
-    return DoubleIntegrator{Float64}(A, B)
-end
-
-RD.state_dim(::DoubleIntegrator) = 2
-RD.control_dim(::DoubleIntegrator) = 1
-RD.get_A(model::DoubleIntegrator) = model.A
-RD.get_B(model::DoubleIntegrator) = model.B
-
-model = DoubleIntegrator()
+@test RD.control_dim(model) == 1
+@test RD.state_dim(model) == 2
 
 @test RD.is_affine(model) == Val(false)
 @test RD.is_time_varying(model) == false
 
-@test RD.get_A(model, 10) === model.A
-@test RD.get_B(model, 10) === model.B
+@test model.A[] === A
+@test model.B[] === B
+
+@test RD.get_A(model, 10) === model.A[]
+@test RD.get_B(model, 10) === model.B[]
 
 dt = 0.01
 t = 0.1
@@ -37,38 +32,60 @@ t = 0.1
 x, u = rand(model)
 
 ẋ = dynamics(model, x, u, t)
-@test model.A * x + model.B * u ≈ ẋ atol=1e-12
+@test A * x + B * u ≈ ẋ atol=1e-12
 
 
 ########################################################################################
-struct DoubleIntegratorAffine{T} <: ContinuousLTI
-    A::SMatrix{2,2,T,4}
-    B::SMatrix{2,1,T,2}
-    d::SVector{2,T}
-end
+A = [0.0 1.0;0.0 0.0]
+B = [0.0;1.0]
+d = [0.0;-9.81]
 
-function DoubleIntegratorAffine()
-    A = [   0.0 1.0;
-            0.0 0.0 ]
-    B = [   0.0; 
-            1.0 ]
-    d = [   0.0;
-            -9.81]
-    return DoubleIntegratorAffine{Float64}(A, B, d)
-end
+affine_model = @create_continuous_lti(DoubleIntegratorAffine, n, m, true)
+set_A!(affine_model, A, 1)
+set_B!(affine_model, B, 1)
+set_d!(affine_model, d, 1)
 
-RD.is_affine(::DoubleIntegratorAffine) = Val(true)
-RD.state_dim(::DoubleIntegratorAffine) = 2
-RD.control_dim(::DoubleIntegratorAffine) = 1
-RD.get_A(model::DoubleIntegratorAffine) = model.A
-RD.get_B(model::DoubleIntegratorAffine) = model.B
-RD.get_d(model::DoubleIntegratorAffine) = model.d
+@test affine_model.A[] == A
+@test affine_model.B[] == SMatrix{2,1}(B)
+@test affine_model.d[] == d
 
-affine_model = DoubleIntegratorAffine()
-
-@test RD.get_A(affine_model, 10) === affine_model.A
-@test RD.get_B(affine_model, 10) === affine_model.B
-@test RD.get_d(affine_model, 10) === affine_model.d
+@test RD.get_A(affine_model, 10) === affine_model.A[]
+@test RD.get_B(affine_model, 10) === affine_model.B[]
+@test RD.get_d(affine_model, 10) === affine_model.d[]
 
 ẋ = dynamics(affine_model, x, u, t)
-@test affine_model.A * x + affine_model.B * u + affine_model.d ≈ ẋ atol=1e-12
+@test affine_model.A[] * x + affine_model.B[] * u + affine_model.d[] ≈ ẋ atol=1e-12
+
+###########################################################################################
+
+discrete_model = @create_discrete_lti(DiscreteDoubleIntegrator, n, m, true)
+
+dt = 0.01
+discretize!(Exponential, discrete_model, affine_model, dt = dt)
+
+cont_sys = zero(SizedMatrix{5, 5})
+cont_sys[1:2, 1:2] .= get_A(affine_model)
+cont_sys[1:2, 3:3] .= get_B(affine_model)
+cont_sys[1:2, 4:5] .= oneunit(SizedMatrix{2, 2})
+
+disc_sys = exp(cont_sys*dt)
+A_d = disc_sys[1:2, 1:2]
+B_d = disc_sys[1:2, 3:3]
+d_d = disc_sys[1:2, 4:5]*get_d(affine_model)
+
+@test A_d ≈ get_A(discrete_model)
+@test B_d ≈ get_B(discrete_model)
+@test d_d ≈ get_d(discrete_model)
+
+@test discrete_dynamics(DiscreteSystemQuadrature, discrete_model, x, u, 0.01, dt) ≈ A_d*x + B_d*u + d_d
+
+## Euler Test:
+A_d = oneunit(SMatrix{2,2}) + get_A(affine_model) * dt
+B_d = get_B(affine_model) * dt
+d_d = get_d(affine_model) * dt
+discretize!(Euler, discrete_model, affine_model, dt = dt)
+
+@test A_d ≈ get_A(discrete_model)
+@test B_d ≈ get_B(discrete_model)
+@test d_d ≈ get_d(discrete_model)
+

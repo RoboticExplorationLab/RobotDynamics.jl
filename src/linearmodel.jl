@@ -218,228 +218,190 @@ const RK1 = Euler
 
 # default to not passing in k here
 for method ∈ (:set_A!, :set_B!, :set_d!)
-    @eval ($method)(model::DiscreteLinearModel, mat::AbstractArray, k::Integer) = ($method)(model, mat)
-    @eval ($method)(model::M, mat::AbstractArray) where M <: DiscreteLinearModel = throw(ErrorException("$($method) not implemented for $M")) 
+    @eval ($method)(model::AbstractLinearModel, mat::AbstractArray, k::Integer) = ($method)(model, mat)
+    @eval ($method)(model::M, mat::AbstractArray) where M <: AbstractLinearModel = throw(ErrorException("$($method) not implemented for $M")) 
 end
 
-linearize_and_discretize!(linear_model::DiscreteLinearModel, nonlinear_model::AbstractModel, trajectory::AbstractTrajectory) = 
-    linearize_and_discretize!(DEFAULT_Q, linear_model, nonlinear_model, trajectory)
-
-function linearize_and_discretize!(::Type{Q}, linear_model::DiscreteLinearModel, nonlinear_model::AbstractModel, trajectory::AbstractTrajectory) where {Q<:Explicit}
-    for knot_point in trajectory
-        linearize_and_discretize!(Q, linear_model, nonlinear_model, knot_point)
-    end
-end
-
-function linearize_and_discretize!(::Type{Q}, linear_model::DiscreteLinearModel, nonlinear_model::AbstractModel, z::AbstractKnotPoint) where {Q<:Explicit}
-    _linearize_and_discretize!(Q, is_affine(linear_model), linear_model, nonlinear_model, z)
-end
-
-# TODO: add special implementations here for models with rotations, rigid bodies
-
-function _linearize_and_discretize!(::Type{Q}, ::Val{true}, linear_model::DiscreteLinearModel, nonlinear_model::AbstractModel, z::AbstractKnotPoint) where {Q<:Explicit}
-    ix, iu = z._x, z._u
-    t = z.t
-    x̄ = z.z[ix]
-    ū = z.z[iu]
-    
-    F = DynamicsJacobian(nonlinear_model)
-    discrete_jacobian!(Q, F, nonlinear_model, z)
-    A = get_A(F)
-    B = get_B(F)
-    d = discrete_dynamics(Q, nonlinear_model, z) - A*x̄ - B*ū
-
-    k = get_k(linear_model, t)
-
-    set_A!(linear_model, A, k)
-    set_B!(linear_model, B, k)
-    set_d!(linear_model, d, k)
-end
-
-function _linearize_and_discretize!(::Type{Exponential}, ::Val{true}, linear_model::DiscreteLinearModel, nonlinear_model::AbstractModel, z::AbstractKnotPoint)
-    ix, iu = z._x, z._u
-    t = z.t
-    dt = z.dt
-    x̄ = z.z[ix]
-    ū = z.z[iu]
-    
-    # dispatch so as not to always using StaticArray implementation?
-    F = DynamicsJacobian(nonlinear_model)
-    jacobian!(F, nonlinear_model, z)
-    A_c = get_A(F)
-    B_c = get_B(F)
-    d_c = dynamics(nonlinear_model, z) - A_c*x̄ - B_c*ū
-
-    k = get_k(linear_model, t)
-
-    _discretize!(Exponential, Val(true), linear_model, A_c, B_c, d_c, k, dt)
-
-    nothing
-end
-
-function _linearize_and_discretize!(::Type{Exponential}, ::Val{false}, linear_model::DiscreteLinearModel, nonlinear_model::AbstractModel, z::AbstractKnotPoint)
-    ix, iu = z._x, z._u
-    t = z.t
-    dt = z.dt
-    
-    # dispatch so as not to always using StaticArray implementation?
-    F = DynamicsJacobian(nonlinear_model)
-    jacobian!(F, nonlinear_model, z)
-    A_c = get_A(F)
-    B_c = get_B(F)
-
-    k = get_k(linear_model, t)
-
-    _discretize!(Exponential, Val(false), linear_model, A_c, B_c, k, dt)
-
-    nothing
-end
-
-function discretize!(::Type{Q}, discrete_model::DiscreteLinearModel, continuous_model::ContinuousLinearModel; dt=0.05) where {Q<:Explicit}
-    @assert is_time_varying(continuous_model) == is_time_varying(discrete_model)
-    @assert is_affine(continuous_model) == is_affine(discrete_model)
-
-    if is_time_varying(continuous_model)
-        @assert all(get_times(continuous_model) .== get_times(discrete_model))
-
-        N = length(get_times(continuous_model))
-        times = get_times(continuous_model)
-
-        for i=1:N-1
-            dt = times[i+1] - times[i]
-
-            _discretize!(Q, is_affine(continuous_model), discrete_model, continuous_model, i, dt)
-        end
+macro create_discrete_ltv(name, n, m, N, is_affine=false)
+    if is_affine   
+        _ltv_affine(name, n, m, N, :DiscreteLTV)
     else
-        _discretize!(Q, is_affine(continuous_model), discrete_model, continuous_model, 1, dt)
+        _ltv_non_affine(name, n, m, N, :DiscreteLTV)
     end
 end
 
-_discretize!(::Type{Q}, ::Val{false}, discrete_model::DiscreteLinearModel, continuous_model::ContinuousLinearModel, k::Integer, dt) where {Q<:Explicit} = 
-    _discretize!(Q, Val(false), discrete_model, get_A(continuous_model, k), get_B(continuous_model, k), k, dt)
-
-_discretize!(::Type{Q}, ::Val{true}, discrete_model::DiscreteLinearModel, continuous_model::ContinuousLinearModel, k::Integer, dt) where {Q<:Explicit} = 
-    _discretize!(Q, Val(true), discrete_model, get_A(continuous_model, k), get_B(continuous_model, k), get_d(continuous_model, k), k, dt)
-
-function _discretize!(::Type{Exponential}, ::Val{false}, discrete_model::DiscreteLinearModel, A::AbstractMatrix, B::AbstractMatrix, k::Integer, dt)
-    n = size(A, 1)
-    m = size(B, 2)
-
-    continuous_system = zero(SizedMatrix{n+m, n+m})
-    continuous_system[1:n, 1:n] .= A
-    continuous_system[1:n, n .+ (1:m)] .= B
-
-    discrete_system = exp(continuous_system*dt)
-    A_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(1,n)]
-    B_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+1,n+m)]
-
-    set_A!(discrete_model, A_d, k)
-    set_B!(discrete_model, B_d, k)
-
-    nothing
+macro create_continuous_ltv(name, n, m, N, is_affine=false)
+    if is_affine   
+        _ltv_affine(name, n, m, N, :ContinuousLTV)
+    else
+        _ltv_non_affine(name, n, m, N, :ContinuousLTV)
+    end
 end
 
-function _discretize!(::Type{Exponential}, ::Val{true}, discrete_model::DiscreteLinearModel, A::AbstractMatrix, B::AbstractMatrix, d::AbstractVector, k::Integer, dt)
-    n = size(A, 1)
-    I = oneunit(SizedMatrix{n, n})
-    m = size(B, 2)
+function _ltv_non_affine(name, n, m, N, supertype)
+    struct_exp = quote
+        struct ($name){T} <: ($supertype)
+            A::Vector{SMatrix{$n,$n,T,($n)^2}}
+            B::Vector{SMatrix{$n,$m,T,($n*$m)}}
+            times::Vector{T}
+        end
+    end
+    function_def = quote
+        RobotDynamics.is_affine(::($name)) = Val(false)
+        RobotDynamics.control_dim(::($name)) = $m
+        RobotDynamics.state_dim(::($name)) = $n
+        RobotDynamics.get_A(model::($name), k::Integer) = model.A[k]
+        RobotDynamics.get_B(model::($name), k::Integer) = model.B[k]
+        RobotDynamics.get_times(model::($name)) = model.times
+        RobotDynamics.set_A!(model::($name), A::AbstractArray, k::Integer) = model.A[k] = A
+        RobotDynamics.set_B!(model::($name), B::AbstractArray, k::Integer) = model.B[k] = B
+        RobotDynamics.set_times!(model::($name), times::AbstractVector) = model.times .= times
 
-    continuous_system = zero(SizedMatrix{(2*n)+m, (2*n)+m})
-    continuous_system[1:n, 1:n] .= A
-    continuous_system[1:n, n .+ (1:m)] .= B
-    continuous_system[1:n, n + m .+ (1:n)] .= I
+        function ($name)()
+            A_vec = [@SMatrix zeros($n, $n) for _ = 1:($N-1)]
+            B_vec = [@SMatrix zeros($n, $m) for _ = 1:($N-1)]
+            times = zeros($N)
 
-    discrete_system = exp(continuous_system*dt)
-    A_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(1,n)]
-    B_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+1,n+m)]
-    D_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+m+1,2*n+m)]
+            return ($name){Float64}(A_vec, B_vec, times)
+        end
+    end
 
-    set_A!(discrete_model, A_d, k)
-    set_B!(discrete_model, B_d, k)
-    set_d!(discrete_model, D_d*d, k)
+    call_exp = quote
+        ($name)()
+    end
 
-    nothing
+    esc(Expr(:toplevel,
+            struct_exp,
+            function_def,
+            call_exp))
 end
 
-function _discretize!(::Type{Euler}, ::Val{false}, discrete_model::DiscreteLinearModel, A::AbstractMatrix, B::AbstractMatrix, k::Integer, dt)
-    A_d = oneunit(typeof(A)) + A*dt
-    B_d = B*dt
-    
-    set_A!(discrete_model, A_d, k)
-    set_B!(discrete_model, B_d, k)
+function _ltv_affine(name, n, m, N, supertype)
+    struct_exp = quote
+        struct ($name){T} <: ($supertype)
+            A::Vector{SMatrix{$n,$n,T,($n)^2}}
+            B::Vector{SMatrix{$n,$m,T,($n*$m)}}
+            d::Vector{SVector{$n,T}}
+            times::Vector{T}
+        end
+    end
+    function_def = quote
+        RobotDynamics.is_affine(::($name)) = Val(true)
+        RobotDynamics.control_dim(::($name)) = $m
+        RobotDynamics.state_dim(::($name)) = $n
+        RobotDynamics.get_A(model::($name), k::Integer) = model.A[k]
+        RobotDynamics.get_B(model::($name), k::Integer) = model.B[k]
+        RobotDynamics.get_d(model::($name), k::Integer) = model.d[k]
+        RobotDynamics.get_times(model::($name)) = model.times
+        RobotDynamics.set_A!(model::($name), A::AbstractArray, k::Integer) = model.A[k] = A
+        RobotDynamics.set_B!(model::($name), B::AbstractArray, k::Integer) = model.B[k] = B
+        RobotDynamics.set_d!(model::($name), d::AbstractArray, k::Integer) = model.d[k] = d
+        RobotDynamics.set_times!(model::($name), times::AbstractVector) = model.times .= times
+
+        function ($name)()
+            A_vec = [@SMatrix zeros($n, $n) for _ = 1:($N-1)]
+            B_vec = [@SMatrix zeros($n, $m) for _ = 1:($N-1)]
+            d_vec = [@SVector zeros($n) for _ = 1:($N-1)]
+            times = zeros($N)
+
+            return ($name){Float64}(A_vec, B_vec, d_vec, times)
+        end
+    end
+
+    call_exp = quote
+        ($name)()
+    end
+
+    esc(Expr(:toplevel,
+            struct_exp,
+            function_def,
+            call_exp))
 end
 
-function _discretize!(::Type{Euler}, ::Val{true}, discrete_model::DiscreteLinearModel, A::AbstractMatrix, B::AbstractMatrix, d::AbstractVector, k::Integer, dt)
-    A_d = oneunit(typeof(A)) + A*dt
-    B_d = B*dt
-    d_d = d*dt
-    
-    set_A!(discrete_model, A_d, k)
-    set_B!(discrete_model, B_d, k)
-    set_d!(discrete_model, d_d, k)
+macro create_discrete_lti(name, n, m, is_affine=false)
+    if is_affine   
+        _lti_affine(name, n, m, :DiscreteLTI)
+    else
+        _lti_non_affine(name, n, m, :DiscreteLTI)
+    end
 end
 
-# TODO: check this
-function _discretize!(::Type{RK2}, ::Val{false}, discrete_model::DiscreteLinearModel, A::AbstractMatrix, B::AbstractMatrix, k::Integer, dt)
-    A_d = oneunit(typeof(A)) + A*dt + A^2*dt^2/2
-    B_d = B*dt + A*B*dt^2/2
-    
-    set_A!(discrete_model, A_d, k)
-    set_B!(discrete_model, B_d, k)
+macro create_continuous_lti(name, n, m, is_affine=false)
+    if is_affine   
+        _lti_affine(name, n, m, :ContinuousLTI)
+    else
+        _lti_non_affine(name, n, m, :ContinuousLTI)
+    end
 end
 
-function _discretize!(::Type{RK2}, ::Val{true}, discrete_model::DiscreteLinearModel, A::AbstractMatrix, B::AbstractMatrix, d::AbstractVector, k::Integer, dt)
-    A_d = oneunit(typeof(A)) + A*dt + A^2*dt^2/2
-    B_d = B*dt + A*B*dt^2/2
-    d_d = d*dt + A*d*dt^2/2
-    
-    set_A!(discrete_model, A_d, k)
-    set_B!(discrete_model, B_d, k)
-    set_d!(discrete_model, d_d, k)
+function _lti_affine(name, n, m, supertype)
+    struct_exp = quote
+        struct ($name){T} <: ($supertype)
+            A::Base.RefValue{SMatrix{$n,$n,T,($n)^2}}
+            B::Base.RefValue{SMatrix{$n,$m,T,($n*$m)}}
+            d::Base.RefValue{SVector{$n,T}}
+        end
+    end
+    function_def = quote
+        RobotDynamics.is_affine(::($name)) = Val(true)
+        RobotDynamics.control_dim(::($name)) = $m
+        RobotDynamics.state_dim(::($name)) = $n
+        RobotDynamics.get_A(model::($name)) = model.A[]
+        RobotDynamics.get_B(model::($name)) = model.B[]
+        RobotDynamics.get_d(model::($name)) = model.d[]
+        RobotDynamics.set_A!(model::($name), A::AbstractArray) = model.A[] = A
+        RobotDynamics.set_B!(model::($name), B::AbstractArray) = model.B[] = B
+        RobotDynamics.set_d!(model::($name), d::AbstractArray) = model.d[] = d
+
+        function ($name)()
+            A = Ref(@SMatrix zeros($n, $n))
+            B = Ref(@SMatrix zeros($n, $m))
+            d = Ref(@SVector zeros($n))
+
+            return ($name){Float64}(A, B, d)
+        end
+    end
+
+    call_exp = quote
+        ($name)()
+    end
+
+    esc(Expr(:toplevel,
+            struct_exp,
+            function_def,
+            call_exp))
 end
 
-# macro create_discrete_ltv(name, n, m, N; is_affine=false)
-#     struct_exp = quote
-#         struct $name <: DiscreteLTV
-#             A::SMatrix
-#             B::SMatrix
-#         end
-#     end
-#     function_def = quote
-#         RobotDynamics.is_affine(::($name)) = Val(is_affine)
-#         RobotDynamics.control_dim(::($name)) = $m
-#         RobotDynamics.state_dim(::($name)) = $n
-#         RobotDynamics.get_A(model::($name), k::Integer) = model.A[k]
-#         RobotDynamics.get_B(model::($name), k::Integer) = model.B[k]
-#         RobotDynamics.get_d(model::($name), k::Integer) = model.d[k]
-#         RobotDynamics.set_A!(model::($name), A::AbstractMatrix, k::Integer) = model.A[k] = A
-#         RobotDynamics.set_B!(model::($name), B::AbstractMatrix, k::Integer) = model.B[k] = B
-#     end
+function _lti_non_affine(name, n, m, supertype)
+    struct_exp = quote
+        struct ($name){T} <: ($supertype)
+            A::Base.RefValue{SMatrix{$n,$n,T,($n)^2}}
+            B::Base.RefValue{SMatrix{$n,$m,T,($n*$m)}}
+        end
+    end
+    function_def = quote
+        RobotDynamics.is_affine(::($name)) = Val(false)
+        RobotDynamics.control_dim(::($name)) = $m
+        RobotDynamics.state_dim(::($name)) = $n
+        RobotDynamics.get_A(model::($name)) = model.A[]
+        RobotDynamics.get_B(model::($name)) = model.B[]
+        RobotDynamics.set_A!(model::($name), A::AbstractArray) = model.A[] = A
+        RobotDynamics.set_B!(model::($name), B::AbstractArray) = model.B[] = B
 
-#     if is_affine
-#         println("should have put in an affine")
-#     end
-#     esc(Expr(:toplevel,
-#             struct_exp,
-#             function_def))
-# end
+        function ($name)()
+            A = Ref(@SMatrix zeros($n, $n))
+            B = Ref(@SMatrix zeros($n, $m))
 
-# macro create_continuous_ltv(name, is_affine, n, m, N)
+            return ($name){Float64}(A, B)
+        end
+    end
 
-# end
+    call_exp = quote
+        ($name)()
+    end
 
-# macro create_discrete_lti(name, is_affine, n, m)
-
-# end
-
-# macro create_continuous_lti(name, is_affine, n, m)
-
-# end
-
-# function create_linear_model_tv(name, is_affine, n, m, N, supertype)
-
-# end
-
-# function create_linear_model_ti(name, is_affine, n, m, supertype)
-
-# end
+    esc(Expr(:toplevel,
+            struct_exp,
+            function_def,
+            call_exp))
+end

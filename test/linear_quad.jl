@@ -3,6 +3,7 @@ using LinearAlgebra
 using StaticArrays
 using Test
 using BenchmarkTools
+using Rotations
 
 
 struct LinearQuad{T} <: DiscreteLTI

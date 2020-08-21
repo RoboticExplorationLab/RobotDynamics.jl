@@ -45,8 +45,18 @@ export
     get_A,
     get_B,
     get_d,
+    set_A!,
+    set_B!,
+    set_d!,
     is_affine,
-    is_time_varying
+    is_time_varying,
+    discretize!,
+    Exponential,
+    Euler,
+    @create_continuous_lti,
+    @create_discrete_lti,
+    @create_continuous_ltv,
+    @create_discrete_ltv
 
 
 # knotpoints
@@ -78,8 +88,9 @@ include("model.jl")
 include("liestate.jl")
 include("rigidbody.jl")
 include("integration.jl")
-include("linearmodel.jl")
 include("trajectories.jl")
+include("linearmodel.jl")
+include("linearization.jl")
 include("plot_recipes.jl")
 
 end # module

@@ -33,6 +33,7 @@ end
     include("test_random_linear.jl")
     include("linear_quad.jl")
     include("linear_tests.jl")
+    include("linearization.jl")
 end
 
 @testset "Rigid Bodies" begin
