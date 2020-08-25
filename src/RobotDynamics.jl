@@ -8,6 +8,7 @@ using UnsafeArrays
 using RecipesBase
 
 using Rotations: skew
+using StaticArrays: SUnitRange
 
 export
     AbstractModel,
@@ -50,6 +51,7 @@ export
     set_d!,
     is_affine,
     is_time_varying,
+    linearize_and_discretize!,
     discretize!,
     Exponential,
     Euler,

@@ -135,7 +135,14 @@ is_time_varying(::ContinuousLTV) = true
 
 # default to not passing in k
 for method ∈ (:get_A, :get_B, :get_d)
-    @eval ($method)(model::AbstractLinearModel, k::Integer) = ($method)(model)
+    @eval begin
+        @doc """
+            $($method)(model::AbstractLinearModel, k::Integer)
+
+        Return system matrix for time index k
+        """
+        ($method)(model::AbstractLinearModel, k::Integer) = ($method)(model)
+    end
     @eval ($method)(model::M) where M <: AbstractLinearModel = throw(ErrorException("$($method) not implemented for $M")) 
 end
 
@@ -149,11 +156,6 @@ get_k(t, model::AbstractLinearModel) = is_time_varying(model) ? searchsortedlast
 This function should be overloaded by the user to return the list of times for a time varying linear system. The index
 k of the time varying system gotten using `searchsortedlast` and the returned list. This only needs to be defined for
 time varying systems.
-
-    get_times(model::MyModel) = [0.0, 0.05, 0.1]
-
-In the above example, the system matrices for k = 1 are defined for t ∈ [0.0, 0.05). The system matrices for
-k = 2 are defined for t ∈ [0.05, 0.01). 
 """
 get_times(model::AbstractLinearModel) = throw(ErrorException("get_times not implemented"))
 
@@ -222,6 +224,14 @@ for method ∈ (:set_A!, :set_B!, :set_d!)
     @eval ($method)(model::M, mat::AbstractArray) where M <: AbstractLinearModel = throw(ErrorException("$($method) not implemented for $M")) 
 end
 
+"""
+    @create_discrete_ltv(name, n, m, N, is_affine=false)
+
+This macro can be used to conveniently create a DiscreteLTV model subtype and model instance.
+In order to use the resulting model, use the `set_A!`, `set_B!`, `set_times!`, and `set_d!`
+functions to add in your system matrices. The macro defines a default constructor with 
+system matrices of all zeros. 
+"""
 macro create_discrete_ltv(name, n, m, N, is_affine=false)
     if is_affine   
         _ltv_affine(name, n, m, N, :DiscreteLTV)
@@ -230,6 +240,14 @@ macro create_discrete_ltv(name, n, m, N, is_affine=false)
     end
 end
 
+"""
+    @create_continuous_ltv(name, n, m, N, is_affine=false)
+
+This macro can be used to conveniently create a ContinuousLTV model subtype and model instance.
+In order to use the resulting model, use the `set_A!`, `set_B!`, `set_times!`, and `set_d!`
+functions to add in your system matrices. The macro defines a default constructor with 
+system matrices of all zeros. 
+"""
 macro create_continuous_ltv(name, n, m, N, is_affine=false)
     if is_affine   
         _ltv_affine(name, n, m, N, :ContinuousLTV)
@@ -318,6 +336,14 @@ function _ltv_affine(name, n, m, N, supertype)
             call_exp))
 end
 
+"""
+    @create_discrete_lti(name, n, m, is_affine=false)
+
+This macro can be used to conveniently create a DiscreteLTI model subtype and model instance.
+In order to use the resulting model, use the `set_A!`, `set_B!`, and `set_d!` functions to 
+add in your system matrices. The macro defines a default constructor with system matrices of 
+all zeros. 
+"""
 macro create_discrete_lti(name, n, m, is_affine=false)
     if is_affine   
         _lti_affine(name, n, m, :DiscreteLTI)
@@ -326,6 +352,14 @@ macro create_discrete_lti(name, n, m, is_affine=false)
     end
 end
 
+"""
+    @create_continuous_lti(name, n, m, is_affine=false)
+
+This macro can be used to conveniently create a ContinuousLTI model subtype and model instance.
+In order to use the resulting model, use the `set_A!`, `set_B!`, and `set_d!` functions to 
+add in your system matrices. The macro defines a default constructor with system matrices of 
+all zeros. 
+"""
 macro create_continuous_lti(name, n, m, is_affine=false)
     if is_affine   
         _lti_affine(name, n, m, :ContinuousLTI)
