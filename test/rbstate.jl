@@ -145,6 +145,9 @@ dx = x1 ⊖ x2
 @test dx[7:9] ≈ linear_velocity(x1) - linear_velocity(x2)
 @test dx[10:12] ≈ angular_velocity(x1) - angular_velocity(x2)
 
+@test dx isa SVector{12}
+@test x2 ⊕ dx ≈ x1
+
 q1 = orientation(x1)
 q2 = orientation(x2)
 @test Rotations.params(RodriguesParam(q2) \ RodriguesParam(q1)) ≈ dx[4:6]

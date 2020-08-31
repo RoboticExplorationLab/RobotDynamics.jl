@@ -179,6 +179,21 @@ function Rotations.:⊖(s1::RBState, s2::RBState, rmap=CayleyMap())
               dv[1], dv[2], dv[3], dw[1], dw[2], dw[3]]
 end
 
+"""
+    ⊕(x::RBState, dx::StaticVector{12}, rmap=CayleyMap())
+
+Add the state error `dx` to the rigid body state `x` using the map `rmap`. Simply adds the
+vector states, and computes the orientation with `Rotations.add_error(x, dx, rmap)`
+"""
+function Rotations.:⊕(s1::RBState, dx::StaticVector{12}, rmap=CayleyMap())
+    dr = SA[dx[1],  dx[2],  dx[3]]
+    dq = SA[dx[4],  dx[5],  dx[6]]
+    dv = SA[dx[7],  dx[8],  dx[9]]
+    dω = SA[dx[10], dx[11], dx[12]]
+    q = Rotations.add_error(s1.q, Rotations.RotationError(dq, rmap))
+    RBState(s1.r + dr, q, s1.v + dv, s1.ω + dω)
+end
+
 Base.zero(s1::RBState) = zero(RBState)
 @inline Base.zero(::Type{<:RBState}) = zero(RBState{Float64})
 function Base.zero(::Type{<:RBState{T}}) where T
