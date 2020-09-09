@@ -38,3 +38,44 @@ for i=1:N-1
 
     @test discrete_dynamics(RK3, nonlinear_model, knot_point) ≈ discrete_dynamics(DiscreteSystemQuadrature, linear_model, knot_point) atol=1e-2
 end
+
+###################################
+# Exponential Discretization Tests
+using ControlSystems
+
+dt = 0.01
+C_111 = ss([-5], [2], [3], [0])
+D_111 = c2d(C_111, dt, :zoh)
+C_111_rd = @create_continuous_lti(C_111_model, 1, 1)
+set_A!(C_111_rd, [-5])
+set_B!(C_111_rd, [2])
+
+D_111_rd = @create_discrete_lti(D_111_model, 1, 1)
+discretize!(Exponential, D_111_rd, C_111_rd, dt=dt)
+@test D_111[1].A ≈ get_A(D_111_rd)
+@test D_111[1].B ≈ get_B(D_111_rd)
+
+####
+
+C_212 = ss([-5 -3; 2 -9], [1; 2], [1 0; 0 1], [0; 0])
+D_212 = c2d(C_212, dt, :zoh)
+C_212_rd = @create_continuous_lti(C_212_model, 2, 1)
+set_A!(C_212_rd, [-5 -3; 2 -9])
+set_B!(C_212_rd, [1; 2])
+
+D_212_rd = @create_discrete_lti(D_212_model, 2, 1)
+discretize!(Exponential, D_212_rd, C_212_rd, dt=dt)
+@test D_212[1].A ≈ get_A(D_212_rd)
+@test D_212[1].B ≈ get_B(D_212_rd)
+
+###
+C_221 = ss([-5 -3; 2 -9], [1 0; 0 2], [1 0], [0 0])
+D_221 = c2d(C_221, dt, :zoh)
+C_221_rd = @create_continuous_lti(C_221_model, 2, 2)
+set_A!(C_221_rd, [-5 -3; 2 -9])
+set_B!(C_221_rd, [1 0; 0 2])
+
+D_221_rd = @create_discrete_lti(D_221_model, 2, 2)
+discretize!(Exponential, D_221_rd, C_221_rd, dt=dt)
+@test D_221[1].A ≈ get_A(D_221_rd)
+@test D_221[1].B ≈ get_B(D_221_rd)
