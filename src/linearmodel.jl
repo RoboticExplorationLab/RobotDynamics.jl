@@ -229,8 +229,20 @@ end
 
 This macro can be used to conveniently create a DiscreteLTV model subtype and model instance.
 In order to use the resulting model, use the `set_A!`, `set_B!`, `set_times!`, and `set_d!`
-functions to add in your system matrices. The macro defines a default constructor with 
-system matrices of all zeros. 
+functions to add in your system matrices. This macro must be called from a top level scope.
+
+Creates a struct that looks like:
+```julia
+struct (name){TA, TB, Td, T} <: DiscreteLTV
+    A::Vector{TA}
+    B::Vector{TB}
+    d::Vector{Td}
+    times::Vector{T}
+end
+```
+All functions necessary to modify/use the struct are predefined by the macro. The macro defines a 
+default constructor using `SMatrix` with all zeros. This can be called simply with `(name)()`.
+If `is_affine = false` then the d term is not defined in the struct.
 """
 macro create_discrete_ltv(name, n, m, N, is_affine=false)
     if is_affine   
@@ -245,8 +257,20 @@ end
 
 This macro can be used to conveniently create a ContinuousLTV model subtype and model instance.
 In order to use the resulting model, use the `set_A!`, `set_B!`, `set_times!`, and `set_d!`
-functions to add in your system matrices. The macro defines a default constructor with 
-system matrices of all zeros. 
+functions to add in your system matrices. This macro must be called from a top level scope.
+
+Creates a struct that looks like:
+```julia
+struct (name){TA, TB, Td, T} <: ContinuousLTV
+    A::Vector{TA}
+    B::Vector{TB}
+    d::Vector{Td}
+    times::Vector{T}
+end
+```
+All functions necessary to modify/use the struct are predefined by the macro. The macro defines a 
+default constructor using `SMatrix` with all zeros. This can be called simply with `(name)()`.
+If `is_affine = false` then the d term is not defined in the struct.
 """
 macro create_continuous_ltv(name, n, m, N, is_affine=false)
     if is_affine   
@@ -258,9 +282,9 @@ end
 
 function _ltv_non_affine(name, n, m, N, supertype)
     struct_exp = quote
-        struct ($name){T} <: ($supertype)
-            A::Vector{SMatrix{$n,$n,T,($n)^2}}
-            B::Vector{SMatrix{$n,$m,T,($n*$m)}}
+        struct ($name){TA, TB, T} <: ($supertype)
+            A::Vector{TA}
+            B::Vector{TB}
             times::Vector{T}
         end
     end
@@ -280,26 +304,25 @@ function _ltv_non_affine(name, n, m, N, supertype)
             B_vec = [@SMatrix zeros($n, $m) for _ = 1:($N-1)]
             times = zeros($N)
 
-            return ($name){Float64}(A_vec, B_vec, times)
-        end
-    end
+            TA = eltype(A_vec)
+            TB = eltype(B_vec)
+            T = eltype(times)
 
-    call_exp = quote
-        ($name)()
+            return ($name){TA, TB, T}(A_vec, B_vec, times)
+        end
     end
 
     esc(Expr(:toplevel,
             struct_exp,
-            function_def,
-            call_exp))
+            function_def))
 end
 
 function _ltv_affine(name, n, m, N, supertype)
     struct_exp = quote
-        struct ($name){T} <: ($supertype)
-            A::Vector{SMatrix{$n,$n,T,($n)^2}}
-            B::Vector{SMatrix{$n,$m,T,($n*$m)}}
-            d::Vector{SVector{$n,T}}
+        struct ($name){TA, TB, Td, T} <: ($supertype)
+            A::Vector{TA}
+            B::Vector{TB}
+            d::Vector{Td}
             times::Vector{T}
         end
     end
@@ -322,18 +345,19 @@ function _ltv_affine(name, n, m, N, supertype)
             d_vec = [@SVector zeros($n) for _ = 1:($N-1)]
             times = zeros($N)
 
-            return ($name){Float64}(A_vec, B_vec, d_vec, times)
-        end
-    end
+            TA = eltype(A_vec)
+            TB = eltype(B_vec)
+            Td = eltype(d_vec)
+            T = eltype(times)
 
-    call_exp = quote
-        ($name)()
+
+            return ($name){TA, TB, Td, T}(A_vec, B_vec, d_vec, times)
+        end
     end
 
     esc(Expr(:toplevel,
             struct_exp,
-            function_def,
-            call_exp))
+            function_def))
 end
 
 """
@@ -342,7 +366,19 @@ end
 This macro can be used to conveniently create a DiscreteLTI model subtype and model instance.
 In order to use the resulting model, use the `set_A!`, `set_B!`, and `set_d!` functions to 
 add in your system matrices. The macro defines a default constructor with system matrices of 
-all zeros. 
+all zeros. This macro must be called from a top level scope.
+
+Creates a struct that looks like: 
+```julia
+struct (name){TA, TB, Td} <: DiscreteLTI
+    A::Base.RefValue{TA}
+    B::Base.RefValue{TB}
+    d::Base.RefValue{Td}
+end
+```
+All functions necessary to modify/use the struct are predefined by the macro. The macro defines a 
+default constructor using `SMatrix` with all zeros. This can be called simply with `(name)()`.
+If `is_affine = false` then the d term is not defined in the struct.
 """
 macro create_discrete_lti(name, n, m, is_affine=false)
     if is_affine   
@@ -358,7 +394,19 @@ end
 This macro can be used to conveniently create a ContinuousLTI model subtype and model instance.
 In order to use the resulting model, use the `set_A!`, `set_B!`, and `set_d!` functions to 
 add in your system matrices. The macro defines a default constructor with system matrices of 
-all zeros. 
+all zeros. This macro must be called from a top level scope.
+
+Creates a struct that looks like: 
+```julia
+struct (name){TA, TB, Td} <: ContinuousLTI
+    A::Base.RefValue{TA}
+    B::Base.RefValue{TB}
+    d::Base.RefValue{Td}
+end
+```
+All functions necessary to modify/use the struct are predefined by the macro. The macro defines a 
+default constructor using `SMatrix` with all zeros. This can be called simply with `(name)()`.
+If `is_affine = false` then the d term is not defined in the struct.
 """
 macro create_continuous_lti(name, n, m, is_affine=false)
     if is_affine   
@@ -370,10 +418,10 @@ end
 
 function _lti_affine(name, n, m, supertype)
     struct_exp = quote
-        struct ($name){T} <: ($supertype)
-            A::Base.RefValue{SMatrix{$n,$n,T,($n)^2}}
-            B::Base.RefValue{SMatrix{$n,$m,T,($n*$m)}}
-            d::Base.RefValue{SVector{$n,T}}
+        struct ($name){TA, TB, Td} <: ($supertype)
+            A::Base.RefValue{TA}
+            B::Base.RefValue{TB}
+            d::Base.RefValue{Td}
         end
     end
     function_def = quote
@@ -392,25 +440,24 @@ function _lti_affine(name, n, m, supertype)
             B = Ref(@SMatrix zeros($n, $m))
             d = Ref(@SVector zeros($n))
 
-            return ($name){Float64}(A, B, d)
-        end
-    end
+            TA = typeof(A[])
+            TB = typeof(B[])
+            Td = typeof(d[])
 
-    call_exp = quote
-        ($name)()
+            return ($name){TA, TB, Td}(A, B, d)
+        end
     end
 
     esc(Expr(:toplevel,
             struct_exp,
-            function_def,
-            call_exp))
+            function_def))
 end
 
 function _lti_non_affine(name, n, m, supertype)
     struct_exp = quote
-        struct ($name){T} <: ($supertype)
-            A::Base.RefValue{SMatrix{$n,$n,T,($n)^2}}
-            B::Base.RefValue{SMatrix{$n,$m,T,($n*$m)}}
+        struct ($name){TA, TB} <: ($supertype)
+            A::Base.RefValue{TA}
+            B::Base.RefValue{TB}
         end
     end
     function_def = quote
@@ -426,16 +473,14 @@ function _lti_non_affine(name, n, m, supertype)
             A = Ref(@SMatrix zeros($n, $n))
             B = Ref(@SMatrix zeros($n, $m))
 
-            return ($name){Float64}(A, B)
-        end
-    end
+            TA = typeof(A[])
+            TB = typeof(B[])
 
-    call_exp = quote
-        ($name)()
+            return ($name){TA, TB}(A, B)
+        end
     end
 
     esc(Expr(:toplevel,
             struct_exp,
-            function_def,
-            call_exp))
+            function_def))
 end

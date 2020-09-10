@@ -10,7 +10,8 @@ n = 2
 m = 1
 A = @SMatrix [0.0 1.0; 0.0 0.0]
 B = @SMatrix [0.0; 1.0]
-model = @create_continuous_lti(DoubleIntegrator, n, m)
+@create_continuous_lti(DoubleIntegrator, n, m)
+model = DoubleIntegrator()
 set_A!(model, A)
 set_B!(model, B)
 
@@ -40,7 +41,9 @@ A = [0.0 1.0;0.0 0.0]
 B = [0.0;1.0]
 d = [0.0;-9.81]
 
-affine_model = @create_continuous_lti(DoubleIntegratorAffine, n, m, true)
+@create_continuous_lti(DoubleIntegratorAffine, n, m, true)
+affine_model = DoubleIntegratorAffine()
+
 set_A!(affine_model, A, 1)
 set_B!(affine_model, B, 1)
 set_d!(affine_model, d, 1)
@@ -58,7 +61,8 @@ ẋ = dynamics(affine_model, x, u, t)
 
 ###########################################################################################
 
-discrete_model = @create_discrete_lti(DiscreteDoubleIntegrator, n, m, true)
+@create_discrete_lti(DiscreteDoubleIntegrator, n, m, true)
+discrete_model = DiscreteDoubleIntegrator()
 
 dt = 0.01
 discretize!(Exponential, discrete_model, affine_model, dt = dt)

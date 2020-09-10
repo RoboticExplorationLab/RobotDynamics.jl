@@ -97,7 +97,8 @@ dt = 0.01
 knot_point = KnotPoint(x̄, ū, dt)
 
 # creates LinearizedCartpole type 
-linear_model = @create_discrete_lti(LinearizedCartpole, n, m, false)
+@create_discrete_lti(LinearizedCartpole, n, m, false)
+linear_model = LinearizedCartpole()
 
 # puts linearized and discretized model into linear_model
 linearize_and_discretize!(Exponential, linear_model, nonlinear_model, knot_point)
