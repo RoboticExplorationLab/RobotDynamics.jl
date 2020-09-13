@@ -34,31 +34,31 @@ export
     angular_velocity
 
 # linear model
-export
-    AbstractLinearModel,
-    DiscreteLinearModel,
-    DiscreteLTV,
-    DiscreteLTI,
-    DiscreteSystemQuadrature,
-    ContinuousLinearModel,
-    ContinuousLTV,
-    ContinuousLTI,
-    get_A,
-    get_B,
-    get_d,
-    set_A!,
-    set_B!,
-    set_d!,
-    is_affine,
-    is_time_varying,
-    linearize_and_discretize!,
-    discretize!,
-    Exponential,
-    Euler,
-    @create_continuous_lti,
-    @create_discrete_lti,
-    @create_continuous_ltv,
-    @create_discrete_ltv
+# export
+#     AbstractLinearModel,
+#     DiscreteLinearModel,
+#     DiscreteLTV,
+#     DiscreteLTI,
+#     DiscreteSystemQuadrature,
+#     ContinuousLinearModel,
+#     ContinuousLTV,
+#     ContinuousLTI,
+#     get_A,
+#     get_B,
+#     get_d,
+#     set_A!,
+#     set_B!,
+#     set_d!,
+#     is_affine,
+#     is_time_varying,
+#     linearize_and_discretize!,
+#     discretize!,
+#     Exponential,
+#     Euler,
+#     @create_continuous_lti,
+#     @create_discrete_lti,
+#     @create_continuous_ltv,
+#     @create_discrete_ltv
 
 
 # knotpoints
@@ -91,8 +91,9 @@ include("liestate.jl")
 include("rigidbody.jl")
 include("integration.jl")
 include("trajectories.jl")
-include("linearmodel.jl")
-include("linearization.jl")
+# include("linearmodel.jl")
+# include("linearization.jl")
+include("linearmodeltype.jl")
 include("plot_recipes.jl")
 
 end # module
