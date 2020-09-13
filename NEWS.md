@@ -11,7 +11,7 @@ Added plotting recipes for plotting trajectories vs time and 2D plots of one sta
 * `traj2(X; xind=1, yind=2)` plots a 2D trajectory of `x[xind]` vs
 `x[yind]`.
 
-## Linear Models (`0.2.1`)
+## Linear Models (`v0.2.2`)
 Created specialized types for dealing with linear models, including `AbstractLinearModel`,
 `ContinuousLTI`, `ContinuousLTV`, `DiscreteLTI`, and `DiscreteLTV`. All types can include
 an affine term. Custom types that inherit from these abstract types will inherit their

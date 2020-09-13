@@ -5,15 +5,15 @@ const VecVec = Vector{<:StaticVector{<:Any,<:Real}}
 #   plot(X; inds=1:3) will plot the first three states of the trajectory X 
 #   can also pass time in as the first argument, e.g. plot(t,X, inds=2:3) 
 @recipe function f(::Type{T}, X::T) where T <: VecVec
-    hcat(X...)'
+    hcat(Vector.(X)...)'
 end
 
 @recipe function f(X::VecVec; inds=1:length(X[1]))
-    (hcat(X...)[inds,:])'
+    (hcat(Vector.(X)...)[inds,:])'
 end
 
 @recipe function f(t::AbstractVector{<:Real}, X::VecVec; inds=1:length(X[1]))
-    t, (hcat(X...)[inds,:])'
+    t, (hcat(Vector.(X)...)[inds,:])'
 end
 
 """
