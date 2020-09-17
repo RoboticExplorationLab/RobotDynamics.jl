@@ -25,9 +25,9 @@ based on the integration scheme selected. Here is the current set of implemented
         * [`RK3`](@ref)
         * [`RK4`](@ref)
         * [`Exponential`](@ref)
+        * [`PassThrough`](@ref)
     * [`Implicit`](@ref)
         * [`HermiteSimpson`](@ref)
-    * [`PassThrough`](@ref)
 
 
 ```@docs
@@ -37,9 +37,9 @@ RK2
 RK3
 RK4
 Exponential
+PassThrough
 RobotDynamics.Implicit
 HermiteSimpson
-PassThrough
 ```
 
 ## Defining a New Integration Scheme

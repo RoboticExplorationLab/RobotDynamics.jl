@@ -1,5 +1,5 @@
 "Integration type for systems with user defined discrete dynamics."
-abstract type PassThrough <: QuadratureRule end
+abstract type PassThrough <: Explicit end
 
 "Exponential integration for linear systems with ZOH on controls."
 abstract type Exponential <: Explicit end

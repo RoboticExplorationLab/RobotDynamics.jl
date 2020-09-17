@@ -24,8 +24,6 @@ LinearizedModel(model::M, linmodel::L, traj::T) where {M <: AbstractModel, L <: 
 dynamics(model::LinearizedModel, x, u, t=0.0) = dynamics(model.linmodel, x, u, t)
 discrete_dynamics(::Type{PassThrough}, model::LinearizedModel, x, u, t, dt) = 
     discrete_dynamics(PassThrough, model.linmodel, x, u, t, dt)
-discrete_dynamics(::Type{PassThrough}, model::LinearizedModel, z::AbstractKnotPoint) = 
-    discrete_dynamics(PassThrough, model.linmodel, state(z), control(z), z.t, z.dt)
 
 jacobian!(∇f::AbstractMatrix, model::LinearizedModel, z::AbstractKnotPoint) = 
     jacobian!(∇f, model.linmodel, z)
