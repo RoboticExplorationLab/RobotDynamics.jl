@@ -1,486 +1,146 @@
-#=
-Type tree:
-                 AbstractLinearModel <: AbstractModel
-                ↙                                    ↘
-         DiscreteLinearModel                   ContinuousLinearModel
-         ↙               ↘                       ↙                ↘
- DiscreteLTI           DiscreteLTV       ContinuousLTI          ContinuousLTV
-                                
-=#
+"Integration type for systems with user defined discrete dynamics."
+abstract type PassThrough <: QuadratureRule end
 
+"Exponential integration for linear systems with ZOH on controls."
+abstract type Exponential <: Explicit end
 
 """
-    AbstractLinearModel <: AbstractModel
+    LinearModel{n,m,T} <: AbstractModel
 
-A general supertype for implementing a linear model. The subtypes of this model allow the automatic implementation of dynamics and jacobian functions for improved performance.
+A concrete type for creating efficient linear model representations. This model type will
+automatically define the continuous or discrete version of the dynamics and jacobian functions.
+Supports continuous/discrete, time invariant/varying, and affine models.
+
+# Constructors
+    LinearModel(A::AbstractMatrix, B::AbstractMatrix, [dt=0, use_static]) # time invariant
+    LinearModel(A::AbstractMatrix, B::AbstractMatrix, d::AbstractVector, [dt=0, use_static]) # time invariant affine
+    LinearModel(A::Vector{TA}, B::Vector{TB}, [times::AbstractVector, dt::Real=0, use_static]) # time varying
+    LinearModel(A::Vector{TA}, B::Vector{TB}, d::Vector{Td}, [times::AbstractVector, dt=0, use_static]) # time varying affine
+
+    LinearModel(n::Integer, m::Integer, [is_affine=false, times=1:0, dt=0, use_static]) # constructor with zero dynamics matrices
+
+By default, the model is assumed to be continuous unless a non-zero dt is specified. For time varying models, `searchsortedlast` is 
+called on the `times` vector to get the discrete time index from the continuous time. The `use_static` keyword is automatically
+specified based on array size, but can be turned off in case of excessive compilation times.
 """
-abstract type AbstractLinearModel <: AbstractModel end
-
-"""
-    DiscreteLinearModel <: AbstractLinearModel
-
-An abstract subtype of `AbstractLinearModel` for discrete linear systems that contains LTI and LTV systems. The subtypes of this model automatically implement the `discrete_dynamics` and 
-`discrete_jacobian!` functions.
-"""
-abstract type DiscreteLinearModel <: AbstractLinearModel end
-
-"""
-    DiscreteLTI<: DiscreteLinearModel
-
-An abstract subtype of `DiscreteLinearModel` for discrete LTI systems of the following form:
-    ``x_{k+1} = Ax_k + Bu_k``
-    or 
-    ``x_{k+1} = Ax_k + Bu_k + d``  
-
-# Interface
-All instances of `DiscreteLTI` should support the following functions:
-
-    get_A(model::DiscreteLTI) 
-    get_B(model::DiscreteLTI)
-
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify affine systems:
-
-    is_affine(model::DiscreteLTI) = Val(true)
-    get_d(model::DiscreteLTI)
-
-Subtypes of this model should use the integration type `DiscreteSystemQuadrature`. 
-
-"""
-abstract type DiscreteLTI <: DiscreteLinearModel end
-
-"""
-    DiscreteLTV<: DiscreteLinearModel
-
-An abstract subtype of `DiscreteLinearModel` for discrete LTV systems of the following form:  
-    ``x_{k+1} = A_k x_k + B_k u_k``  
-    or 
-    ``x_{k+1} = A_k x_k + B_k u_k + d_k``  
-
-# Interface
-All instances of `DiscreteLTV` should support the following functions:
-
-    get_A(model::DiscreteLTV, k::Integer) 
-    get_B(model::DiscreteLTV, k::Integer)
-
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify affine systems:
-
-    is_affine(model::DiscreteLTV) = Val(true)
-    get_d(model::DiscreteLTV, k::Integer)
-    get_times(model::DiscreteLTV)
-
-Subtypes of this model should use the integration type `DiscreteSystemQuadrature`. 
-
-"""
-abstract type DiscreteLTV <: DiscreteLinearModel end
-
-"""
-    ContinuousLinearModel <: AbstractLinearModel
-
-An abstract subtype of `AbstractLinearModel` for continuous linear systems that contains LTI and LTV systems. The subtypes of this model automatically implement the `dynamics` and 
-`jacobian!` functions. For trajectory optimization problems, it will generally be faster to integrate your system matrices externally and implement a `DiscreteLinearModel`. This
-reduces unnecessary calls to the dynamics function and increases speed.
-"""
-abstract type ContinuousLinearModel <: AbstractLinearModel end
-
-"""
-    ContinuousLTI<: ContinuousLinearModel
-
-An abstract subtype of `ContinuousLinearModel` for continuous LTI systems of the following form:  
-    ``ẋ = Ax + Bu``  
-    or
-     ``ẋ = Ax + Bu + d``  
-
-# Interface
-All instances of `ContinuousLTI` should support the following functions:
-
-    get_A(model::ContinuousLTI) 
-    get_B(model::ContinuousLTI)
-
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify affine systems:
-
-    is_affine(model::ContinuousLTI) = Val(true)
-    get_d(model::ContinuousLTI)
-
-"""
-abstract type ContinuousLTI <: ContinuousLinearModel end
-
-"""
-    ContinuousLTV<: ContinuousLinearModel
-
-An abstract subtype of `ContinuousLinearModel` for continuous LTV systems of the following form:  
-    ``ẋ = A_k x + B_k u``  
-    or 
-    ``ẋ = A_k x + B_k u + d_k``  
-
-# Interface
-All instances of `ContinuousLTV` should support the following functions:
-
-    get_A(model::ContinuousLTV, k::Integer) 
-    get_B(model::ContinuousLTV, k::Integer)
-
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify affine systems:
-
-    is_affine(model::ContinuousLTV) = Val(true)
-    get_d(model::ContinuousLTV, k::Integer)
-    get_times(model::ContinuousLTV)
-
-"""
-abstract type ContinuousLTV <: ContinuousLinearModel end
-
-is_affine(::AbstractLinearModel) = Val(false)
-
-is_time_varying(::AbstractLinearModel) = false
-is_time_varying(::DiscreteLTV) = true
-is_time_varying(::ContinuousLTV) = true
-
-# default to not passing in k
-for method ∈ (:get_A, :get_B, :get_d)
-    @eval begin
-        @doc """
-            $($method)(model::AbstractLinearModel, k::Integer)
-
-        Return system matrix for time index k
-        """
-        ($method)(model::AbstractLinearModel, k::Integer) = ($method)(model)
+struct LinearModel{n,m,T} <: AbstractModel
+    A::Vector{SizedMatrix{n,n,T,2}}
+    B::Vector{SizedMatrix{n,m,T,2}}
+    d::Vector{SizedVector{n,T,1}}
+    times::Vector{T}
+    dt::T
+    xdot::MVector{n,T}
+    use_static::Bool
+    function LinearModel(
+            A::Vector{TA},
+            B::Vector{TB},
+            d::Vector{Td} = SVector{size(A[1],1),eltype(A[1])}[];
+            times::AbstractVector = 1:0,
+            dt::Real = 0,
+            use_static::Bool = (length(A[1]) < 14*14)
+        ) where {TA <: AbstractMatrix,TB<:AbstractMatrix,Td<:AbstractVector}
+        n,m = size(B[1])
+        @assert size(A[1]) == (n,n)
+        isempty(d) || @assert size(d[1]) == (n,)
+        @assert length(A) == length(B)
+        length(A) > 1 && @assert length(A) == length(times) - 1
+        @assert length(A) > 0
+        @assert issorted(times)
+        T = promote_type(eltype(TA), eltype(TB), eltype(Td))
+        A = SizedMatrix{n,n,T}.(a for a in A)
+        B = SizedMatrix{n,m,T}.(b for b in B)
+        d = SizedVector{n,T}.(d_ for d_ in d)
+        times = Vector{T}(times)
+        xdot = @MVector zeros(n)
+        new{n,m,T}(A, B, d, times, dt, xdot, use_static)
     end
-    @eval ($method)(model::M) where M <: AbstractLinearModel = throw(ErrorException("$($method) not implemented for $M")) 
+end
+state_dim(::LinearModel{n}) where n = n
+control_dim(::LinearModel{<:Any,m}) where m = m
+
+is_discrete(model::LinearModel) = model.dt !== zero(model.dt)
+is_affine(model::LinearModel) = !isempty(model.d)
+is_timevarying(model::LinearModel) = !isempty(model.times)
+get_k(model::LinearModel, t) = is_timevarying(model) ? searchsortedlast(model.times, t) : 1
+
+LinearModel(A::AbstractMatrix, B::AbstractMatrix; dt=0, kwargs...) = LinearModel([A],[B], dt=dt; kwargs...)
+LinearModel(A::AbstractMatrix, B::AbstractMatrix, d::AbstractVector; dt=0, kwargs...) = LinearModel([A],[B],[d], dt=dt; kwargs...)
+
+function LinearModel(n::Integer, m::Integer; is_affine=false, times=1:0, kwargs...)
+    N_ = (length(times) > 1) ? length(times) - 1 : 1
+
+    # only linearize about N-1 points in trajectory 
+    A = [zero(SizedMatrix{n,n}) for i=1:N_]
+    B = [zero(SizedMatrix{n,m}) for i=1:N_]
+    d = is_affine ? [zero(SizedVector{n}) for i=1:N_] : SizedVector{n}[]
+
+    LinearModel(A, B, d; times=times, kwargs...)
 end
 
-abstract type DiscreteSystemQuadrature <: Explicit end
+function linear_dynamics(model::LinearModel, x, u, k::Int=1)
+    if model.use_static
+        A = SMatrix(model.A[k])
+        B = SMatrix(model.B[k])
+        xdot = linear_dynamics(A, B, x, u)
+    else
+        A = model.A[k]
+        B = model.B[k]
+        linear_dynamics!(model.xdot, A, B, x, u)
+        xdot = SVector(model.xdot)
+    end
 
-get_k(t, model::AbstractLinearModel) = is_time_varying(model) ? searchsortedlast(get_times(model), t) : 1
+    if is_affine(model)
+        d = SVector(model.d[k])
+        xdot += d
+    end
 
-"""
-    get_times(model::AbstractLinearModel)
-
-This function should be overloaded by the user to return the list of times for a time varying linear system. The index
-k of the time varying system gotten using `searchsortedlast` and the returned list. This only needs to be defined for
-time varying systems.
-"""
-get_times(model::AbstractLinearModel) = throw(ErrorException("get_times not implemented"))
-
-function dynamics(model::ContinuousLinearModel, x, u, t)
-    _dynamics(is_affine(model), model, x, u, t)
+    return xdot
 end
 
-function _dynamics(::Val{true}, model::ContinuousLinearModel, x, u, t)
-    k = get_k(t, model)
-    return get_A(model, k)*x .+ get_B(model, k)*u .+ get_d(model, k)
+linear_dynamics(A, B, x, u) = A*x + B*u
+function linear_dynamics!(xdot, A, B, x, u)
+    mul!(xdot, A, x)
+    mul!(xdot, B, u, 1.0, 1.0)
 end
 
-function _dynamics(::Val{false}, model::ContinuousLinearModel, x, u, t)
-    k = get_k(t, model)
-    A = get_A(model, k)
-    B = get_B(model, k)
-    return A*x + B*u
+function dynamics(model::LinearModel, x, u, t=0.0)
+    @assert !is_discrete(model) "Can't call continuous dynamics on a discrete LinearModel"
+    k = get_k(model, t)
+    linear_dynamics(model, x, u, k)
 end
 
-function jacobian!(∇f::AbstractMatrix, model::ContinuousLinearModel, z::AbstractKnotPoint)
+function discrete_dynamics(::Type{PassThrough}, model::LinearModel, x, u, t, dt)
+    @assert is_discrete(model) "Can't call discrete dynamics without integration on a continuous LinearModel"
+    k = get_k(model, t)
+    dt_model = is_timevarying(model) ? model.times[k+1] - model.times[k] : model.dt
+    @assert dt ≈ dt_model "Incorrect dt. Expected $dt_model, got $dt."
+    linear_dynamics(model, x, u, k)
+end
+
+function jacobian!(∇f::AbstractMatrix, model::LinearModel, z::AbstractKnotPoint)
+    @assert !is_discrete(model) "Can't call continuous jacobian on a discrete LinearModel"
+
 	t = z.t
-    k = get_k(t, model)
+    k = get_k(model, t)
 
     n = state_dim(model)
     m = control_dim(model)
 
-    ∇f[1:n, 1:n] .= get_A(model, k)
-    ∇f[1:n, (n+1):(n+m)] .= get_B(model, k)
+    ∇f[1:n, 1:n] .= model.A[k]
+    ∇f[1:n, (n+1):(n+m)] .= model.B[k]
     true
 end
 
-function discrete_dynamics(::Type{DiscreteSystemQuadrature}, model::DiscreteLinearModel, x::StaticVector, u::StaticVector, t, dt)
-    _discrete_dynamics(is_affine(model), model, x, u, t, dt)
-end
+function discrete_jacobian!(::Type{PassThrough}, ∇f, model::LinearModel, z::AbstractKnotPoint{<:Any,n,m}) where {n,m}
+    @assert is_discrete(model) "Can't call discrete jacobian without integration on a continuous LinearModel"
 
-function _discrete_dynamics(::Val{true}, model::DiscreteLinearModel, x::StaticVector, u::StaticVector, t, dt)
-    k = get_k(t, model)
-    get_A(model, k)*x .+ get_B(model, k)*u .+ get_d(model, k)
-end
-
-function _discrete_dynamics(::Val{false}, model::DiscreteLinearModel, x::StaticVector, u::StaticVector, t, dt)
-    k = get_k(t, model)
-    get_A(model, k)*x + get_B(model, k)*u
-end
-
-function discrete_jacobian!(::Type{DiscreteSystemQuadrature}, ∇f, model::DiscreteLinearModel, z::AbstractKnotPoint{<:Any,n,m}) where {n,m}
     t = z.t
-    k = get_k(t, model)
+    k = get_k(model, t)
     ix = 1:n
     iu = n .+ (1:m)
-    ∇f[ix,ix] .= get_A(model, k)
-    ∇f[ix,iu] .= get_B(model, k)
+    ∇f[ix,ix] .= model.A[k]
+    ∇f[ix,iu] .= model.B[k]
 
     nothing
 end
 
-# TODO: create macro to automatically create Linear Model
-
-abstract type Exponential <: Explicit end
-abstract type Euler <: Explicit end
-const RK1 = Euler
-
-# default to not passing in k here
-for method ∈ (:set_A!, :set_B!, :set_d!)
-    @eval ($method)(model::AbstractLinearModel, mat::AbstractArray, k::Integer) = ($method)(model, mat)
-    @eval ($method)(model::M, mat::AbstractArray) where M <: AbstractLinearModel = throw(ErrorException("$($method) not implemented for $M")) 
-end
-
-"""
-    @create_discrete_ltv(name, n, m, N, is_affine=false)
-
-This macro can be used to conveniently create a DiscreteLTV model subtype and model instance.
-In order to use the resulting model, use the `set_A!`, `set_B!`, `set_times!`, and `set_d!`
-functions to add in your system matrices. This macro must be called from a top level scope.
-
-Creates a struct that looks like:
-```julia
-struct (name){TA, TB, Td, T} <: DiscreteLTV
-    A::Vector{TA}
-    B::Vector{TB}
-    d::Vector{Td}
-    times::Vector{T}
-end
-```
-All functions necessary to modify/use the struct are predefined by the macro. The macro defines a 
-default constructor using `SMatrix` with all zeros. This can be called simply with `(name)()`.
-If `is_affine = false` then the d term is not defined in the struct.
-"""
-macro create_discrete_ltv(name, n, m, N, is_affine=false)
-    if is_affine   
-        _ltv_affine(name, n, m, N, :DiscreteLTV)
-    else
-        _ltv_non_affine(name, n, m, N, :DiscreteLTV)
-    end
-end
-
-"""
-    @create_continuous_ltv(name, n, m, N, is_affine=false)
-
-This macro can be used to conveniently create a ContinuousLTV model subtype and model instance.
-In order to use the resulting model, use the `set_A!`, `set_B!`, `set_times!`, and `set_d!`
-functions to add in your system matrices. This macro must be called from a top level scope.
-
-Creates a struct that looks like:
-```julia
-struct (name){TA, TB, Td, T} <: ContinuousLTV
-    A::Vector{TA}
-    B::Vector{TB}
-    d::Vector{Td}
-    times::Vector{T}
-end
-```
-All functions necessary to modify/use the struct are predefined by the macro. The macro defines a 
-default constructor using `SMatrix` with all zeros. This can be called simply with `(name)()`.
-If `is_affine = false` then the d term is not defined in the struct.
-"""
-macro create_continuous_ltv(name, n, m, N, is_affine=false)
-    if is_affine   
-        _ltv_affine(name, n, m, N, :ContinuousLTV)
-    else
-        _ltv_non_affine(name, n, m, N, :ContinuousLTV)
-    end
-end
-
-function _ltv_non_affine(name, n, m, N, supertype)
-    struct_exp = quote
-        struct ($name){TA, TB, T} <: ($supertype)
-            A::Vector{TA}
-            B::Vector{TB}
-            times::Vector{T}
-        end
-    end
-    function_def = quote
-        RobotDynamics.is_affine(::($name)) = Val(false)
-        RobotDynamics.control_dim(::($name)) = $m
-        RobotDynamics.state_dim(::($name)) = $n
-        RobotDynamics.get_A(model::($name), k::Integer) = model.A[k]
-        RobotDynamics.get_B(model::($name), k::Integer) = model.B[k]
-        RobotDynamics.get_times(model::($name)) = model.times
-        RobotDynamics.set_A!(model::($name), A::AbstractArray, k::Integer) = model.A[k] = A
-        RobotDynamics.set_B!(model::($name), B::AbstractArray, k::Integer) = model.B[k] = B
-        RobotDynamics.set_times!(model::($name), times::AbstractVector) = model.times .= times
-
-        function ($name)()
-            A_vec = [@SMatrix zeros($n, $n) for _ = 1:($N-1)]
-            B_vec = [@SMatrix zeros($n, $m) for _ = 1:($N-1)]
-            times = zeros($N)
-
-            TA = eltype(A_vec)
-            TB = eltype(B_vec)
-            T = eltype(times)
-
-            return ($name){TA, TB, T}(A_vec, B_vec, times)
-        end
-    end
-
-    esc(Expr(:toplevel,
-            struct_exp,
-            function_def))
-end
-
-function _ltv_affine(name, n, m, N, supertype)
-    struct_exp = quote
-        struct ($name){TA, TB, Td, T} <: ($supertype)
-            A::Vector{TA}
-            B::Vector{TB}
-            d::Vector{Td}
-            times::Vector{T}
-        end
-    end
-    function_def = quote
-        RobotDynamics.is_affine(::($name)) = Val(true)
-        RobotDynamics.control_dim(::($name)) = $m
-        RobotDynamics.state_dim(::($name)) = $n
-        RobotDynamics.get_A(model::($name), k::Integer) = model.A[k]
-        RobotDynamics.get_B(model::($name), k::Integer) = model.B[k]
-        RobotDynamics.get_d(model::($name), k::Integer) = model.d[k]
-        RobotDynamics.get_times(model::($name)) = model.times
-        RobotDynamics.set_A!(model::($name), A::AbstractArray, k::Integer) = model.A[k] = A
-        RobotDynamics.set_B!(model::($name), B::AbstractArray, k::Integer) = model.B[k] = B
-        RobotDynamics.set_d!(model::($name), d::AbstractArray, k::Integer) = model.d[k] = d
-        RobotDynamics.set_times!(model::($name), times::AbstractVector) = model.times .= times
-
-        function ($name)()
-            A_vec = [@SMatrix zeros($n, $n) for _ = 1:($N-1)]
-            B_vec = [@SMatrix zeros($n, $m) for _ = 1:($N-1)]
-            d_vec = [@SVector zeros($n) for _ = 1:($N-1)]
-            times = zeros($N)
-
-            TA = eltype(A_vec)
-            TB = eltype(B_vec)
-            Td = eltype(d_vec)
-            T = eltype(times)
-
-
-            return ($name){TA, TB, Td, T}(A_vec, B_vec, d_vec, times)
-        end
-    end
-
-    esc(Expr(:toplevel,
-            struct_exp,
-            function_def))
-end
-
-"""
-    @create_discrete_lti(name, n, m, is_affine=false)
-
-This macro can be used to conveniently create a DiscreteLTI model subtype and model instance.
-In order to use the resulting model, use the `set_A!`, `set_B!`, and `set_d!` functions to 
-add in your system matrices. The macro defines a default constructor with system matrices of 
-all zeros. This macro must be called from a top level scope.
-
-Creates a struct that looks like: 
-```julia
-struct (name){TA, TB, Td} <: DiscreteLTI
-    A::Base.RefValue{TA}
-    B::Base.RefValue{TB}
-    d::Base.RefValue{Td}
-end
-```
-All functions necessary to modify/use the struct are predefined by the macro. The macro defines a 
-default constructor using `SMatrix` with all zeros. This can be called simply with `(name)()`.
-If `is_affine = false` then the d term is not defined in the struct.
-"""
-macro create_discrete_lti(name, n, m, is_affine=false)
-    if is_affine   
-        _lti_affine(name, n, m, :DiscreteLTI)
-    else
-        _lti_non_affine(name, n, m, :DiscreteLTI)
-    end
-end
-
-"""
-    @create_continuous_lti(name, n, m, is_affine=false)
-
-This macro can be used to conveniently create a ContinuousLTI model subtype and model instance.
-In order to use the resulting model, use the `set_A!`, `set_B!`, and `set_d!` functions to 
-add in your system matrices. The macro defines a default constructor with system matrices of 
-all zeros. This macro must be called from a top level scope.
-
-Creates a struct that looks like: 
-```julia
-struct (name){TA, TB, Td} <: ContinuousLTI
-    A::Base.RefValue{TA}
-    B::Base.RefValue{TB}
-    d::Base.RefValue{Td}
-end
-```
-All functions necessary to modify/use the struct are predefined by the macro. The macro defines a 
-default constructor using `SMatrix` with all zeros. This can be called simply with `(name)()`.
-If `is_affine = false` then the d term is not defined in the struct.
-"""
-macro create_continuous_lti(name, n, m, is_affine=false)
-    if is_affine   
-        _lti_affine(name, n, m, :ContinuousLTI)
-    else
-        _lti_non_affine(name, n, m, :ContinuousLTI)
-    end
-end
-
-function _lti_affine(name, n, m, supertype)
-    struct_exp = quote
-        struct ($name){TA, TB, Td} <: ($supertype)
-            A::Base.RefValue{TA}
-            B::Base.RefValue{TB}
-            d::Base.RefValue{Td}
-        end
-    end
-    function_def = quote
-        RobotDynamics.is_affine(::($name)) = Val(true)
-        RobotDynamics.control_dim(::($name)) = $m
-        RobotDynamics.state_dim(::($name)) = $n
-        RobotDynamics.get_A(model::($name)) = model.A[]
-        RobotDynamics.get_B(model::($name)) = model.B[]
-        RobotDynamics.get_d(model::($name)) = model.d[]
-        RobotDynamics.set_A!(model::($name), A::AbstractArray) = model.A[] = A
-        RobotDynamics.set_B!(model::($name), B::AbstractArray) = model.B[] = B
-        RobotDynamics.set_d!(model::($name), d::AbstractArray) = model.d[] = d
-
-        function ($name)()
-            A = Ref(@SMatrix zeros($n, $n))
-            B = Ref(@SMatrix zeros($n, $m))
-            d = Ref(@SVector zeros($n))
-
-            TA = typeof(A[])
-            TB = typeof(B[])
-            Td = typeof(d[])
-
-            return ($name){TA, TB, Td}(A, B, d)
-        end
-    end
-
-    esc(Expr(:toplevel,
-            struct_exp,
-            function_def))
-end
-
-function _lti_non_affine(name, n, m, supertype)
-    struct_exp = quote
-        struct ($name){TA, TB} <: ($supertype)
-            A::Base.RefValue{TA}
-            B::Base.RefValue{TB}
-        end
-    end
-    function_def = quote
-        RobotDynamics.is_affine(::($name)) = Val(false)
-        RobotDynamics.control_dim(::($name)) = $m
-        RobotDynamics.state_dim(::($name)) = $n
-        RobotDynamics.get_A(model::($name)) = model.A[]
-        RobotDynamics.get_B(model::($name)) = model.B[]
-        RobotDynamics.set_A!(model::($name), A::AbstractArray) = model.A[] = A
-        RobotDynamics.set_B!(model::($name), B::AbstractArray) = model.B[] = B
-
-        function ($name)()
-            A = Ref(@SMatrix zeros($n, $n))
-            B = Ref(@SMatrix zeros($n, $m))
-
-            TA = typeof(A[])
-            TB = typeof(B[])
-
-            return ($name){TA, TB}(A, B)
-        end
-    end
-
-    esc(Expr(:toplevel,
-            struct_exp,
-            function_def))
-end

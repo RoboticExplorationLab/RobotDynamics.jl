@@ -29,10 +29,10 @@ end
 end
 
 @testset "Linear Systems" begin
-    include("double_integrator.jl")
+    include("linmodel_type.jl")
     include("test_random_linear.jl")
     include("linear_quad.jl")
-    include("linear_tests.jl")
+    # include("linear_tests.jl")
     include("linearization.jl")
 end
 
