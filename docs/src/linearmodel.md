@@ -5,53 +5,27 @@ CurrentModule = RobotDynamics
 # Linear Models
 RobotDynamics supports the easy construction of linear models. By defining a linear model, the relevant dynamics
 and jacobian functions are predefined for you. This can result in signicant speed ups compared to a naive 
-specification of a standard continuous model. These are the types of models currently supported:
-
-* [`AbstractLinearModel`](@ref)
-    * [`DiscreteLinearModel`](@ref)
-        * [`DiscreteLTI`](@ref)
-        * [`DiscreteLTV`](@ref)
-    * [`ContinuousLinearModel`](@ref)
-        * [`ContinuousLTI`](@ref)
-        * [`ContinuousLTV`](@ref)
+specification of a standard continuous model. 
 
 ```@docs
-AbstractLinearModel
-DiscreteLinearModel
-DiscreteLTI
-DiscreteLTV
-ContinuousLinearModel
-ContinuousLTI
-ContinuousLTV
-get_times
+LinearModel
+LinearizedModel
 ```
 
-# Creating Linear Model
-Usually the only things needed for defining the dynamics of a linear model are the system matrices A, B, and d.
-To allow for easier construct of systems that only need these types, RobotDynamics provides macros to create
-linear model instances. Be careful when using these macros as they default to using static arrays, which can
-cause long compilation times for matrices with more than 100 elements. 
-
-```@docs
-@create_discrete_ltv
-@create_discrete_lti
-@create_continuous_ltv
-@create_continuous_lti
-```
-
-# Linearizing and Discretizing a Model
+# Linearizing and Discretizing a Model (experimental)
 Many systems with complicated nonlinear dynamics can be simplified by linearizing them about a fixed point
 or a trajectory. This can allow the use of specialized and faster trajectory optimization methods for these
 linear systems. The functions that RobotDynamics provides also discretize the system. 
 
 ```@docs
+linearize_and_discretize
 linearize_and_discretize!
 discretize!
 ```
 
 # Example
 Take for example the cartpole, which can be readily linearized about it's stable point. We can use the 
-`linearize_and_discretize!` methods to easily find the linearized system.
+`linearize_and_discretize` method to easily find the linearized system.
 
 ```julia
 import RobotDynamics: dynamics  # the dynamics function must be imported
@@ -96,14 +70,10 @@ ū = @SVector [0.0]
 dt = 0.01
 knot_point = KnotPoint(x̄, ū, dt)
 
-# creates LinearizedCartpole type 
-@create_discrete_lti(LinearizedCartpole, n, m, false)
-linear_model = LinearizedCartpole()
-
 # puts linearized and discretized model into linear_model
-linearize_and_discretize!(Exponential, linear_model, nonlinear_model, knot_point)
+linear_model = linearize_and_discretize(Exponential, nonlinear_model, knot_point)
 
 # outputs linearized dynamics!
-discrete_dynamics(DiscreteSystemQuadrature, linear_model, x̄, ū) 
+discrete_dynamics(PassThrough, linear_model, x̄, ū) 
 # discrete_jacobian! is also defined
 ```

@@ -20,12 +20,15 @@ RobotDynamics.jl has already defined a handful of integration schemes for comput
 The integration schemes are specified as abstract types, so that methods can efficiently dispatch
 based on the integration scheme selected. Here is the current set of implemented types:
 * [`QuadratureRule`](@ref)
-    * [`Implicit`](@ref)
+    * [`Explicit`](@ref)
         * [`RK2`](@ref)
         * [`RK3`](@ref)
         * [`RK4`](@ref)
-    * [`Explicit`](@ref)
+        * [`Exponential`](@ref)
+    * [`Implicit`](@ref)
         * [`HermiteSimpson`](@ref)
+    * [`PassThrough`](@ref)
+
 
 ```@docs
 QuadratureRule
@@ -33,8 +36,10 @@ RobotDynamics.Explicit
 RK2
 RK3
 RK4
+Exponential
 RobotDynamics.Implicit
 HermiteSimpson
+PassThrough
 ```
 
 ## Defining a New Integration Scheme
