@@ -37,7 +37,11 @@ export
 export
     LinearModel,
     linear_dynamics,
-    LinearizedModel
+    LinearizedModel,
+    linearize_and_discretize,
+    linearize_and_discretize!,
+    discretize,
+    discretize!
 
 # knotpoints
 export
