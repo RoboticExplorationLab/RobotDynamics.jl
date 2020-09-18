@@ -18,7 +18,7 @@ for knot_point in trajectory
     knot_point.z = @SVector rand(n+m)
 end
 
-linearized_model = RD.linearize_and_discretize(RK3, nonlinear_model, trajectory; is_affine=true)
+linearized_model = LinearizedModel(nonlinear_model, trajectory, RK3; is_affine=true)
 
 for i=1:N-1
     knot_point = trajectory[i]
@@ -30,7 +30,23 @@ for i=1:N-1
     @test discrete_dynamics(RK3, nonlinear_model, knot_point) ≈ discrete_dynamics(PassThrough, linearized_model, knot_point) atol=σ*1e2
 end
 
-###################################
+for knot_point in trajectory
+    knot_point.z = @SVector rand(n+m)
+end
+
+update_trajectory!(linearized_model, trajectory, RK3)
+
+for i=1:N-1
+    knot_point = trajectory[i]
+    @test discrete_dynamics(RK3, nonlinear_model, knot_point) ≈ discrete_dynamics(PassThrough, linearized_model, knot_point) atol=1e-4
+
+    σ = 1e-6
+    knot_point.z += σ*randn(n+m)
+
+    @test discrete_dynamics(RK3, nonlinear_model, knot_point) ≈ discrete_dynamics(PassThrough, linearized_model, knot_point) atol=σ*1e2
+end
+
+##################################
 # Exponential Discretization Tests
 using ControlSystems
 using StaticArrays
@@ -66,8 +82,42 @@ RD.discretize!(RD.Exponential, D_221_rd, C_221_rd)
 @test D_221[1].A ≈ D_221_rd.A[1]
 @test D_221[1].B ≈ D_221_rd.B[1]
 
-# Constant Discrete Jacobian Tests!!
+# Constant Discrete Jacobian Tests:
+include("random_linear.jl")
 
-# @test discretize(RK2) ≈ discrete_jacobian
-# @test discretize(RK3) ≈ discrete_jacobian
-# @test discretize(RK4) ≈ discrete_jacobian
+n,m = 5, 5
+A, B = gencontinuous(n,m)
+random_model = LinearModel(A, B)
+random_model_discrete = LinearModel(n, m; dt=dt)
+x,u = rand(random_model)
+z = KnotPoint(x, u, dt)
+
+struct RandomLinear{n,m,T} <: AbstractModel
+    A::SMatrix{n,n,T}
+    B::SMatrix{n,m,T}
+end
+RD.state_dim(::RandomLinear{n}) = n
+RD.control_dim(::RandomLinear{<:Any, m}) = m
+RD.dynamics(model::RandomLinear, x, u) = model.A*x + model.B*u
+
+random_model_test = RandomLinear{n,m,Float64}(A,B)
+
+F = RD.DynamicsJacobian(n,m)
+
+discretize!(RK2, random_model_discrete, random_model)
+discrete_jacobian!(RK2, F, random_model_test, z)
+
+@test RD.get_A(F) ≈ random_model_discrete.A[1]
+@test RD.get_B(F) ≈ random_model_discrete.B[1]
+
+discretize!(RK3, random_model_discrete, random_model)
+discrete_jacobian!(RK3, F, random_model_test, z)
+
+@test RD.get_A(F) ≈ random_model_discrete.A[1]
+@test RD.get_B(F) ≈ random_model_discrete.B[1]
+
+discretize!(RK4, random_model_discrete, random_model)
+discrete_jacobian!(RK4, F, random_model_test, z)
+
+@test RD.get_A(F) ≈ random_model_discrete.A[1]
+@test RD.get_B(F) ≈ random_model_discrete.B[1]

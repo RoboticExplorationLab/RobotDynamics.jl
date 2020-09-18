@@ -38,10 +38,10 @@ export
     LinearModel,
     linear_dynamics,
     LinearizedModel,
-    linearize_and_discretize,
     linearize_and_discretize!,
     discretize,
-    discretize!
+    discretize!,
+    update_trajectory!
 
 # knotpoints
 export
@@ -63,7 +63,8 @@ export
     RK3,
     RK4,
     HermiteSimpson,
-    PassThrough
+    PassThrough,
+    Exponential
 
 
 include("rbstate.jl")

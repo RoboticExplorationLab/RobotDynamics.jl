@@ -18,17 +18,21 @@ or a trajectory. This can allow the use of specialized and faster trajectory opt
 linear systems. The functions that RobotDynamics provides also discretize the system. 
 
 ```@docs
-linearize_and_discretize
 linearize_and_discretize!
 discretize!
+update_trajectory!
 ```
 
 # Example
 Take for example the cartpole, which can be readily linearized about it's stable point. We can use the 
-`linearize_and_discretize` method to easily find the linearized system.
+`LinearizedModel` to easily find the linearized system.
 
 ```julia
+using RobotDynamics
 import RobotDynamics: dynamics  # the dynamics function must be imported
+using StaticArrays
+
+const RD = RobotDynamics
 
 struct Cartpole{T} <: AbstractModel
     mc::T  # mass of the cart
@@ -58,22 +62,34 @@ function dynamics(model::Cartpole, x, u)
     return [qd; qdd]
 end
 
-RobotDynamics.state_dim(::Cartpole) = 4
-RobotDynamics.control_dim(::Cartpole) = 1
+RD.state_dim(::Cartpole) = 4
+RD.control_dim(::Cartpole) = 1
 
 nonlinear_model = Cartpole(1.0, 1.0, 1.0, 9.81)
 n = state_dim(nonlinear_model)
 m = control_dim(nonlinear_model)
 
+# stationary point for the cartpole around which to linearize
 x̄ = @SVector [0., π, 0., 0.]
 ū = @SVector [0.0]
 dt = 0.01
 knot_point = KnotPoint(x̄, ū, dt)
 
-# puts linearized and discretized model into linear_model
-linear_model = linearize_and_discretize(Exponential, nonlinear_model, knot_point)
+# creates a new LinearizedModel around stationary point
+linear_model = RD.LinearizedModel(nonlinear_model, knot_point, Exponential)
+
+δx = @SVector zeros(n)
+δu = @SVector zeros(m)
 
 # outputs linearized dynamics!
-discrete_dynamics(PassThrough, linear_model, x̄, ū) 
-# discrete_jacobian! is also defined
+δxₖ₊₁ = discrete_dynamics(PassThrough, linear_model, δx, δu, 0.0, dt) 
+
+@assert δxₖ₊₁ ≈ zeros(n)
+
+F = RD.DynamicsJacobian(n,m)
+discrete_jacobian!(PassThrough, F, linear_model, knot_point)
+
+@show A = RD.get_A(F)
+@show B = RD.get_B(F)
+
 ```

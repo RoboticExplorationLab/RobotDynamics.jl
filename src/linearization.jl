@@ -11,78 +11,110 @@ struct LinearizedModel{M, L, T} <: AbstractModel
     trajectory::T
 end
 
-"""
-    LinearizedModel(model::AbstractModel, linmodel::LinearModel, traj::AbstractTrajectory)
-
-A constructor for the linearized model type. The inputted model should be the full continuous dynamics
-model to be linearized.
-"""
-LinearizedModel(model::M, linmodel::L, traj::T) where {M <: AbstractModel, L <: LinearModel, T <: AbstractTrajectory} = 
+@inline LinearizedModel(model::M, linmodel::L, traj::T) where {M <: AbstractModel, L <: LinearModel, T <: AbstractTrajectory} = 
     LinearizedModel{M, L, T}(model, linmodel, traj)
 
-
-dynamics(model::LinearizedModel, x, u, t=0.0) = dynamics(model.linmodel, x, u, t)
-discrete_dynamics(::Type{PassThrough}, model::LinearizedModel, x, u, t, dt) = 
-    discrete_dynamics(PassThrough, model.linmodel, x, u, t, dt)
-
-jacobian!(∇f::AbstractMatrix, model::LinearizedModel, z::AbstractKnotPoint) = 
-    jacobian!(∇f, model.linmodel, z)
-
-discrete_jacobian!(::Type{PassThrough}, ∇f, model::LinearizedModel, z::AbstractKnotPoint) = 
-    discrete_jacobian!(PassThrough, ∇f, model.linmodel, z)
+@inline LinearizedModel(nonlinear_model::AbstractModel, z::KnotPoint, ::Type{Q}=RK3; kwargs...) where {Q<:Explicit} = 
+    LinearizedModel(nonlinear_model, Traj([z]), Q; kwargs...)
 
 """
-    linearize_and_discretize(::Type{Q}, nonlinear_model::AbstractModel, trajectory::AbstractTrajectory) where {Q<:Explicit}
+    LinearizedModel(nonlinear_model::AbstractModel, Z::AbstractTrajectory, ::Type{Q}=RK3; is_affine=false, is_discrete=true) where {Q<:Explicit}
 
-Linearize `nonlinear_model` about `trajectory` and discretize with given integration type `Q`. Returns a [`LinearizedModel`](@ref) 
+Returns a `LinearizedModel` of `nonlinear_model` about the trajectory `Z`. 
+
+For an affine LinearizedModel, the dynamics are defined as:
+f(x, u) = Ax + Bu + d
+where d = f(x̄, ū) - Ax̄ - Bū
+
+For a standard (non-affine) LinearizedModel, the dynamics are defined on the error state:
+δf(δx, δu) = Aδx + Bδu
+where δx = x - x̄, δu = u - ū
 """
-function linearize_and_discretize(::Type{Q}, nonlinear_model::AbstractModel, trajectory::AbstractTrajectory; is_affine=false) where {Q<:Explicit}
+function LinearizedModel(nonlinear_model::AbstractModel, Z::AbstractTrajectory, ::Type{Q}=RK3; is_affine=false, is_discrete=true) where {Q<:Explicit}
     n,m = state_dim(nonlinear_model), control_dim(nonlinear_model)
-    times = length(trajectory) > 1 ? get_times(trajectory) : 1:0
+    times = length(Z) > 1 ? get_times(Z) : 1:0
 
-    dt = trajectory[1].dt
+    dt = is_discrete ? Z[1].dt : 0.0
     linmodel = LinearModel(n, m; is_affine=is_affine, times=times, dt=dt)
-    model = LinearizedModel(nonlinear_model, linmodel, trajectory)
-    linearize_and_discretize!(Q, model, nonlinear_model, trajectory)
+    
+    model = LinearizedModel(nonlinear_model, linmodel, Z)
+
+    is_discrete ? linearize_and_discretize!(Q, model) : ErrorException("Haven't implemented continuous linearization.")
 
     model
 end
 
 """
-    linearize_and_discretize!(::Type{Q}, model::LinearizedModel, nonlinear_model::AbstractModel, trajectory::AbstractTrajectory) where {Q<:Explicit}
+    update_trajectory!(model::LinearizedModel, Z::AbstractTrajectory, ::Type{Q}=RK3) where {Q<:Explicit}
 
-Linearize `nonlinear_model` about `trajectory` and discretize with given integration type `Q`. Put results into `linear_model`. 
+Updates the trajectory inside of the `model` and relinearizes (and discretizes for discrete models) the model about
+the new trajectory.
+"""
+function update_trajectory!(model::LinearizedModel, Z::AbstractTrajectory, ::Type{Q}=RK3) where {Q<:Explicit}
+    model.trajectory .= Z
+    is_discrete(model.linmodel) ? linearize_and_discretize!(Q, model) : ErrorException("Haven't implemented continuous linearization.")
+end
+
+@inline dynamics(model::LinearizedModel, x, u, t=0.0) = dynamics(model.linmodel, x, u, t)
+@inline discrete_dynamics(::Type{PassThrough}, model::LinearizedModel, x, u, t, dt) = 
+    discrete_dynamics(PassThrough, model.linmodel, x, u, t, dt)
+
+@inline jacobian!(∇f::AbstractMatrix, model::LinearizedModel, z::AbstractKnotPoint) = 
+    jacobian!(∇f, model.linmodel, z)
+
+@inline discrete_jacobian!(::Type{PassThrough}, ∇f, model::LinearizedModel, z::AbstractKnotPoint) = 
+    discrete_jacobian!(PassThrough, ∇f, model.linmodel, z)
+
+# """
+#     linearize_and_discretize(::Type{Q}, nonlinear_model::AbstractModel, trajectory::AbstractTrajectory) where {Q<:Explicit}
+
+# Linearize `nonlinear_model` about `trajectory` and discretize with given integration type `Q`. Returns a [`LinearizedModel`](@ref) 
+# """
+# function linearize_and_discretize(::Type{Q}, nonlinear_model::AbstractModel, trajectory::AbstractTrajectory; is_affine=false) where {Q<:Explicit}
+#     n,m = state_dim(nonlinear_model), control_dim(nonlinear_model)
+#     times = length(trajectory) > 1 ? get_times(trajectory) : 1:0
+
+#     dt = trajectory[1].dt
+#     linmodel = LinearModel(n, m; is_affine=is_affine, times=times, dt=dt)
+#     model = LinearizedModel(nonlinear_model, linmodel, trajectory)
+#     linearize_and_discretize!(Q, model)
+
+#     model
+# end
+
+"""
+    linearize_and_discretize!(::Type{Q}, model::LinearizedModel) where {Q<:Explicit}
+
+Linearize nonlinear `model` about `trajectory` and discretize with given integration type `Q`. Put results into `linmodel`. 
 
 !!! warning
     Ensure that the time varying `linear_model` has the same length as the trajectory and that the knot points in the trajectory correspond
     with the times returned by `get_times`.
 """
-# should clear up model vs nonlinearmodel vs trajectory
-function linearize_and_discretize!(::Type{Q}, model::LinearizedModel, nonlinear_model::AbstractModel, trajectory::AbstractTrajectory) where {Q<:Explicit}
-    N = length(trajectory)
+function linearize_and_discretize!(::Type{Q}, model::LinearizedModel) where {Q<:Explicit}
+    N = length(model.trajectory)
 
-    @assert is_discrete(model.linmodel) == true
-    @assert is_timevarying(model.linmodel) == true
-    @assert get_times(trajectory) == (model.linmodel.times)
+    @assert is_discrete(model.linmodel)    
 
     if is_timevarying(model.linmodel)
+        @assert get_times(model.trajectory) == (model.linmodel.times)
         for i=1:N-1
-            linearize_and_discretize!(Q, model, nonlinear_model, trajectory[i])
+            linearize_and_discretize!(Q, model.linmodel, model.model, model.trajectory[i])
         end
     else
-        linearize_and_discretize!(Q, model, nonlinear_model, trajectory[1])
+        linearize_and_discretize!(Q, model.linmodel, model.model, model.trajectory[1])
     end
 end
 
 """
-    linearize_and_discretize!(::Type{Q}, model::LinearizedModel, nonlinear_model::AbstractModel, z::AbstractKnotPoint) where {Q<:Explicit}
+    linearize_and_discretize!(::Type{Q}, linmodel::LinearModel, nonlinear_model::AbstractModel, z::AbstractKnotPoint) where {Q<:Explicit}
 
-Linearize `nonlinear_model` about `z` and discretize with given integration type `Q`. Put results into `linear_model`. 
+Linearize `nonlinear_model` about `z` and discretize with given integration type `Q`. Put results into `linmodel`. 
 """
-function linearize_and_discretize!(::Type{Q}, model::LinearizedModel, nonlinear_model::AbstractModel, z::AbstractKnotPoint) where {Q<:Explicit}
-    @assert is_discrete(model.linmodel) == true
+function linearize_and_discretize!(::Type{Q}, linmodel::LinearModel, nonlinear_model::AbstractModel, z::AbstractKnotPoint) where {Q<:Explicit}
+    @assert is_discrete(linmodel)
 
-    _linearize_and_discretize!(Q, model.linmodel, nonlinear_model, z)
+    _linearize_and_discretize!(Q, linmodel, nonlinear_model, z)
 end
 
 # TODO: add special implementations here for models with rotations, rigid bodies

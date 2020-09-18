@@ -60,7 +60,7 @@ model = LinearModel(A,B,d)
 @test dynamics(model, z) ≈ A*x + B*u + d
 
 # Discrete LTI
-model = LinearModel(A,B,d;dt)
+model = LinearModel(A,B,d;dt=dt)
 @test RD.is_affine(model) == true
 @test RD.is_timevarying(model) == false
 @test RD.is_discrete(model) == true
