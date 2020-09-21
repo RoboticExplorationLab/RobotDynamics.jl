@@ -72,6 +72,9 @@ abstract type RigidBody{R<:Rotation} <: LieGroupModel end
 "Integration rule for approximating the continuous integrals for the equations of motion"
 abstract type QuadratureRule end
 
+"Specifier for continuous systems (i.e. no integration)"
+abstract type Continuous <: QuadratureRule end
+
 "Integration rules of the form x′ = f(x,u), where x′ is the next state"
 abstract type Explicit <: QuadratureRule end
 

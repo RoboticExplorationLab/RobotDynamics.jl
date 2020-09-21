@@ -27,6 +27,16 @@ function Base.isapprox(Z1::AbstractTrajectory, Z2::AbstractTrajectory)
     all(zs->zs[1] ≈ zs[2], zip(Z1,Z2))
 end
 
+function set_dt!(Z::AbstractTrajectory, dt::Real)
+    t = Z[1].t
+    for z in Z
+        z.dt = dt
+        z.t = t
+        t += dt
+    end
+    return t 
+end
+
 """
     Traj{n,m,T,KP}
 

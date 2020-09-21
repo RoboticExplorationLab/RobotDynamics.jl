@@ -4,6 +4,8 @@ abstract type PassThrough <: Explicit end
 "Exponential integration for linear systems with ZOH on controls."
 abstract type Exponential <: Explicit end
 
+abstract type AbstractLinearModel <: AbstractModel end
+
 """
     LinearModel{n,m,T} <: AbstractModel
 
@@ -23,13 +25,14 @@ By default, the model is assumed to be continuous unless a non-zero dt is specif
 called on the `times` vector to get the discrete time index from the continuous time. The `use_static` keyword is automatically
 specified based on array size, but can be turned off in case of excessive compilation times.
 """
-struct LinearModel{n,m,T} <: AbstractModel
+struct LinearModel{n,m,T,e} <: AbstractLinearModel
     A::Vector{SizedMatrix{n,n,T,2}}
     B::Vector{SizedMatrix{n,m,T,2}}
     d::Vector{SizedVector{n,T,1}}
     times::Vector{T}
     dt::T
     xdot::MVector{n,T}
+    E::SizedMatrix{e,e,T,2}                 # Matrix for exponential integration, if needed
     use_static::Bool
     function LinearModel(
             A::Vector{TA},
@@ -43,7 +46,7 @@ struct LinearModel{n,m,T} <: AbstractModel
         @assert size(A[1]) == (n,n)
         isempty(d) || @assert size(d[1]) == (n,)
         @assert length(A) == length(B)
-        length(A) > 1 && @assert length(A) == length(times) - 1
+        length(A) > 1 && @assert length(A) == length(times) "Must pass in time vector of appropriate length. Expected length of $(length(A)), got $(length(times))." 
         @assert length(A) > 0
         @assert issorted(times)
         T = promote_type(eltype(TA), eltype(TB), eltype(Td))
@@ -52,7 +55,13 @@ struct LinearModel{n,m,T} <: AbstractModel
         d = SizedVector{n,T}.(d_ for d_ in d)
         times = Vector{T}(times)
         xdot = @MVector zeros(n)
-        new{n,m,T}(A, B, d, times, dt, xdot, use_static)
+
+        # size of matrix exponential
+        is_affine = !isempty(d)
+        e = is_affine ? 2n+m : n+m
+        E = SizedMatrix{e,e}(zeros(e,e))
+
+        new{n,m,T,e}(A, B, d, times, dt, xdot, E, use_static)
     end
 end
 state_dim(::LinearModel{n}) where n = n
@@ -62,17 +71,21 @@ is_discrete(model::LinearModel) = model.dt !== zero(model.dt)
 is_affine(model::LinearModel) = !isempty(model.d)
 is_timevarying(model::LinearModel) = !isempty(model.times)
 get_k(model::LinearModel, t) = is_timevarying(model) ? searchsortedlast(model.times, t) : 1
+get_A(model::LinearModel, k=1) = model.A[k]
+get_B(model::LinearModel, k=1) = model.B[k]
+get_d(model::LinearModel, k=1) = model.d[k]
+
 
 LinearModel(A::AbstractMatrix, B::AbstractMatrix; dt=0, kwargs...) = LinearModel([A],[B], dt=dt; kwargs...)
 LinearModel(A::AbstractMatrix, B::AbstractMatrix, d::AbstractVector; dt=0, kwargs...) = LinearModel([A],[B],[d], dt=dt; kwargs...)
 
 function LinearModel(n::Integer, m::Integer; is_affine=false, times=1:0, kwargs...)
-    N_ = (length(times) > 1) ? length(times) - 1 : 1
+    N_ = (length(times) > 1) ? length(times) : 1
 
     # only linearize about N-1 points in trajectory 
     A = [zero(SizedMatrix{n,n}) for i=1:N_]
     B = [zero(SizedMatrix{n,m}) for i=1:N_]
-    d = is_affine ? [zero(SizedVector{n}) for i=1:N_] : SizedVector{n}[]
+    d = is_affine ? [zero(SizedVector{n,Float64}) for i=1:N_] : SizedVector{n,Float64}[]
 
     LinearModel(A, B, d; times=times, kwargs...)
 end
@@ -144,3 +157,62 @@ function discrete_jacobian!(::Type{PassThrough}, ∇f, model::LinearModel, z::Ab
     nothing
 end
 
+
+# Exponential Integration
+function discrete_dynamics(::Type{Exponential}, model::LinearModel, 
+        z::AbstractKnotPoint{<:Any,n,m}) where {n,m}
+    k = get_k(model, z.t)
+    A = model.A[k]
+    B = model.B[k]
+    d = model.d[k]
+    E = model.E
+
+    # Calculate the matrix exponential
+    matrix_exponential!(E, A, B, z)
+
+    if is_affine
+        z̄ = [z.z; d]
+        return E * z̄
+    else
+        return E * z.z
+    end
+end
+
+function discrete_jacobian!(::Type{Exponential}, F, model::LinearModel{n,m},
+        z::AbstractKnotPoint) where {n,m}
+    # Calculate the matrix exponential
+    matrix_exponential!(model, z)
+
+    F .= model.E[1:n, 1:n+m]
+end
+
+function matrix_exponential!(E::SizedMatrix, A, B, dt, 
+        ::Val{S}=Val(length(E) < 14*14)) where S
+
+    # Copy Jacobian to matrix exponential
+    n,m = size(B)
+    ix,iu = 1:n, n .+ (1:m)
+    E[ix, ix] .= A
+    E[ix, iu] .= B
+
+    if size(E,1) == 2n+m
+        E[1:n, (1:n) .+ (n+m)] .= I(n)
+    end
+
+    # Exponentiate
+    E.data .*= dt
+    if S
+        Ec = SMatrix(E)
+    else
+        Ec = E.data
+    end
+    Ed = exp(Ec)
+
+    # Copy back to E
+    E .= Ed
+end
+
+function discretize!(::Type{Exponential}, F::DynamicsJacobian, d, 
+        model::AbstractModel, z::AbstractKnotPoint, is_affine::Bool=true) where Q <: Explicit
+
+end

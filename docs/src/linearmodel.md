@@ -76,7 +76,8 @@ dt = 0.01
 knot_point = KnotPoint(x̄, ū, dt)
 
 # creates a new LinearizedModel around stationary point
-linear_model = RD.LinearizedModel(nonlinear_model, knot_point, Exponential)
+linear_model = RD.LinearizedModel(nonlinear_model, knot_point, 
+    dt=dt, integration=Exponential)
 
 δx = @SVector zeros(n)
 δu = @SVector zeros(m)
