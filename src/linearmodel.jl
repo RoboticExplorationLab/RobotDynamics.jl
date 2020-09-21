@@ -1,227 +1,218 @@
-#=
-Type tree:
-                 AbstractLinearModel <: AbstractModel
-                ↙                                    ↘
-         DiscreteLinearModel                   ContinuousLinearModel
-         ↙               ↘                       ↙                ↘
- DiscreteLTI           DiscreteLTV       ContinuousLTI          ContinuousLTV
-                                
-=#
+"Integration type for systems with user defined discrete dynamics."
+abstract type PassThrough <: Explicit end
 
+"Exponential integration for linear systems with ZOH on controls."
+abstract type Exponential <: Explicit end
 
-"""
-    AbstractLinearModel <: AbstractModel
-
-A general supertype for implementing a linear model. The subtypes of this model allow the automatic implementation of dynamics and jacobian functions for improved performance.
-"""
 abstract type AbstractLinearModel <: AbstractModel end
 
 """
-    DiscreteLinearModel <: AbstractLinearModel
+    LinearModel{n,m,T} <: AbstractModel
 
-An abstract subtype of AbstractLinearModel for discrete linear systems that contains LTI and LTV systems. The subtypes of this model automatically implement the discrete_dynamics and 
-discrete_jacobian! functions.
+A concrete type for creating efficient linear model representations. This model type will
+automatically define the continuous or discrete version of the dynamics and jacobian functions.
+Supports continuous/discrete, time invariant/varying, and affine models.
+
+# Constructors
+    LinearModel(A::AbstractMatrix, B::AbstractMatrix, [dt=0, use_static]) # time invariant
+    LinearModel(A::AbstractMatrix, B::AbstractMatrix, d::AbstractVector, [dt=0, use_static]) # time invariant affine
+    LinearModel(A::Vector{TA}, B::Vector{TB}, [times::AbstractVector, dt::Real=0, use_static]) # time varying
+    LinearModel(A::Vector{TA}, B::Vector{TB}, d::Vector{Td}, [times::AbstractVector, dt=0, use_static]) # time varying affine
+
+    LinearModel(n::Integer, m::Integer, [is_affine=false, times=1:0, dt=0, use_static]) # constructor with zero dynamics matrices
+
+By default, the model is assumed to be continuous unless a non-zero dt is specified. For time varying models, `searchsortedlast` is 
+called on the `times` vector to get the discrete time index from the continuous time. The `use_static` keyword is automatically
+specified based on array size, but can be turned off in case of excessive compilation times.
 """
-abstract type DiscreteLinearModel <: AbstractLinearModel end
+struct LinearModel{n,m,T,e} <: AbstractLinearModel
+    A::Vector{SizedMatrix{n,n,T,2}}
+    B::Vector{SizedMatrix{n,m,T,2}}
+    d::Vector{SizedVector{n,T,1}}
+    times::Vector{T}
+    dt::T
+    xdot::MVector{n,T}
+    E::SizedMatrix{e,e,T,2}                 # Matrix for exponential integration, if needed
+    use_static::Bool
+    function LinearModel(
+            A::Vector{TA},
+            B::Vector{TB},
+            d::Vector{Td} = SVector{size(A[1],1),eltype(A[1])}[];
+            times::AbstractVector = 1:0,
+            dt::Real = 0,
+            use_static::Bool = (length(A[1]) < 14*14)
+        ) where {TA <: AbstractMatrix,TB<:AbstractMatrix,Td<:AbstractVector}
+        n,m = size(B[1])
+        @assert size(A[1]) == (n,n)
+        isempty(d) || @assert size(d[1]) == (n,)
+        @assert length(A) == length(B)
+        length(A) > 1 && @assert length(A) == length(times) "Must pass in time vector of appropriate length. Expected length of $(length(A)), got $(length(times))." 
+        @assert length(A) > 0
+        @assert issorted(times)
+        T = promote_type(eltype(TA), eltype(TB), eltype(Td))
+        A = SizedMatrix{n,n,T}.(a for a in A)
+        B = SizedMatrix{n,m,T}.(b for b in B)
+        d = SizedVector{n,T}.(d_ for d_ in d)
+        times = Vector{T}(times)
+        xdot = @MVector zeros(n)
 
-"""
-    DiscreteLTI<: DiscreteLinearModel
+        # size of matrix exponential
+        is_affine = !isempty(d)
+        e = is_affine ? 2n+m : n+m
+        E = SizedMatrix{e,e}(zeros(e,e))
 
-An abstract subtype of DiscreteLinearModel for discrete LTI systems of the following form:
-    ``x_{k+1} = Ax_k + Bu_k``
-    or 
-    ``x_{k+1} = Ax_k + Bu_k + d``
+        new{n,m,T,e}(A, B, d, times, dt, xdot, E, use_static)
+    end
+end
+state_dim(::LinearModel{n}) where n = n
+control_dim(::LinearModel{<:Any,m}) where m = m
 
-# Interface
-All instances of DiscreteLTI should support the following functions:
-    get_A(model::DiscreteLTI) 
-    get_B(model::DiscreteLTI)
+is_discrete(model::LinearModel) = model.dt !== zero(model.dt)
+is_affine(model::LinearModel) = !isempty(model.d)
+is_timevarying(model::LinearModel) = !isempty(model.times)
+get_k(model::LinearModel, t) = is_timevarying(model) ? searchsortedlast(model.times, t) : 1
+get_A(model::LinearModel, k=1) = model.A[k]
+get_B(model::LinearModel, k=1) = model.B[k]
+get_d(model::LinearModel, k=1) = model.d[k]
 
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify systems of the second form:
-    is_affine(model::DiscreteLTI) = Val(true)
-    get_d(model::DiscreteLTI)
 
-Subtypes of this model should use the integration type DiscreteSystemQuadrature. 
+LinearModel(A::AbstractMatrix, B::AbstractMatrix; dt=0, kwargs...) = LinearModel([A],[B], dt=dt; kwargs...)
+LinearModel(A::AbstractMatrix, B::AbstractMatrix, d::AbstractVector; dt=0, kwargs...) = LinearModel([A],[B],[d], dt=dt; kwargs...)
 
-"""
-abstract type DiscreteLTI <: DiscreteLinearModel end
+function LinearModel(n::Integer, m::Integer; is_affine=false, times=1:0, kwargs...)
+    N_ = (length(times) > 1) ? length(times) : 1
 
-"""
-    DiscreteLTV<: DiscreteLinearModel
+    # only linearize about N-1 points in trajectory 
+    A = [zero(SizedMatrix{n,n}) for i=1:N_]
+    B = [zero(SizedMatrix{n,m}) for i=1:N_]
+    d = is_affine ? [zero(SizedVector{n,Float64}) for i=1:N_] : SizedVector{n,Float64}[]
 
-An abstract subtype of DiscreteLinearModel for discrete LTV systems of the following form:
-    ``x_{k+1} = A_k x_k + B_k u_k``
-    or 
-    ``x_{k+1} = A_k x_k + B_k u_k + d_k``
-
-# Interface
-All instances of DiscreteLTV should support the following functions:
-    get_A(model::DiscreteLTV, k::Integer) 
-    get_B(model::DiscreteLTV, k::Integer)
-
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify systems of the second form:
-    is_affine(model::DiscreteLTV) = Val(true)
-    get_d(model::DiscreteLTV, k::Integer)
-
-Subtypes of this model should use the integration type DiscreteSystemQuadrature. 
-
-"""
-abstract type DiscreteLTV <: DiscreteLinearModel end
-
-"""
-    ContinuousLinearModel <: AbstractLinearModel
-
-An abstract subtype of AbstractLinearModel for continuous linear systems that contains LTI and LTV systems. The subtypes of this model automatically implement the dynamics and 
-jacobian! functions. For trajectory optimization problems, it will generally be faster to integrate your system matrices externally and implement a DiscreteLinearModel. This
-reduces unnecessary calls to the dynamics function and increases speed.
-"""
-abstract type ContinuousLinearModel <: AbstractLinearModel end
-
-"""
-    ContinuousLTI<: ContinuousLinearModel
-
-An abstract subtype of ContinuousLinearModel for continuous LTI systems of the following form:
-    ``ẋ = Ax + Bu``
-    or 
-    ``ẋ = Ax + Bu + d``
-
-# Interface
-All instances of DiscreteLTI should support the following functions:
-    get_A(model::ContinuousLTI) 
-    get_B(model::ContinuousLTI)
-
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify systems of the second form:
-    is_affine(model::ContinuousLTI) = Val(true)
-    get_d(model::ContinuousLTI)
-
-"""
-abstract type ContinuousLTI <: ContinuousLinearModel end
-
-"""
-    ContinuousLTV<: ContinuousLinearModel
-
-An abstract subtype of ContinuousLinearModel for continuous LTV systems of the following form:
-    ``ẋ = A_k x + B_k u``
-    or 
-    ``ẋ = A_k x + B_k u + d_k``
-
-# Interface
-All instances of ContinuousLTV should support the following functions:
-    get_A(model::ContinuousLTV, k::Integer) 
-    get_B(model::ContinuousLTV, k::Integer)
-
-By default, it is assumed that the system is truly linear (eg. not affine). In order to specify systems of the second form:
-    is_affine(model::ContinuousLTV) = Val(true)
-    get_d(model::ContinuousLTV, k::Integer)
-
-"""
-abstract type ContinuousLTV <: ContinuousLinearModel end
-
-is_affine(::AbstractLinearModel) = Val(false)
-
-is_time_varying(::AbstractLinearModel) = false
-is_time_varying(::DiscreteLTV) = true
-is_time_varying(::ContinuousLTV) = true
-
-# default to not passing in k
-for method ∈ (:get_A, :get_B, :get_d)
-    @eval ($method)(model::AbstractLinearModel, k::Integer) = ($method)(model)
-    @eval ($method)(model::M) where M <: AbstractLinearModel = throw(ErrorException("$($method) not implemented for $M")) 
+    LinearModel(A, B, d; times=times, kwargs...)
 end
 
-abstract type DiscreteSystemQuadrature <: Explicit end
+function linear_dynamics(model::LinearModel, x, u, k::Int=1)
+    if model.use_static
+        A = SMatrix(model.A[k])
+        B = SMatrix(model.B[k])
+        xdot = linear_dynamics(A, B, x, u)
+    else
+        A = model.A[k]
+        B = model.B[k]
+        linear_dynamics!(model.xdot, A, B, x, u)
+        xdot = SVector(model.xdot)
+    end
 
-get_k(t, model::AbstractLinearModel) = is_time_varying(model) ? searchsortedlast(get_times(model), t) : 1
-get_times(model::AbstractLinearModel) = throw(ErrorException("get_times not implemented"))
+    if is_affine(model)
+        d = SVector(model.d[k])
+        xdot += d
+    end
 
-function dynamics(model::ContinuousLinearModel, x, u, t)
-    _dynamics(is_affine(model), model, x, u, t)
+    return xdot
 end
 
-function _dynamics(::Val{true}, model::ContinuousLinearModel, x, u, t)
-    k = get_k(t, model)
-    return get_A(model, k)*x .+ get_B(model, k)*u .+ get_d(model, k)
+linear_dynamics(A, B, x, u) = A*x + B*u
+function linear_dynamics!(xdot, A, B, x, u)
+    mul!(xdot, A, x)
+    mul!(xdot, B, u, 1.0, 1.0)
 end
 
-function _dynamics(::Val{false}, model::ContinuousLinearModel, x, u, t)
-    k = get_k(t, model)
-    A = get_A(model, k)
-    B = get_B(model, k)
-    return A*x + B*u
+function dynamics(model::LinearModel, x, u, t=0.0)
+    @assert !is_discrete(model) "Can't call continuous dynamics on a discrete LinearModel"
+    k = get_k(model, t)
+    linear_dynamics(model, x, u, k)
 end
 
-function jacobian!(∇f::AbstractMatrix, model::ContinuousLinearModel, z::AbstractKnotPoint)
+function discrete_dynamics(::Type{PassThrough}, model::LinearModel, x, u, t, dt)
+    @assert is_discrete(model) "Can't call discrete dynamics without integration on a continuous LinearModel"
+    k = get_k(model, t)
+    dt_model = is_timevarying(model) ? model.times[k+1] - model.times[k] : model.dt
+    @assert dt ≈ dt_model "Incorrect dt. Expected $dt_model, got $dt."
+    linear_dynamics(model, x, u, k)
+end
+
+function jacobian!(∇f::AbstractMatrix, model::LinearModel, z::AbstractKnotPoint)
+    @assert !is_discrete(model) "Can't call continuous jacobian on a discrete LinearModel"
+
 	t = z.t
-    k = get_k(t, model)
+    k = get_k(model, t)
 
     n = state_dim(model)
     m = control_dim(model)
 
-    ∇f[1:n, 1:n] .= get_A(model, k)
-    ∇f[1:n, (n+1):(n+m)] .= get_B(model, k)
+    ∇f[1:n, 1:n] .= model.A[k]
+    ∇f[1:n, (n+1):(n+m)] .= model.B[k]
     true
 end
 
-function discrete_dynamics(::Type{DiscreteSystemQuadrature}, model::DiscreteLinearModel, x::StaticVector, u::StaticVector, t, dt)
-    _discrete_dynamics(is_affine(model), model, x, u, t, dt)
-end
+function discrete_jacobian!(::Type{PassThrough}, ∇f, model::LinearModel, z::AbstractKnotPoint{<:Any,n,m}) where {n,m}
+    @assert is_discrete(model) "Can't call discrete jacobian without integration on a continuous LinearModel"
 
-function _discrete_dynamics(::Val{true}, model::DiscreteLinearModel, x::StaticVector, u::StaticVector, t, dt)
-    k = get_k(t, model)
-    get_A(model, k)*x .+ get_B(model, k)*u .+ get_d(model, k)
-end
-
-function _discrete_dynamics(::Val{false}, model::DiscreteLinearModel, x::StaticVector, u::StaticVector, t, dt)
-    k = get_k(t, model)
-    get_A(model, k)*x + get_B(model, k)*u
-end
-
-function discrete_jacobian!(::Type{DiscreteSystemQuadrature}, ∇f, model::DiscreteLinearModel, z::AbstractKnotPoint{<:Any,n,m}) where {n,m}
     t = z.t
-    k = get_k(t, model)
+    k = get_k(model, t)
     ix = 1:n
     iu = n .+ (1:m)
-    ∇f[ix,ix] .= get_A(model, k)
-    ∇f[ix,iu] .= get_B(model, k)
+    ∇f[ix,ix] .= model.A[k]
+    ∇f[ix,iu] .= model.B[k]
 
     nothing
 end
 
-abstract type Exponential <: Explicit end
 
-function _discretize(::Type{Exponential}, ::Val{false}, model::ContinuousLinearModel, k::Integer, dt)
-    A_c = get_A(model, k)
-    B_c = get_B(model, k)
-    n = size(A_c, 1)
-    m = size(B_c, 2)
+# Exponential Integration
+function discrete_dynamics(::Type{Exponential}, model::LinearModel, 
+        z::AbstractKnotPoint{<:Any,n,m}) where {n,m}
+    k = get_k(model, z.t)
+    A = model.A[k]
+    B = model.B[k]
+    d = model.d[k]
+    E = model.E
 
-    continuous_system = zero(SizedMatrix{n+m, n+m})
-    continuous_system[1:n, 1:n] .= A_c
-    continuous_system[1:n, n .+ (1:m)] .= B_c
+    # Calculate the matrix exponential
+    matrix_exponential!(E, A, B, z)
 
-    discrete_system = exp(continuous_system*dt)
-    A_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(1,n)]
-    B_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+1,n+m)]
-
-    return (A_d, B_d)
+    if is_affine
+        z̄ = [z.z; d]
+        return E * z̄
+    else
+        return E * z.z
+    end
 end
 
-function _discretize(::Type{Exponential}, ::Val{true}, model::ContinuousLinearModel, k::Integer, dt)
-    A_c = get_A(model, k)
-    B_c = get_B(model, k)
-    n = size(A_c, 1)
-    D_c = oneunit(SizedMatrix{n, n})
-    m = size(B_c, 2)
+function discrete_jacobian!(::Type{Exponential}, F, model::LinearModel{n,m},
+        z::AbstractKnotPoint) where {n,m}
+    # Calculate the matrix exponential
+    matrix_exponential!(model, z)
 
-    continuous_system = zero(SizedMatrix{(2*n)+m, (2*n)+m})
-    continuous_system[1:n, 1:n] .= A_c
-    continuous_system[1:n, n .+ (1:m)] .= B_c
-    continuous_system[1:n, n + m .+ (1:n)] .= D_c
+    F .= model.E[1:n, 1:n+m]
+end
 
-    discrete_system = exp(continuous_system*dt)
-    A_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(1,n)]
-    B_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+1,n+m)]
-    D_d = discrete_system[StaticArrays.SUnitRange(1,n), StaticArrays.SUnitRange(n+m+1,2*n+m)]
+function matrix_exponential!(E::SizedMatrix, A, B, dt, 
+        ::Val{S}=Val(length(E) < 14*14)) where S
 
-    return (A_d, B_d, D_d)
+    # Copy Jacobian to matrix exponential
+    n,m = size(B)
+    ix,iu = 1:n, n .+ (1:m)
+    E[ix, ix] .= A
+    E[ix, iu] .= B
+
+    if size(E,1) == 2n+m
+        E[1:n, (1:n) .+ (n+m)] .= I(n)
+    end
+
+    # Exponentiate
+    E.data .*= dt
+    if S
+        Ec = SMatrix(E)
+    else
+        Ec = E.data
+    end
+    Ed = exp(Ec)
+
+    # Copy back to E
+    E .= Ed
+end
+
+function discretize!(::Type{Exponential}, F::DynamicsJacobian, d, 
+        model::AbstractModel, z::AbstractKnotPoint, is_affine::Bool=true) where Q <: Explicit
+
 end

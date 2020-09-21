@@ -4,11 +4,13 @@ using StaticArrays
 using ForwardDiff
 using LinearAlgebra
 using Random
+const RD = RobotDynamics
 
 include("cartpole_model.jl")
 include("random_linear.jl")
 include("quadrotor.jl")
 
+##
 @testset "Basic Dynamics" begin
     @testset "Cartpole" begin
         include("cartpole_test.jl")
@@ -29,10 +31,11 @@ end
 end
 
 @testset "Linear Systems" begin
-    include("double_integrator.jl")
+    include("linmodel_type.jl")
     include("test_random_linear.jl")
     include("linear_quad.jl")
-    include("linear_tests.jl")
+    # include("linear_tests.jl")
+    include("linearization.jl")
 end
 
 @testset "Rigid Bodies" begin

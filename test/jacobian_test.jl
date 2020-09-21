@@ -22,8 +22,10 @@ F.B[3,1] = 4
 
 @test RobotDynamics.get_A(F) ≈ F.A
 @test RobotDynamics.get_B(F) ≈ F.B
-@test RobotDynamics.get_A(F) isa SMatrix{n,n}
-@test RobotDynamics.get_B(F) isa SMatrix{n,m}
+@test RobotDynamics.get_static_A(F) ≈ F.A
+@test RobotDynamics.get_static_B(F) ≈ F.B
+@test RobotDynamics.get_static_A(F) isa SMatrix{n,n}
+@test RobotDynamics.get_static_B(F) isa SMatrix{n,m}
 
 F_ = SMatrix(F)
 @test DynamicsJacobian{n,n+m}(Tuple(F_)) isa DynamicsJacobian{n,n+m,Float64}

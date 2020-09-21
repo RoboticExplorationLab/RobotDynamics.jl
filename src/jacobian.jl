@@ -1,5 +1,5 @@
 """
-    DynamicsJacobian{n,m,T}
+    DynamicsJacobian{n,nm,T}
 
 Custom `n × (n+m)` matrix specifying a dynamics Jacobian for a forced dynamical system with
 `n` states and `m` controls. The Jacobian is structured as `[∂x ∂u]` where `x` and `u` are
@@ -52,7 +52,7 @@ Base.@propagate_inbounds Base.setindex!(D::DynamicsJacobian, x, inds::Vararg{Int
 Return the partial derivative of the dynamics with respect to the state input as an `SMatrix`,
 given the full dynamics Jacobian.
 """
-@generated function get_A(D::DynamicsJacobian{n,nm}) where {n,nm}
+@generated function get_static_A(D::DynamicsJacobian{n,nm}) where {n,nm}
     expr = [:(D[$i]) for i = 1:n*n]
     :(SMatrix{$n,$n}(tuple($(expr...))))
 end
@@ -63,12 +63,16 @@ end
 Return the partial derivative of the dynamics with respect to the control input as an `SMatrix`,
 given the full dynamics Jacobian.
 """
-@generated function get_B(D::DynamicsJacobian{n,nm}) where {n,nm}
+@generated function get_static_B(D::DynamicsJacobian{n,nm}) where {n,nm}
     m = nm - n
     inds = (1:n*m) .+ n*n
     expr = [:(D[$i]) for i in inds]
     :(SMatrix{$n,$m}(tuple($(expr...))))
 end
+
+get_A(D::DynamicsJacobian) = D.A
+get_B(D::DynamicsJacobian) = D.B
+
 
 @inline get_data(A::AbstractArray) = A
 @inline get_data(A::SizedArray) = A.data

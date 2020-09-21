@@ -8,6 +8,7 @@ using UnsafeArrays
 using RecipesBase
 
 using Rotations: skew
+using StaticArrays: SUnitRange
 
 export
     AbstractModel,
@@ -34,20 +35,13 @@ export
 
 # linear model
 export
-    AbstractLinearModel,
-    DiscreteLinearModel,
-    DiscreteLTV,
-    DiscreteLTI,
-    DiscreteSystemQuadrature,
-    ContinuousLinearModel,
-    ContinuousLTV,
-    ContinuousLTI,
-    get_A,
-    get_B,
-    get_d,
-    is_affine,
-    is_time_varying
-
+    LinearModel,
+    linear_dynamics,
+    LinearizedModel,
+    linearize_and_discretize!,
+    discretize,
+    discretize!,
+    update_trajectory!
 
 # knotpoints
 export
@@ -68,7 +62,9 @@ export
     RK2,
     RK3,
     RK4,
-    HermiteSimpson
+    HermiteSimpson,
+    PassThrough,
+    Exponential
 
 
 include("rbstate.jl")
@@ -78,8 +74,9 @@ include("model.jl")
 include("liestate.jl")
 include("rigidbody.jl")
 include("integration.jl")
-include("linearmodel.jl")
 include("trajectories.jl")
+include("linearmodel.jl")
+include("linearization.jl")
 include("plot_recipes.jl")
 
 end # module

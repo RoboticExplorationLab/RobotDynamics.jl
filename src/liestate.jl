@@ -76,6 +76,9 @@ end
 "number of rotations"
 num_rotations(::LieState{<:Any,P}) where P = length(P) - 1
 
+state_dim_vec(::LieState{<:Any,P}) where P = sum(P)
+state_dim_rot(s::LieState{R}) where R = params(R)*num_rotations(s)
+
 Base.length(s::LieState{R,P}) where {R,P} = params(R)*num_rotations(s) + sum(P)
 Base.length(::Type{LieState{R,P}}) where {R,P} = params(R)*(length(P)-1) + sum(P)
 
