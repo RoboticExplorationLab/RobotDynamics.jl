@@ -1,7 +1,7 @@
 name = "RobotDynamics"
 uuid = "38ceca67-d8d3-44e8-9852-78a5596522e1"
 authors = ["Brian Jackson <bjack205@gmail.com>"]
-version = "0.2.1"
+version = "0.2.2"
 
 [deps]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
