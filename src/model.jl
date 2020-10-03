@@ -90,6 +90,8 @@ abstract type RK3 <: Explicit end
 "Second-order Runge-Kutta method with zero-order-old on the controls (i.e. midpoint)"
 abstract type RK2 <: Explicit end
 
+abstract type Euler <: Explicit end
+
 "Third-order Runge-Kutta method with first-order-hold on the controls"
 abstract type HermiteSimpson <: Implicit end
 
