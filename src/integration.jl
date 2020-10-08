@@ -2,18 +2,18 @@
 #                                  EXPLICIT METHODS 								       #
 ############################################################################################
 
-function discrete_dynamics(::Type{Euler}, model::AbstractModel, x::StaticVector, u::StaticVector, t, dt)
+function integrate(::Type{Euler}, model::AbstractModel, x::StaticVector, u::StaticVector, t, dt)
 	xdot = dynamics(model, x, u, t)
 	return x + xdot * dt
 end
 
-function discrete_dynamics(::Type{RK2}, model::AbstractModel, x::StaticVector, u::StaticVector, t, dt)
+function integrate(::Type{RK2}, model::AbstractModel, x::StaticVector, u::StaticVector, t, dt)
 	k1 = dynamics(model, x,        u, t       )*dt
 	k2 = dynamics(model, x + k1/2, u, t + dt/2)*dt
 	x + k2
 end
 
-function discrete_dynamics(::Type{RK3}, model::AbstractModel, x::StaticVector, u::StaticVector,
+function integrate(::Type{RK3}, model::AbstractModel, x::StaticVector, u::StaticVector,
 		t, dt)
     k1 = dynamics(model, x,             u, t       )*dt;
     k2 = dynamics(model, x + k1/2,      u, t + dt/2)*dt;
@@ -21,7 +21,7 @@ function discrete_dynamics(::Type{RK3}, model::AbstractModel, x::StaticVector, u
     x + (k1 + 4*k2 + k3)/6
 end
 
-function discrete_dynamics(::Type{RK4}, model::AbstractModel, x::StaticVector, u::StaticVector, t, dt)
+function integrate(::Type{RK4}, model::AbstractModel, x::StaticVector, u::StaticVector, t, dt)
 	k1 = dynamics(model, x,        u, t       )*dt
 	k2 = dynamics(model, x + k1/2, u, t + dt/2)*dt
 	k3 = dynamics(model, x + k2/2, u, t + dt/2)*dt
