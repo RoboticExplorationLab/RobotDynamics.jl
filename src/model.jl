@@ -183,7 +183,7 @@ x′ = discrete_dynamics(Q, model, z::KnotPoint)
 The default integration scheme is stored in `TrajectoryOptimization.DEFAULT_Q`
 """
 @inline discrete_dynamics(::Type{Q}, model::AbstractModel, z::AbstractKnotPoint) where Q<:Explicit =
-    integrate(Q, model, state(z), control(z), z.t, z.dt)
+    discrete_dynamics(Q, model, state(z), control(z), z.t, z.dt)
 
 @inline discrete_dynamics(::Type{Q}, model::AbstractModel, x, u, t, dt) where Q =
     integrate(Q, model, x, u, t, dt)
