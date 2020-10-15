@@ -155,7 +155,7 @@ function Base.:+(s1::RBState, s2::RBState)
 end
 
 """
-    +(::RBState, ::RBState)
+    -(::RBState, ::RBState)
 
 Substract two rigid body states, which substracts the position, linear and angular velocities,
     and composes the inverse of the second orientation with the first, i.e. `inv(q2)*q1`.
