@@ -1,5 +1,6 @@
 "Integration type for systems with user defined discrete dynamics."
 abstract type PassThrough <: Explicit end
+integrate(::Type{PassThrough}, model::AbstractModel, x::StaticVector, u::StaticVector, t, dt) = x
 
 "Exponential integration for linear systems with ZOH on controls."
 abstract type Exponential <: Explicit end
