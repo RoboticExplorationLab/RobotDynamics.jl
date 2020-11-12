@@ -198,8 +198,8 @@ function state_diff_jacobian!(G, model::LieGroupModel, Z::Traj)
 	end
 end
 
-function rollout!(::Type{Q}, model::AbstractModel, Z::Traj, x0) where Q <: QuadratureRule
-    Z[1].z = [x0; control(Z[1])]
+function rollout!(::Type{Q}, model::AbstractModel, Z::AbstractTrajectory, x0=state(Z[1])) where Q <: QuadratureRule
+    set_state!(Z[1], x0)
     for k = 2:length(Z)
         RobotDynamics.propagate_dynamics(Q, model, Z[k], Z[k-1])
     end

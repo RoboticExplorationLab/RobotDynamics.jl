@@ -1,5 +1,5 @@
 """
-    LinearizedModel{M,L,T} <: AbstractModel
+    LinearizedModel{M,L,T} <: AbstractLinearModel
 
 A container for the linearized model that holds the full nonlinear model, the linearized model, and the
 trajectory of linearization points. The same dynamics and jacobian functions can still be called on the
