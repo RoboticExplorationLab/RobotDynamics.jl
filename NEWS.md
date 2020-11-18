@@ -1,3 +1,14 @@
+# New in v0.3
+## `integrate` method
+Allow for more flexibility for defining discrete dynamics by using 
+```integrate(Q, model, x, u, t, dt)```
+to apply integration rule `Q` instead of `discrete_dynamics`. This allows users to 
+customize `discrete_dynamics` for any integration rule `Q`, and optionally apply the 
+integration rule to part of the state vector. 
+
+## New options for `state_diff` 
+Any valid `Rotations.ErrorMap` to be passed as a 4th argument to `state_diff`, which will be used to compute the error state for all 3D rotations in the `LieState`.
+
 # New in v0.2
 ## Trajectory Types
 Moved trajectory types from TrajectoryOptimization.jl to RobotDynamics.jl.
