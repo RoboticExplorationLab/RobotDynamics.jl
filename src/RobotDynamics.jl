@@ -77,6 +77,7 @@ include("integration.jl")
 include("trajectories.jl")
 include("linearmodel.jl")
 include("linearization.jl")
+include("hybrid.jl")
 include("plot_recipes.jl")
 
 end # module

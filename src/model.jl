@@ -127,6 +127,9 @@ end
 
 @inline control_dim(::AbstractModel) = throw(ErrorException("control_dim not implemented"))
 @inline state_dim(::AbstractModel) = throw(ErrorException("state_dim not implemented"))
+@inline control_dim(model::AbstractModel, k::Int) = control_dim(model)
+@inline state_dim(model::AbstractModel, k::Int) = state_dim(model)
+@inline next_state_dim(model::AbstractModel) = state_dim(model)
 
 """Default size method for model (assumes model has fields n and m)"""
 @inline Base.size(model::AbstractModel) = state_dim(model), control_dim(model)
