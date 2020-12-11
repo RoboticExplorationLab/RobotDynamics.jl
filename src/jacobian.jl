@@ -24,7 +24,7 @@ where `D` is a `StaticMatrix` of appropriate size. Since `DynamicsJacobian` impl
 a `StaticMatrix`.
 """
 struct DynamicsJacobian{S1,S2,T} <: StaticMatrix{S1,S2,T}
-    data::SizedMatrix{S1,S2,T,2}
+    data::SizedMatrix{S1,S2,T,2,Matrix{T}}
     A::SubArray{T,2,Matrix{T}, Tuple{Base.Slice{Base.OneTo{Int}}, UnitRange{Int}},true}
     B::SubArray{T,2,Matrix{T}, Tuple{Base.Slice{Base.OneTo{Int}}, UnitRange{Int}},true}
     function DynamicsJacobian(F::StaticMatrix{n,nm}) where {n,nm}

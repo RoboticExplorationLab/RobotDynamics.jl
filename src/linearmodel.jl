@@ -27,13 +27,13 @@ called on the `times` vector to get the discrete time index from the continuous 
 specified based on array size, but can be turned off in case of excessive compilation times.
 """
 struct LinearModel{n,m,T,e} <: AbstractLinearModel
-    A::Vector{SizedMatrix{n,n,T,2}}
-    B::Vector{SizedMatrix{n,m,T,2}}
-    d::Vector{SizedVector{n,T,1}}
+    A::Vector{SizedMatrix{n,n,T,2,Matrix{T}}}
+    B::Vector{SizedMatrix{n,m,T,2,Matrix{T}}}
+    d::Vector{SizedVector{n,T,Vector{T}}}
     times::Vector{T}
     dt::T
     xdot::MVector{n,T}
-    E::SizedMatrix{e,e,T,2}                 # Matrix for exponential integration, if needed
+    E::SizedMatrix{e,e,T,2,Matrix{T}}   # Matrix for exponential integration, if needed
     use_static::Bool
     function LinearModel(
             A::Vector{TA},

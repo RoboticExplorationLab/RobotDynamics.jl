@@ -22,7 +22,7 @@ linearized_model = LinearizedModel(nonlinear_model, Z, dt=dt, integration=RK3, i
 
 ## Test that the linearization matches exactly at the knot points
 for k=1:N-1
-    z = Z[k]
+    local z = Z[k]
     @test discrete_dynamics(RK3, nonlinear_model, z) ≈ 
         discrete_dynamics(PassThrough, linearized_model, z) atol=1e-4
 
@@ -41,7 +41,7 @@ end
 update_trajectory!(linearized_model, Z)
 
 for i=1:N-1
-    z = Z[i]
+    local z = Z[i]
     @test discrete_dynamics(RK3, nonlinear_model, z) ≈ 
         discrete_dynamics(PassThrough, linearized_model, z) atol=1e-4
 
@@ -174,7 +174,7 @@ random_model_test = RandomLinear{n,m,Float64}(A,B)
 F = RD.DynamicsJacobian(n,m)
 
 for RK in (RK2, RK3, RK4)
-    linmodel = LinearizedModel(random_model_test, integration=RK, dt=dt)
+    local linmodel = LinearizedModel(random_model_test, integration=RK, dt=dt)
     discrete_jacobian!(RK, F, random_model_test, z)
     @test RD.get_A(F) ≈ RD.get_A(linmodel) 
     @test RD.get_B(F) ≈ RD.get_B(linmodel) 

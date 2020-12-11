@@ -161,6 +161,13 @@ function jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPo
 	ForwardDiff.jacobian!(get_data(∇f), f_aug, s)
 end
 
+function ∇jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint, b::AbstractVector)
+    ix,iu = z._x, z._u
+    t = z.t
+    f_aug(z) = dynamics(model, z[ix], z[iu], t)'b
+    ForwardDiff.hessian!(∇f, f_aug, z.z)
+end
+
 DynamicsJacobian(model::AbstractModel) = DynamicsJacobian(state_dim(model), control_dim(model))
 
 ############################################################################################
@@ -215,6 +222,16 @@ function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
     fd_aug(s) = discrete_dynamics(Q, model, s[ix], s[iu], t, z.dt)
     ∇f .= ForwardDiff.jacobian(fd_aug, SVector{N+M}(z.z))
 	return nothing
+end
+
+function ∇discrete_jacobian!(::Type{Q}, ∇f::AbstractMatrix, model::AbstractModel, 
+        z::AbstractKnotPoint{<:Any,n,m}, b::AbstractVector) where {Q<:Explicit,n,m}
+    ix,iu = z._x, z._u
+    t,dt = z.t, z.dt
+    fd_aug(z) = discrete_dynamics(Q, model, z[ix], z[iu], t, dt)
+    jac_z(z) = ForwardDiff.jacobian(fd_aug, z)
+    ForwardDiff.hessian!(∇f, z->fd_aug(z)'b, z.z)
+    ForwardDiff.jacobian(z->jac_z(z), z.z)
 end
 
 ############################################################################################

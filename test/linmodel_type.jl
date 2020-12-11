@@ -6,6 +6,7 @@ using RobotDynamics: LinearModel
 const RD = RobotDynamics
 include("random_linear.jl")
 
+
 ## Continuous LTI
 n,m = 10,5
 dt = 0.1
