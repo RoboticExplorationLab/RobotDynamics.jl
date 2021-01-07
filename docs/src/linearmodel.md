@@ -18,7 +18,6 @@ or a trajectory. This can allow the use of specialized and faster trajectory opt
 linear systems. The functions that RobotDynamics provides also discretize the system. 
 
 ```@docs
-linearize_and_discretize!
 discretize!
 update_trajectory!
 ```

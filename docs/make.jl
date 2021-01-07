@@ -15,7 +15,8 @@ makedocs(
             "knotpoints.md",
             "liemodel.md",
             "rigidbody.md",
-            "linearmodel.md"
+            "linearmodel.md",
+            "finite_diff.md"
         ]
     ]
 )

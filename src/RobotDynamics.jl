@@ -4,6 +4,7 @@ using Rotations
 using StaticArrays
 using LinearAlgebra
 using ForwardDiff
+using FiniteDiff
 using UnsafeArrays
 using RecipesBase
 

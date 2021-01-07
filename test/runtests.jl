@@ -3,6 +3,7 @@ using RobotDynamics
 using StaticArrays
 using ForwardDiff
 using LinearAlgebra
+using FiniteDiff
 using Random
 const RD = RobotDynamics
 

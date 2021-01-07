@@ -98,6 +98,18 @@ abstract type HermiteSimpson <: Implicit end
 "Default quadrature rule"
 const DEFAULT_Q = RK3
 
+abstract type DiffMethod end
+struct ForwardAD <: DiffMethod end
+struct FiniteDifference <: DiffMethod end
+diffmethod(::AbstractModel) = ForwardAD()  # set default to ForwardDiff
+function FiniteDiff.JacobianCache(
+    model::AbstractModel, 
+    fdtype::Union{Val{T1},Type{T1}} = Val(:forward), 
+    dtype::Type{T2} = Float64;
+    kwargs...) where {T1,T2} 
+    n,m = size(model)
+    FiniteDiff.JacobianCache(zeros(T2,n+m), zeros(T2,n), fdtype, dtype; kwargs...)
+end
 
 #=
 Convenient methods for creating state and control vectors directly from the model
@@ -153,12 +165,23 @@ Compute the `n × (n + m)` Jacobian `∇f` of the continuous-time dynamics using
 Only accepts an `AbstractKnotPoint` as input in order to avoid potential allocations
 associated with concatenation.
 """
-function jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint)
+function jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint, args...)
+    _jacobian!(diffmethod(model), ∇f, model, z, args...)
+end
+
+function _jacobian!(::ForwardAD, ∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint)
     ix, iu = z._x, z._u
 	t = z.t
     f_aug(z) = dynamics(model, z[ix], z[iu], t)
     s = z.z
 	ForwardDiff.jacobian!(get_data(∇f), f_aug, s)
+end
+
+function _jacobian!(::FiniteDifference, ∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint, cache=FiniteDiff.JacobianCache(model))
+    ix,iu,t = z._x, z._u, z.t
+    f_aug!(ẋ,z) = copyto!(ẋ, dynamics(model, z[ix], z[iu]))
+    cache.x1 .= z.z
+    FiniteDiff.finite_difference_jacobian!(∇f, f_aug!, cache.x1, cache)
 end
 
 function ∇jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint, b::AbstractVector)
@@ -216,12 +239,25 @@ Compute the `n × (n+m)` discrete dynamics Jacobian `∇f` of `model` using expl
 integration scheme `Q<:QuadratureRule`.
 """
 function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
+        z::AbstractKnotPoint{T,N,M}, args...) where {T,N,M,Q<:Explicit}
+    _discrete_jacobian!(diffmethod(model), Q, ∇f, model, z, args...)
+end
+
+function _discrete_jacobian!(::ForwardAD, ::Type{Q}, ∇f, model::AbstractModel,
 		z::AbstractKnotPoint{T,N,M}) where {T,N,M,Q<:Explicit}
-    ix,iu,idt = z._x, z._u, N+M+1
+    ix,iu,dt = z._x, z._u, z.dt 
     t = z.t
-    fd_aug(s) = discrete_dynamics(Q, model, s[ix], s[iu], t, z.dt)
+    fd_aug(s) = discrete_dynamics(Q, model, s[ix], s[iu], t, dt)
     ∇f .= ForwardDiff.jacobian(fd_aug, SVector{N+M}(z.z))
 	return nothing
+end
+
+function _discrete_jacobian!(::FiniteDifference, ::Type{Q}, ∇f, model::AbstractModel,
+		z::AbstractKnotPoint{T,N,M}, cache=FiniteDiff.JacobianCache(model)) where {T,N,M,Q<:Explicit}
+    ix,iu,t,dt = z._x, z._u, z.t, z.dt
+    fd_aug!(ẋ,z) = copyto!(ẋ, discrete_dynamics(Q, model, z[ix], z[iu], t, dt))
+    cache.x1 .= z.z
+    FiniteDiff.finite_difference_jacobian!(∇f, fd_aug!, cache.x1, cache)
 end
 
 function ∇discrete_jacobian!(::Type{Q}, ∇f::AbstractMatrix, model::AbstractModel, 

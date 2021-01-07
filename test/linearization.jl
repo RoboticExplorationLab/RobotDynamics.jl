@@ -26,8 +26,8 @@ for k=1:N-1
     @test discrete_dynamics(RK3, nonlinear_model, z) ≈ 
         discrete_dynamics(PassThrough, linearized_model, z) atol=1e-4
 
-    F1 = RD.DynamicsJacobian(nonlinear_model)
-    F2 = RD.DynamicsJacobian(linearized_model)
+    local F1 = RD.DynamicsJacobian(nonlinear_model)
+    local F2 = RD.DynamicsJacobian(linearized_model)
     discrete_jacobian!(RK3, F1, nonlinear_model, z)
     discrete_jacobian!(PassThrough, F2, linearized_model, z)
     @test F1 ≈ F2
@@ -45,8 +45,8 @@ for i=1:N-1
     @test discrete_dynamics(RK3, nonlinear_model, z) ≈ 
         discrete_dynamics(PassThrough, linearized_model, z) atol=1e-4
 
-    F1 = RD.DynamicsJacobian(nonlinear_model)
-    F2 = RD.DynamicsJacobian(linearized_model)
+    local F1 = RD.DynamicsJacobian(nonlinear_model)
+    local F2 = RD.DynamicsJacobian(linearized_model)
     discrete_jacobian!(RK3, F1, nonlinear_model, z)
     discrete_jacobian!(PassThrough, F2, linearized_model, z)
     @test F1 ≈ F2
