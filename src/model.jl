@@ -239,12 +239,12 @@ Compute the `n × (n+m)` discrete dynamics Jacobian `∇f` of `model` using expl
 integration scheme `Q<:QuadratureRule`.
 """
 function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
-        z::AbstractKnotPoint{T,N,M}, args...) where {T,N,M,Q<:Explicit}
-    _discrete_jacobian!(diffmethod(model), Q, ∇f, model, z, args...)
+        z::AbstractKnotPoint{T,N,M}, cache=FiniteDiff.JacobianCache(model)) where {T,N,M,Q<:Explicit}
+    _discrete_jacobian!(diffmethod(model), Q, ∇f, model, z, cache)
 end
 
 function _discrete_jacobian!(::ForwardAD, ::Type{Q}, ∇f, model::AbstractModel,
-		z::AbstractKnotPoint{T,N,M}) where {T,N,M,Q<:Explicit}
+		z::AbstractKnotPoint{T,N,M}, cache=nothing) where {T,N,M,Q<:Explicit}
     ix,iu,dt = z._x, z._u, z.dt 
     t = z.t
     fd_aug(s) = discrete_dynamics(Q, model, s[ix], s[iu], t, dt)
@@ -253,11 +253,15 @@ function _discrete_jacobian!(::ForwardAD, ::Type{Q}, ∇f, model::AbstractModel,
 end
 
 function _discrete_jacobian!(::FiniteDifference, ::Type{Q}, ∇f, model::AbstractModel,
-		z::AbstractKnotPoint{T,N,M}, cache=FiniteDiff.JacobianCache(model)) where {T,N,M,Q<:Explicit}
+        z::AbstractKnotPoint{T,N,M}, cache=FiniteDiff.JacobianCache(model)) where {T,N,M,Q<:Explicit}
+    if isnothing(cache)
+        cache = FiniteDiff.JacobianCache(model)
+    end
     ix,iu,t,dt = z._x, z._u, z.t, z.dt
     fd_aug!(ẋ,z) = copyto!(ẋ, discrete_dynamics(Q, model, z[ix], z[iu], t, dt))
     cache.x1 .= z.z
     FiniteDiff.finite_difference_jacobian!(∇f, fd_aug!, cache.x1, cache)
+    return nothing
 end
 
 function ∇discrete_jacobian!(::Type{Q}, ∇f::AbstractMatrix, model::AbstractModel, 
@@ -268,6 +272,7 @@ function ∇discrete_jacobian!(::Type{Q}, ∇f::AbstractMatrix, model::AbstractM
     jac_z(z) = ForwardDiff.jacobian(fd_aug, z)
     ForwardDiff.hessian!(∇f, z->fd_aug(z)'b, z.z)
     ForwardDiff.jacobian(z->jac_z(z), z.z)
+    return nothing
 end
 
 ############################################################################################
