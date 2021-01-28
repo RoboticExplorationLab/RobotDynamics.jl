@@ -138,7 +138,7 @@ RD.discrete_jvp!(RK4, g, model, z, λ, cache)
 @test (@allocated RD.discrete_jvp!(RK4, g, model, z, λ, cache)) == 0
 
 RD.jvp!(g, model, z, λ, cache)
-@test g ≈ g0
+@test g ≈ g0 atol=1e-6
 @test (@allocated RD.jvp!(g, model, z, λ, cache)) == 0
 
 ############################################################################################
