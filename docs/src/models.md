@@ -64,9 +64,9 @@ RobotDynamics.control_dim(::Cartpole) = 1
 And voila! we have a new model.
 
 We now have a few methods automatically available to us:
-```@docs
-dynamics
-jacobian!
+```julia
+dynamics(model, z)
+jacobian!(∇f, model, z)
 ```
 
 We can also use `size(model)` to get `(n,m)`, `rand(model)` to get a tuple of randomly-sampled state and

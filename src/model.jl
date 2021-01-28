@@ -131,13 +131,20 @@ function FiniteDiff.GradientCache(model::AbstractModel,
     FiniteDiff.GradientCache(zeros(state_dim(model)), zeros(sum(size(model))), fdtype)
 end
 
+"""
+    detect_sparsity(Q, model, [samples])
+
+Create a sparse matrix representing the nonzero elements of the discrete dynamics 
+Jacobian. Uses ForwardDiff to compute the Jacobian on `samples` randomly-sampled 
+states and controls.
+"""
 function detect_sparsity(::Type{Q}, model::AbstractModel, samples=10) where Q
     n,m = size(model)
     ∇f = spzeros(n,n+m)
     x,u = rand(model)
     z = StaticKnotPoint(x,u,0.1)
     for i = 1:samples  # try several inputs to get the sparsity pattern
-        _discrete_jacobian!(ForwardAD(), Q, ∇f, model, z)
+        _discrete_jacobian!(ForwardAD(), Q, ∇f, model, z, nothing)
     end
     return ∇f .!= 0
 end
@@ -190,11 +197,20 @@ time `t` (optional).
 @inline dynamics(model::AbstractModel, x, u, t) = dynamics(model, x, u)
 
 """
-	∇f = jacobian!(∇f, model, z::AbstractKnotPoint)
+	jacobian!(∇f, model, z::AbstractKnotPoint, [cache])
 
-Compute the `n × (n + m)` Jacobian `∇f` of the continuous-time dynamics using ForwardDiff.
+Compute the `n × (n + m)` Jacobian `∇f` of the continuous-time dynamics.
 Only accepts an `AbstractKnotPoint` as input in order to avoid potential allocations
 associated with concatenation.
+
+This method can use either ForwardDiff or FiniteDiff, based on the result of 
+`RobotDynamics.diffmethod(model)`. When using FiniteDiff, the cache should be 
+passed in for best performance. The cache can be generated using either of the 
+following:
+
+    RobotDynamics.gen_cache(model)
+    FiniteDiff.JacobianCache(model)
+
 """
 function jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint, 
         cache=gen_cache(model))
@@ -218,6 +234,12 @@ function _jacobian!(::FiniteDifference, ∇f::AbstractMatrix, model::AbstractMod
     FiniteDiff.finite_difference_jacobian!(∇f, f_aug!, cache.x1, cache)
 end
 
+"""
+    jvp!(grad, model, z, λ, [cache])
+
+Compute the Jacobian-transpose vector product, `∇f'λ`. Can use either ForwardDiff or
+FiniteDiff.
+"""
 function jvp!(grad, model::AbstractModel, z::AbstractKnotPoint, λ, cache=gen_grad_cache(model))
     _jvp!(diffmethod(model), grad, model, z, λ, cache)
 end
@@ -237,6 +259,15 @@ function _jvp!(::FiniteDifference, grad, model::AbstractModel, z::AbstractKnotPo
     FiniteDiff.finite_difference_gradient!(grad, f_aug!, cache.c3, cache)
 end
 
+"""
+    ∇jacobian!(∇²f, model, z, b)
+
+Evaluate the Jacobian of the Jacobian-transpose vector product: `∇f'b`, 
+for the continuous dynamics. 
+The output `∇²f` is of size `(n+m,n+m)`, and `b` is of size `(n,)`.
+This is needed, for example, when computing the Hessian of the Lagrangian when
+computing a full Newton step.
+"""
 function ∇jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint, b::AbstractVector)
     ix,iu = z._x, z._u
     t = z.t
@@ -254,16 +285,12 @@ DynamicsJacobian(model::AbstractModel) = DynamicsJacobian(state_dim(model), cont
 @inline discrete_dynamics(model::AbstractModel, z::AbstractKnotPoint) =
     discrete_dynamics(DEFAULT_Q, model, z)
 
-""" Compute the discretized dynamics of `model` using explicit integration scheme `Q<:QuadratureRule`.
+"""
+    x′ = discrete_dynamics(model, model, z)  # uses $(DEFAULT_Q) as the default integration scheme
+    x′ = discrete_dynamics(Q, model, x, u, t, dt)
+    x′ = discrete_dynamics(Q, model, z::KnotPoint)
 
-Methods:
-```
-x′ = discrete_dynamics(model, model, z)  # uses $(DEFAULT_Q) as the default integration scheme
-x′ = discrete_dynamics(Q, model, x, u, t, dt)
-x′ = discrete_dynamics(Q, model, z::KnotPoint)
-
-RD.gen_grad_cache(model)
-``
+Compute the discretized dynamics of `model` using explicit integration scheme `Q<:QuadratureRule`.
 
 The default integration scheme is stored in `TrajectoryOptimization.DEFAULT_Q`
 """
@@ -288,10 +315,26 @@ function propagate_dynamics(::Type{Q}, model::AbstractModel, z_::AbstractKnotPoi
 end
 
 """
-	∇f = discrete_jacobian!(Q, ∇f, model, z::AbstractKnotPoint)
+	discrete_jacobian!(Q, ∇f, model, z::AbstractKnotPoint)
 
 Compute the `n × (n+m)` discrete dynamics Jacobian `∇f` of `model` using explicit
 integration scheme `Q<:QuadratureRule`.
+
+This method can use either ForwardDiff or FiniteDiff, based on the result of 
+`RobotDynamics.diffmethod(model)`. When using FiniteDiff, the cache should be 
+passed in for best performance. The cache can be generated using either of the 
+following:
+
+    RobotDynamics.gen_cache(model)
+    FiniteDiff.JacobianCache(model)
+
+When using FiniteDiff, the coloring vector for sparse Jacobians can be calculated
+and stored in the cache. To compute this automatically, use 
+
+    FiniteDiff.JacobianCache(model, colored=true, [sparsity=sparsity])
+
+where `sparsity` is a sparse matrix with the non-zero entries of the discrete Jacobian.
+If left out, it will be computed using `detect_sparsity(DEFAULT_Q, model)`.
 """
 function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
         z::AbstractKnotPoint{T,N,M}, cache=gen_cache(model)) where {T,N,M,Q<:Explicit}
@@ -319,6 +362,15 @@ function _discrete_jacobian!(::FiniteDifference, ::Type{Q}, ∇f, model::Abstrac
     return nothing
 end
 
+"""
+    discrete_jvp!(Q, grad, model, z, λ, [cache])
+
+Calculated the discrete Jacobian-vector product, `∇f'λ`. Can use either ForwardDiff 
+or FiniteDiff. The cache for FiniteDiff can be generated using either of the following
+
+    RobotDynamics.gen_grad_cache(model)
+    FiniteDiff.GradientCache(model)
+"""
 function discrete_jvp!(::Type{Q}, grad, model::AbstractModel,
         z::AbstractKnotPoint{T,N,M}, λ, cache=gen_grad_cache(model)) where {T,N,M,Q<:Explicit}
     _djvp!(Q, diffmethod(model), grad, model, z, λ, cache)
@@ -343,6 +395,15 @@ function _djvp!(::Type{Q}, ::FiniteDifference, grad, model::AbstractModel,
     FiniteDiff.finite_difference_gradient!(grad, fd_aug, cache.c3, cache)
 end
 
+"""
+    ∇discrete_jacobian!(Q, ∇²f, model, z, b)
+
+Evaluate the Jacobian of the Jacobian-transpose vector product: `∇f'b`, 
+for the discrete dynamics.
+The output `∇²f` is of size `(n+m,n+m)`, and `b` is of size `(n,)`.
+This is needed, for example, when computing the Hessian of the Lagrangian when
+computing a full Newton step.
+"""
 function ∇discrete_jacobian!(::Type{Q}, ∇f::AbstractMatrix, model::AbstractModel, 
         z::AbstractKnotPoint{<:Any,n,m}, b::AbstractVector) where {Q<:Explicit,n,m}
     ix,iu = z._x, z._u

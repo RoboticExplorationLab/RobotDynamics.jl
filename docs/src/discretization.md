@@ -7,14 +7,16 @@ This page gives details on the methods for evaluating discretized dynamics, as w
 on how to define a custom integration method.
 
 ## Model Discretization
-With a model defined, we can compute the discrete dynamics and discrete dynamics Jacobians for an Implicit
+With a model defined, we can compute the discrete dynamics and discrete dynamics Jacobians for an explicit 
 integration rule with the following methods
 
-```@docs
-discrete_dynamics
-discrete_jacobian!
+```julia
+x′ = discrete_dynamics(Q, model, x, u, t, dt)
+x′ = discrete_dynamics(Q, model, z::KnotPoint)
+discrete_jacobian!(Q, ∇f, model, z::AbstractKnotPoint)
 ```
-
+For more information, see the docstrings for [`discrete_dynamics`](@ref) and 
+[`discrete_jacobian!`](@ref).
 ## Integration Schemes
 RobotDynamics.jl has already defined a handful of integration schemes for computing discrete dynamics.
 The integration schemes are specified as abstract types, so that methods can efficiently dispatch

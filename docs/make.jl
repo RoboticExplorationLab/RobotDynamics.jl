@@ -16,7 +16,8 @@ makedocs(
             "liemodel.md",
             "rigidbody.md",
             "linearmodel.md",
-            "finite_diff.md"
+            "finite_diff.md",
+            "dynamics_api.md"   
         ]
     ]
 )
