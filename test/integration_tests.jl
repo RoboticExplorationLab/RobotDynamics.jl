@@ -3,6 +3,7 @@ using ForwardDiff
 using LinearAlgebra
 
 model = Cartpole()
+RD.diffmethod(model::Cartpole) = RD.ForwardAD()
 x,u = rand(model)
 n,m = size(model)
 dt = 0.01
@@ -38,19 +39,19 @@ xnext_(u) = x + (k1_(u) + 4*k2_(u) + k3_(u))/6
 @test xnext(x) == xnext_(u)
 
 # Evaluate at each of the intermediate states
-F = zeros(n,n+m)
+F = RD.DynamicsJacobian(model)
+RD.set_state!(z, x)
 jacobian!(F, model, z)
-A1 = F[z._x, z._x]
-B1 = F[z._x, z._u]
+A1 = RD.get_static_A(F) 
+B1 = RD.get_static_B(F) 
 RobotDynamics.set_state!(z, x + k1(x)/2)
 jacobian!(F, model, z)
-A2 = F[z._x, z._x]
-B2 = F[z._x, z._u]
+A2 = RD.get_static_A(F) 
+B2 = RD.get_static_B(F) 
 RobotDynamics.set_state!(z, x - k1(x) + 2*k2(x))
 jacobian!(F, model, z)
-A3 = F[z._x, z._x]
-B3 = F[z._x, z._u]
-
+A3 = RD.get_static_A(F) 
+B3 = RD.get_static_B(F) 
 
 # Test analytical formulas
 @test ForwardDiff.jacobian(k1,x) ≈ A1*dt

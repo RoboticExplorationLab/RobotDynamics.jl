@@ -134,7 +134,7 @@ cache = RD.gen_grad_cache(model)
 @test cache isa FiniteDiff.GradientCache
 g .= 0
 RD.discrete_jvp!(RK4, g, model, z, λ, cache)
-@test g ≈ dg0
+@test g ≈ dg0 atol=1e-6
 @test (@allocated RD.discrete_jvp!(RK4, g, model, z, λ, cache)) == 0
 
 RD.jvp!(g, model, z, λ, cache)

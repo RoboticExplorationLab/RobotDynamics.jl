@@ -31,3 +31,4 @@ end
 
 RobotDynamics.state_dim(::Cartpole) = 4
 RobotDynamics.control_dim(::Cartpole) = 1
+RobotDynamics.diffmethod(::Cartpole) = RobotDynamics.ForwardAD()
