@@ -7,6 +7,8 @@ using ForwardDiff
 using FiniteDiff
 using UnsafeArrays
 using RecipesBase
+using SparseDiffTools
+using SparseArrays
 
 using Rotations: skew
 using StaticArrays: SUnitRange

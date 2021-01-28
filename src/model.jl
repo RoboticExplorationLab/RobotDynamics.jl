@@ -102,13 +102,44 @@ abstract type DiffMethod end
 struct ForwardAD <: DiffMethod end
 struct FiniteDifference <: DiffMethod end
 diffmethod(::AbstractModel) = ForwardAD()  # set default to ForwardDiff
-function FiniteDiff.JacobianCache(
-    model::AbstractModel, 
-    fdtype::Union{Val{T1},Type{T1}} = Val(:forward), 
-    dtype::Type{T2} = Float64;
-    kwargs...) where {T1,T2} 
+gen_cache(model::AbstractModel) = gen_cache(diffmethod(model), model)
+gen_cache(::ForwardAD, ::AbstractModel) = nothing
+gen_cache(::FiniteDifference, model::AbstractModel) = FiniteDiff.JacobianCache(model)
+
+gen_grad_cache(model::AbstractModel) = gen_grad_cache(diffmethod(model), model)
+gen_grad_cache(::ForwardAD, model::AbstractModel) = nothing
+gen_grad_cache(::FiniteDifference, model::AbstractModel) = 
+    FiniteDiff.GradientCache(model)
+
+function FiniteDiff.JacobianCache(model::AbstractModel, 
+        fdtype::Union{Val{T1},Type{T1}} = Val(:forward), 
+        dtype::Type{T2} = Float64; colored::Bool=false,
+        sparsity = detect_sparsity(DEFAULT_Q, model),
+        kwargs...) where {T1,T2} 
     n,m = size(model)
-    FiniteDiff.JacobianCache(zeros(T2,n+m), zeros(T2,n), fdtype, dtype; kwargs...)
+    if colored
+        colorvec = matrix_colors(sparsity)
+    else
+        colorvec = 1:n+m
+    end
+    FiniteDiff.JacobianCache(zeros(T2,n+m), zeros(T2,n), fdtype, dtype; 
+        colorvec=colorvec, kwargs...)
+end
+
+function FiniteDiff.GradientCache(model::AbstractModel,
+    fdtype = Val(:forward)) 
+    FiniteDiff.GradientCache(zeros(state_dim(model)), zeros(sum(size(model))), fdtype)
+end
+
+function detect_sparsity(::Type{Q}, model::AbstractModel, samples=10) where Q
+    n,m = size(model)
+    ∇f = spzeros(n,n+m)
+    x,u = rand(model)
+    z = StaticKnotPoint(x,u,0.1)
+    for i = 1:samples  # try several inputs to get the sparsity pattern
+        _discrete_jacobian!(ForwardAD(), Q, ∇f, model, z)
+    end
+    return ∇f .!= 0
 end
 
 #=
@@ -165,11 +196,13 @@ Compute the `n × (n + m)` Jacobian `∇f` of the continuous-time dynamics using
 Only accepts an `AbstractKnotPoint` as input in order to avoid potential allocations
 associated with concatenation.
 """
-function jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint, args...)
-    _jacobian!(diffmethod(model), ∇f, model, z, args...)
+function jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint, 
+        cache=gen_cache(model))
+    _jacobian!(diffmethod(model), ∇f, model, z, cache) 
 end
 
-function _jacobian!(::ForwardAD, ∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint)
+function _jacobian!(::ForwardAD, ∇f::AbstractMatrix, 
+        model::AbstractModel, z::AbstractKnotPoint, cache=gen_cache(model))
     ix, iu = z._x, z._u
 	t = z.t
     f_aug(z) = dynamics(model, z[ix], z[iu], t)
@@ -177,20 +210,40 @@ function _jacobian!(::ForwardAD, ∇f::AbstractMatrix, model::AbstractModel, z::
 	ForwardDiff.jacobian!(get_data(∇f), f_aug, s)
 end
 
-function _jacobian!(::FiniteDifference, ∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint, cache=FiniteDiff.JacobianCache(model))
+function _jacobian!(::FiniteDifference, ∇f::AbstractMatrix, model::AbstractModel, 
+        z::AbstractKnotPoint, cache=FiniteDiff.JacobianCache(model))
     ix,iu,t = z._x, z._u, z.t
     f_aug!(ẋ,z) = copyto!(ẋ, dynamics(model, z[ix], z[iu]))
     cache.x1 .= z.z
     FiniteDiff.finite_difference_jacobian!(∇f, f_aug!, cache.x1, cache)
 end
 
+function jvp!(grad, model::AbstractModel, z::AbstractKnotPoint, λ, cache=gen_grad_cache(model))
+    _jvp!(diffmethod(model), grad, model, z, λ, cache)
+end
+
+function _jvp!(::ForwardAD, grad, model::AbstractModel, z::AbstractKnotPoint, λ, cache=gen_grad_cache(model))
+    ix, iu = z._x, z._u
+	t = z.t
+    f_aug(z) = dot(dynamics(model, z[ix], z[iu], t), λ)
+    s = z.z
+	ForwardDiff.gradient!(grad, f_aug, s)
+end
+
+function _jvp!(::FiniteDifference, grad, model::AbstractModel, z::AbstractKnotPoint, λ, cache=gen_grad_cache(model))
+    ix,iu,t = z._x, z._u, z.t
+    f_aug!(z) = dot(dynamics(model, z[ix], z[iu]), λ)
+    cache.c3 .= z.z
+    FiniteDiff.finite_difference_gradient!(grad, f_aug!, cache.c3, cache)
+end
+
 function ∇jacobian!(∇f::AbstractMatrix, model::AbstractModel, z::AbstractKnotPoint, b::AbstractVector)
     ix,iu = z._x, z._u
     t = z.t
-    f_aug(z) = dynamics(model, z[ix], z[iu], t)'b
+    f_aug(z) = dot(dynamics(model, z[ix], z[iu], t), b)
     ForwardDiff.hessian!(∇f, f_aug, z.z)
+    return nothing
 end
-
 DynamicsJacobian(model::AbstractModel) = DynamicsJacobian(state_dim(model), control_dim(model))
 
 ############################################################################################
@@ -208,7 +261,9 @@ Methods:
 x′ = discrete_dynamics(model, model, z)  # uses $(DEFAULT_Q) as the default integration scheme
 x′ = discrete_dynamics(Q, model, x, u, t, dt)
 x′ = discrete_dynamics(Q, model, z::KnotPoint)
-```
+
+RD.gen_grad_cache(model)
+``
 
 The default integration scheme is stored in `TrajectoryOptimization.DEFAULT_Q`
 """
@@ -239,12 +294,12 @@ Compute the `n × (n+m)` discrete dynamics Jacobian `∇f` of `model` using expl
 integration scheme `Q<:QuadratureRule`.
 """
 function discrete_jacobian!(::Type{Q}, ∇f, model::AbstractModel,
-        z::AbstractKnotPoint{T,N,M}, cache=FiniteDiff.JacobianCache(model)) where {T,N,M,Q<:Explicit}
+        z::AbstractKnotPoint{T,N,M}, cache=gen_cache(model)) where {T,N,M,Q<:Explicit}
     _discrete_jacobian!(diffmethod(model), Q, ∇f, model, z, cache)
 end
 
 function _discrete_jacobian!(::ForwardAD, ::Type{Q}, ∇f, model::AbstractModel,
-		z::AbstractKnotPoint{T,N,M}, cache=nothing) where {T,N,M,Q<:Explicit}
+		z::AbstractKnotPoint{T,N,M}, cache=gen_cache(model)) where {T,N,M,Q<:Explicit}
     ix,iu,dt = z._x, z._u, z.dt 
     t = z.t
     fd_aug(s) = discrete_dynamics(Q, model, s[ix], s[iu], t, dt)
@@ -253,7 +308,7 @@ function _discrete_jacobian!(::ForwardAD, ::Type{Q}, ∇f, model::AbstractModel,
 end
 
 function _discrete_jacobian!(::FiniteDifference, ::Type{Q}, ∇f, model::AbstractModel,
-        z::AbstractKnotPoint{T,N,M}, cache=FiniteDiff.JacobianCache(model)) where {T,N,M,Q<:Explicit}
+        z::AbstractKnotPoint{T,N,M}, cache=gen_cache(model)) where {T,N,M,Q<:Explicit}
     if isnothing(cache)
         cache = FiniteDiff.JacobianCache(model)
     end
@@ -264,14 +319,38 @@ function _discrete_jacobian!(::FiniteDifference, ::Type{Q}, ∇f, model::Abstrac
     return nothing
 end
 
+function discrete_jvp!(::Type{Q}, grad, model::AbstractModel,
+        z::AbstractKnotPoint{T,N,M}, λ, cache=gen_grad_cache(model)) where {T,N,M,Q<:Explicit}
+    _djvp!(Q, diffmethod(model), grad, model, z, λ, cache)
+end
+
+function _djvp!(::Type{Q}, ::ForwardAD, grad, model::AbstractModel, 
+        z::AbstractKnotPoint{T,N,M}, λ, cache=gen_grad_cache(model)) where {T,N,M,Q<:Explicit}
+    ix,iu,dt = z._x, z._u, z.dt 
+    t = z.t
+    fd_aug(s) = dot(discrete_dynamics(Q, model, s[ix], s[iu], t, dt), λ)
+    ForwardDiff.gradient!(grad, fd_aug, z.z) 
+end
+
+function _djvp!(::Type{Q}, ::FiniteDifference, grad, model::AbstractModel,
+        z::AbstractKnotPoint{T,N,M}, λ, cache=gen_grad_cache(model)) where {T,N,M,Q<:Explicit}
+    if isnothing(cache)
+        cache = FiniteDiff.GradientCache(model)
+    end
+    ix,iu,t,dt = z._x, z._u, z.t, z.dt
+    fd_aug(z) = dot(discrete_dynamics(Q, model, z[ix], z[iu], t, dt), λ)
+    cache.c3 .= z.z
+    FiniteDiff.finite_difference_gradient!(grad, fd_aug, cache.c3, cache)
+end
+
 function ∇discrete_jacobian!(::Type{Q}, ∇f::AbstractMatrix, model::AbstractModel, 
         z::AbstractKnotPoint{<:Any,n,m}, b::AbstractVector) where {Q<:Explicit,n,m}
     ix,iu = z._x, z._u
     t,dt = z.t, z.dt
-    fd_aug(z) = discrete_dynamics(Q, model, z[ix], z[iu], t, dt)
-    jac_z(z) = ForwardDiff.jacobian(fd_aug, z)
-    ForwardDiff.hessian!(∇f, z->fd_aug(z)'b, z.z)
-    ForwardDiff.jacobian(z->jac_z(z), z.z)
+    fd_aug(z) = dot(discrete_dynamics(Q, model, z[ix], z[iu], t, dt), b)
+    ForwardDiff.hessian!(∇f, fd_aug, z.z)
+    # jac_z(z) = ForwardDiff.jacobian(fd_aug, z)
+    # ForwardDiff.jacobian(z->jac_z(z), z.z)
     return nothing
 end
 
