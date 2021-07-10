@@ -138,11 +138,14 @@ Create a sparse matrix representing the nonzero elements of the discrete dynamic
 Jacobian. Uses ForwardDiff to compute the Jacobian on `samples` randomly-sampled 
 states and controls.
 """
-function detect_sparsity(::Type{Q}, model::AbstractModel, samples=10) where Q
+function detect_sparsity(::Type{Q}, model::AbstractModel; dt=0.1, samples=10) where Q
     n,m = size(model)
     ∇f = spzeros(n,n+m)
+    if (model isa RobotDynamics.AbstractLinearModel)
+        return ∇f .== 0
+    end
     x,u = rand(model)
-    z = StaticKnotPoint(x,u,0.1)
+    z = StaticKnotPoint(x,u,dt)
     for i = 1:samples  # try several inputs to get the sparsity pattern
         _discrete_jacobian!(ForwardAD(), Q, ∇f, model, z, nothing)
     end

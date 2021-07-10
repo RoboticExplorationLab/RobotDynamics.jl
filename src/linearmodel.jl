@@ -155,7 +155,7 @@ function discrete_jacobian!(::Type{PassThrough}, ∇f, model::LinearModel, z::Ab
     ∇f[ix,ix] .= model.A[k]
     ∇f[ix,iu] .= model.B[k]
 
-    nothing
+    true
 end
 
 
@@ -185,6 +185,7 @@ function discrete_jacobian!(::Type{Exponential}, F, model::LinearModel{n,m},
     matrix_exponential!(model, z)
 
     F .= model.E[1:n, 1:n+m]
+    return true
 end
 
 function matrix_exponential!(E::SizedMatrix, A, B, dt, 
