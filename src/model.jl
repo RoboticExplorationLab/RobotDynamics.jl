@@ -113,14 +113,15 @@ gen_grad_cache(::FiniteDifference, model::AbstractModel) =
 
 function FiniteDiff.JacobianCache(model::AbstractModel, 
         fdtype::Union{Val{T1},Type{T1}} = Val(:forward), 
-        dtype::Type{T2} = Float64; colored::Bool=false,
-        sparsity = detect_sparsity(DEFAULT_Q, model),
+        dtype::Type{T2} = Float64; 
         kwargs...) where {T1,T2} 
     n,m = size(model)
-    if colored
-        colorvec = matrix_colors(sparsity)
-    else
+
+    if is_dense(model)
         colorvec = 1:n+m
+    else
+        sparsity = get_sparsity(mmodel)
+        colorvec = matrix_colors(sparsity)
     end
     FiniteDiff.JacobianCache(zeros(T2,n+m), zeros(T2,n), fdtype, dtype; 
         colorvec=colorvec, kwargs...)
@@ -129,6 +130,20 @@ end
 function FiniteDiff.GradientCache(model::AbstractModel,
     fdtype = Val(:forward)) 
     FiniteDiff.GradientCache(zeros(state_dim(model)), zeros(sum(size(model))), fdtype)
+end
+
+is_dense(::AbstractModel) = true
+
+# Allow for special-casing the sparsity based on the integrator
+get_sparsity(::Type{Q}, model::AbstractModel) where {Q} = get_sparsity(model)
+
+function get_sparsity(model::AbstractModel)
+    # Default to a dense matrix
+    n = state_diff_size(model)
+    m = control_dim(model)
+    sparsity = spzeros(n, n + m)
+    sparsity .= 1
+    return sparsity
 end
 
 """
