@@ -33,7 +33,7 @@ end
 # ForwardDiff
 #########################
 
-function gen_jacobian(::StaticReturn, ::ForwardAD, type_expr::Expr)
+function gen_jacobian(sig::StaticReturn, diff::ForwardAD, type_expr::Expr)
     @assert type_expr.head == :curly 
 
     # Convert type to a GlobalRef
@@ -43,7 +43,7 @@ function gen_jacobian(::StaticReturn, ::ForwardAD, type_expr::Expr)
     # Create call signature
     nparams = length(type_expr.args) - 1
     type_params = [type_expr.args[i] for i = 2:nparams + 1]
-    callsig = Expr(:call, GlobalRef(mod, :jacobian_ad!), :(fun::$type_expr), :J, :z)
+    callsig = Expr(:call, GlobalRef(mod, :jacobian!), :(::$(typeof(sig))), :(::$(typeof(diff))), :(fun::$type_expr), :J, :y, :z)
     wheresig = Expr(:where, callsig, type_params...)
     fun_body = quote
         n = state_dim(typeof(fun))
@@ -57,7 +57,7 @@ function gen_jacobian(::StaticReturn, ::ForwardAD, type_expr::Expr)
     Expr(:function, wheresig, fun_body)
 end
 
-function gen_jacobian(::InPlace, ::ForwardAD, type_expr::Expr)
+function gen_jacobian(sig::InPlace, diff::ForwardAD, type_expr::Expr)
     @assert type_expr.head == :curly 
 
     # Convert type to a GlobalRef
@@ -67,7 +67,7 @@ function gen_jacobian(::InPlace, ::ForwardAD, type_expr::Expr)
     # Create call signature
     nparams = length(type_expr.args) - 1
     type_params = [type_expr.args[i] for i = 2:nparams + 1]
-    callsig = Expr(:call, GlobalRef(mod, :jacobian_ad!), :(fun::$type_expr), :J, :y, :z)
+    callsig = Expr(:call, GlobalRef(mod, :jacobian!), :(::$(typeof(sig))), :(::$(typeof(diff))), :(fun::$type_expr), :J, :y, :z)
     wheresig = Expr(:where, callsig, type_params...)
     fun_body = quote
         n = state_dim(fun)
@@ -143,7 +143,7 @@ end
 # FiniteDiff 
 #########################
 
-function gen_jacobian(::StaticReturn, ::FiniteDifference, type_expr::Expr)
+function gen_jacobian(sig::StaticReturn, diff::FiniteDifference, type_expr::Expr)
     @assert type_expr.head == :curly 
 
     # Convert type to a GlobalRef
@@ -153,17 +153,19 @@ function gen_jacobian(::StaticReturn, ::FiniteDifference, type_expr::Expr)
     # Create call signature
     nparams = length(type_expr.args) - 1
     type_params = [type_expr.args[i] for i = 2:nparams + 1]
-    callsig = Expr(:call, GlobalRef(mod, :jacobian_fd!), :(fun::$type_expr), :J, :z)
+    callsig = Expr(:call, GlobalRef(mod, :jacobian!), :(::$(typeof(sig))), :(::$(typeof(diff))), :(fun::$type_expr), :J, :y, :z)
     wheresig = Expr(:where, callsig, type_params...)
     fun_body = quote
-        f_aug!(y, z) = y .= evaluate(fun, view(z, 1:2D), view(z, 2D+1:3D))
+        n = state_dim(fun) 
+        m = control_dim(fun)
+        f_aug!(y, z) = y .= evaluate(fun, view(z, 1:n), view(z, n+1:n+m))
         FiniteDiff.finite_difference_jacobian!(J, f_aug!, z, fun.cache)
         return nothing
     end
     Expr(:function, wheresig, fun_body)
 end
 
-function gen_jacobian(::InPlace, ::FiniteDifference, type_expr::Expr)
+function gen_jacobian(sig::InPlace, diff::FiniteDifference, type_expr::Expr)
     @assert type_expr.head == :curly 
 
     # Convert type to a GlobalRef
@@ -173,10 +175,12 @@ function gen_jacobian(::InPlace, ::FiniteDifference, type_expr::Expr)
     # Create call signature
     nparams = length(type_expr.args) - 1
     type_params = [type_expr.args[i] for i = 2:nparams + 1]
-    callsig = Expr(:call, GlobalRef(mod, :jacobian_fd!), :(fun::$type_expr), :J, :y, :z)
+    callsig = Expr(:call, GlobalRef(mod, :jacobian!), :(::$(typeof(sig))), :(::$(typeof(diff))), :(fun::$type_expr), :J, :y, :z)
     wheresig = Expr(:where, callsig, type_params...)
     fun_body = quote
-        f_aug!(y, z) = evaluate!(fun, y, view(z, 1:2D), view(z, 2D+1:3D))
+        n = state_dim(fun) 
+        m = control_dim(fun)
+        f_aug!(y, z) = evaluate!(fun, y, view(z, 1:n), view(z, n+1:n+m))
         FiniteDiff.finite_difference_jacobian!(J, f_aug!, z, fun.cache)
         return nothing
     end

@@ -17,15 +17,13 @@ diff_method(fun::AbstractFunction) = UserDefined
 state_dim(fun::AbstractFunction) = state_dim(typeof(fun))
 control_dim(fun::AbstractFunction) = control_dim(typeof(fun))
 
+jacobian!(::InPlace, ::UserDefined, fun::AbstractFunction, J, y, z) = jacobian!(fun, J, y, z)
+jacobian!(::StaticReturn, ::UserDefined, fun::AbstractFunction, J, y, z) = jacobian!(fun, J, z)
 
 ## 
 abstract type DI{D} <: AbstractFunction where D end
 state_dim(::Type{<:DI{D}}) where D = 2D
 control_dim(::Type{<:DI{D}}) where D = D
-
-function call_jacobian(::DifMethod, ::FunctionSignature, fun::AbstractFunction, J, y, z)
-    
-end
 
 @generated function evaluate(fun::DI{D}, x, u) where {D}
     N, M = 2D, D
@@ -33,7 +31,6 @@ end
     us = [:(u[$i]) for i = 1:M]
     :(SVector{$N}($(vel...),$(us...)))
 end
-evaluate(model, x, u)
 
 @generated function evaluate!(fun::DI{D}, y, x, u) where D
     N, M = 2D, D
@@ -121,12 +118,12 @@ J = zeros(n, n+m)
 @time evaluate!(model, y, x, u)
 y2 ≈ y
 
-@time jacobian!(model, J, y, x, u)  # 0.07 sec  w/ dim = 30
-@time jacobian_ad!(model, J, y, z)  # 1.5 sec   w/ dim = 30
-@time jacobian_ad!(model, J, z)     # 45 sec    w/ dim = 30
+@time jacobian!(model, J, y, x, u)                             # 0.07 sec  w/ dim = 30
+@time jacobian!(InPlace(), ForwardAD(), model, J, y, z)        # 1.5 sec   w/ dim = 30
+@time jacobian!(StaticReturn(), ForwardAD(), model, J, y, z)   # 45 sec    w/ dim = 30
 
-@time jacobian_fd!(model, J, y, z)  # 0.25 sec  w/ dim = 30
-@time jacobian_fd!(model, J, z)     # 0.25 sec  w/ dim = 30
+@time jacobian!(InPlace(), FiniteDifference(), model, J, y, z)       # 0.25 sec  w/ dim = 30
+@time jacobian!(StaticReturn(), FiniteDifference(), model, J, y, z)  # 0.25 sec  w/ dim = 30
 
 @btime evaluate($model, $x, $u)          # 5 ns
 @btime evaluate!($model, $y, $x, $u)     # 8 ns
@@ -136,6 +133,12 @@ y2 ≈ y
 @btime jacobian_ad!($model, $J, $z)      # 330 ns
 @btime jacobian_fd!($model, $J, $y, $z)  # 4.7 us
 @btime jacobian_fd!($model, $J, $z)      # 6.1 us
+
+@btime jacobian!(InPlace(), FiniteDifference(), $model, $J, $y, $z)
+@btime jacobian!(StaticReturn(), FiniteDifference(), $model, $J, $y, $z)
+
+@btime jacobian!(InPlace(), FiniteDifference(), $model, $J, $y, $z)
+@btime jacobian!(StaticReturn(), FiniteDifference(), $model, $J, $y, $z)
 
 
 
