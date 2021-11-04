@@ -1,3 +1,7 @@
+macro autodiff(type::Expr)
+    _autodiff(type, [InPlace(), StaticReturn()], [ForwardAD(), FiniteDifference()])
+end
+
 macro autodiff(type::Expr, args...)
     sigs = FunctionSignature[]
     methods = DiffMethod[]
