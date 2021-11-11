@@ -82,8 +82,9 @@ using StaticArrays: SUnitRange
 # include("linearization.jl")
 # include("plot_recipes.jl")
 
+include("knotpoint.jl")
 include("functionbase.jl")
 include("jacobian_gen.jl")
-include("dynamics.jl")
+# include("dynamics.jl")
 
 end # module
