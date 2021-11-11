@@ -83,6 +83,7 @@ getstate(z::KnotPoint, v) = view(v, 1:z.n)
 getcontrol(z::KnotPoint, v) = view(v, z.n+1:z.n+z.m)
 getstate(z::SKnotPoint{Nx,Nu}, v) where {Nx,Nu} = v[SVector{Nx}(1:Nx)]
 getcontrol(z::SKnotPoint{Nx,Nu}, v) where {Nx,Nu} = v[SVector{Nu}(Nx+1:Nx+Nu)]
+getparams(z::KnotPoint) = (t=z.t, dt=z.dt)
 getdata(z::KnotPoint) = z.z
 
 setdata!(z::KnotPoint, v) = z.z .= v
