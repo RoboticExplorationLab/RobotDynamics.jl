@@ -74,8 +74,14 @@ mutable struct KnotPoint{Nx,Nu,T,V} <: AbstractVector{T}
         new{Nx,Nu,eltype(V),V}(z, t, dt, Nx, Nu)
     end
     function KnotPoint(n::Integer, m::Integer, z::V, t, dt) where V
-        new{n,m,eltype(V),V}(z, t, dt, n, m)
+        new{Any,Any,eltype(V),V}(z, t, dt, n, m)
     end
+end
+function KnotPoint(x::StaticVector{Nx}, u::StaticVector{Nu}, t, dt) where {Nx, Nu}
+    KnotPoint{Nx,Nu}([x;u], t, dt)
+end
+function KnotPoint(x::AbstractVector, u::AbstractVector, t, dt)
+    KnotPoint(length(x), length(u), [x;u], t, dt)
 end
 
 const SKnotPoint{n,m,nm,T} = KnotPoint{n,m,T,SVector{nm,T}} where {n,m,nm,T} 

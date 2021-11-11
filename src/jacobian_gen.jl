@@ -147,8 +147,36 @@ function get_struct_parent(struct_expr::Expr)
     if typedef.head != :(<:)
         error("Struct has no parent!")
     else
-        return typedef.args[2]
+        parent_name = typedef.args[2]
+        if parent_name isa Expr && parent_name.head == :curly 
+            parent_params = parent_name.args[2:end]
+            parent_name = Expr(:where, parent_name, parent_params...)
+        end
+        return parent_name 
     end
+end
+
+function get_parent_name(parent)
+    loc = nothing
+    if parent isa Symbol
+        return (parent, loc)
+    end
+    name_w_params = parent
+    if parent isa Expr && parent.head == :where
+        name_w_params = parent.args[1]
+        loc = parent 
+    end
+
+    name = name_w_params
+    if name_w_params isa Expr && name_w_params.head == :curly
+        name = name_w_params.args[1]
+        loc = name_w_params
+    end
+    
+    if name isa GlobalRef || name isa Symbol
+        return (name, loc)
+    end
+    error("Couldn't get parent name")
 end
 
 function add_field_to_struct(struct_expr0::Expr, newfield::Expr, init_field, pname::Union{Symbol,Nothing}, init_param, mod)
@@ -159,16 +187,21 @@ function add_field_to_struct(struct_expr0::Expr, newfield::Expr, init_field, pna
     body = struct_expr.args[3]
 
     # Check for valid sub-typing
-    parent_name = get_struct_parent(struct_expr)
-    parent = mod.eval(parent_name)
+    parent_expr = get_struct_parent(struct_expr)
+    parent = mod.eval(parent_expr)
     if !(parent <: RobotDynamics.AbstractFunction)
         error("Type must be a sub-type of RobotDynamics.AbstractFunction")
     end
     type_param = Symbol(inputtype(parent))
 
     # Resolve the parent name in the original scope
+    parent_name, loc = get_parent_name(parent_expr)
     if parent_name isa Symbol
-        typedef.args[2] = GlobalRef(mod, parent_name)
+        if isnothing(loc)
+            typedef.args[2] = GlobalRef(mod, parent_name)
+        else
+            loc.args[1] = GlobalRef(mod, parent_name)
+        end
     end
 
     # Add type parameter 
@@ -263,7 +296,6 @@ function new_default_constructor(struct_expr::Expr)
     if !isempty(params)
         # Add "where" clause
         call = inner_con.args[1]
-        params = [:T,:T2]
         inner_con.args[1] = Expr(:where, call, params...)
 
         # Add to "new"

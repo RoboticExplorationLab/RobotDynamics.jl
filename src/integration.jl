@@ -10,8 +10,7 @@ struct RK4 <: Explicit
     end
 end
 
-function integrate(::RK4, model, z)
-    x,u,t,h = state(z), control(z), time(z), timestep(z)
+function integrate(::RK4, model, x, u, t, h)
 	k1 = dynamics(model, x,        u, t      )*h
 	k2 = dynamics(model, x + k1/2, u, t + h/2)*h
 	k3 = dynamics(model, x + k2/2, u, t + h/2)*h
@@ -19,8 +18,7 @@ function integrate(::RK4, model, z)
 	x + (k1 + 2k2 + 2k3 + k4)/6
 end
 
-function integrate!(int::RK4, model, xn, z)
-    x,u,t,h = state(z), control(z), time(z), timestep(z)
+function integrate!(int::RK4, model, xn, x, u, t, h)
     k1,k2,k3,k4 = int.k1, int.k2, int.k3, int.k4
     dynamics!(model, k1, x, u, t)
     @. xn = x + k1 * h/2

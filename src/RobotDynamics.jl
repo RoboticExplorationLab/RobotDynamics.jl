@@ -85,6 +85,6 @@ using StaticArrays: SUnitRange
 include("knotpoint.jl")
 include("functionbase.jl")
 include("jacobian_gen.jl")
-# include("dynamics.jl")
+include("dynamics.jl")
 
 end # module

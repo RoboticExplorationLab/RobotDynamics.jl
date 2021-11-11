@@ -32,12 +32,7 @@ evaluate(fun::AbstractFunction, x, u, p) = evaluate(fun, x, u)
 evaluate!(::AbstractFunction, y, x, u) = error("In-place function evaluation not defined yet!")
 evaluate(::AbstractFunction, x, u) = error("Static return function evaluation not defined yet!")
 
-
 inputtype(::Type{<:AbstractFunction}) = Float64
-# inputtype(fun::AbstractFunction) = inputtype(typeof(fun))
-# zeroinput(fun::AbstractFunction) = zeros(inputtype(fun), input_dim(fun))
-# zerooutput(fun::AbstractFunction) = zeros(inputtype(fun), output_dim(fun))
-# outputtype(t::Type{<:AbstractFunction}) = Vector{inputtype(t)}
 
 jacobian!(::FunctionSignature, ::UserDefined, fun::AbstractFunction, J, y, z) = jacobian!(fun, J, y, z)
 jacobian!(fun::AbstractFunction, J, y, z::KnotPoint) = jacobian!(fun, J, y, state(z), control(z), getparams(z))
