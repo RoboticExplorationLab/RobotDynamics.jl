@@ -1,13 +1,29 @@
 abstract type DiscreteDynamics <: AbstractModel end
-@inline evaluate(model::DiscreteDynamics, z) =
+@inline evaluate(model::DiscreteDynamics, x, u, p) =
+    discrete_dynamics(model, x, u, p.t, p.dt) 
+@inline evaluate!(model::DiscreteDynamics, xn, x, u, p) =
+    discrete_dynamics!(model, xn, x, u, p.t, p.dt)
+
+discrete_dynamics(model::DiscreteDynamics, z::AbstractKnotPoint) =
     discrete_dynamics(model, state(z), control(z), time(z), timestep(z))
-@inline evaluate!(model::DiscreteDynamics, ẋ, z) =
+discrete_dynamics!(model::DiscreteDynamics, xn, z::AbstractKnotPoint) =
     discrete_dynamics!(model, xn, state(z), control(z), time(z), timestep(z))
 
 discrete_dynamics(model::DiscreteDynamics, x, u, t, dt) =
     error("Discrete dynamics not defined yet.")
 discrete_dynamics!(model::DiscreteDynamics, xn, x, u, t, dt) =
     error("In-place discrete dynamics not defined yet.")
+
+jacobian!(model::DiscreteDynamics, J, y, x, u, p) = 
+    jacobian!(model, J, y, x, u, p.t, p.dt)
+
+dynamics_error(model::DiscreteDynamics, z2::AbstractKnotPoint, z1::AbstractKnotPoint) = discrete_dynamics(model, z1) - state(z2)
+function dynamics_error!(model::DiscreteDynamics, y2, y1, z2::AbstractKnotPoint, z1::AbstractKnotPoint)
+    discrete_dynamics!(model, y2, z1)
+    y2 .-= state(z2)
+    return nothing
+end
+# jacobian!(model::DiscreteDynamics, J2, J1, z2::KnotPoint, z1::KnotPoint)
 
 "Integration rule for approximating the continuous integrals for the equations of motion"
 abstract type QuadratureRule end

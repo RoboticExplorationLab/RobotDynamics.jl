@@ -21,8 +21,8 @@ Base.size(fun::AbstractFunction) = (state_dim(fun), control_dim(fun), output_dim
 
 # Top-level command that can be overridden
 # Should only be overridden if using hand-written Jacobian methods
-evaluate!(fun::AbstractFunction, y, z::KnotPoint) = evaluate!(fun, y, state(z), control(z), getparams(z))
-evaluate(fun::AbstractFunction, z::KnotPoint) = evaluate(fun, state(z), control(z), getparams(z))
+evaluate!(fun::AbstractFunction, y, z::AbstractKnotPoint) = evaluate!(fun, y, state(z), control(z), getparams(z))
+evaluate(fun::AbstractFunction, z::AbstractKnotPoint) = evaluate(fun, state(z), control(z), getparams(z))
 
 # Strip the parameter
 evaluate!(fun::AbstractFunction, y, x, u, p) = evaluate!(fun, y, x, u) 
@@ -35,6 +35,9 @@ evaluate(::AbstractFunction, x, u) = error("Static return function evaluation no
 inputtype(::Type{<:AbstractFunction}) = Float64
 
 jacobian!(::FunctionSignature, ::UserDefined, fun::AbstractFunction, J, y, z) = jacobian!(fun, J, y, z)
-jacobian!(fun::AbstractFunction, J, y, z::KnotPoint) = jacobian!(fun, J, y, state(z), control(z), getparams(z))
+jacobian!(fun::AbstractFunction, J, y, z::AbstractKnotPoint) = jacobian!(fun, J, y, state(z), control(z), getparams(z))
 jacobian!(fun::AbstractFunction, J, y, x, u, p) = jacobian!(fun, J, y, x, u)
 jacobian!(fun, J, y, x, u) = error("User-defined Jacobian hasn't been specified.")
+
+# Some convenience methods
+Base.randn(model::AbstractFunction) = ((@SVector randn(state_dim(model))), (@SVector randn(control_dim(model))))

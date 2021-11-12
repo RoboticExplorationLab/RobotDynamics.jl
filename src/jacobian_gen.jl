@@ -176,6 +176,10 @@ function get_parent_name(parent)
     if name isa GlobalRef || name isa Symbol
         return (name, loc)
     end
+
+    if name isa Expr && name.head == :.
+        return (GlobalRef(eval(name.args[1]), name.args[2].value), loc)
+    end
     error("Couldn't get parent name")
 end
 
