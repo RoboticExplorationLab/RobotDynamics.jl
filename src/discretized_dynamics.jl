@@ -1,3 +1,11 @@
+"Integration rule for approximating the continuous integrals for the equations of motion"
+abstract type QuadratureRule end
+
+"Integration rules of the form `x′ = f(x,u)`, where `x′` is the next state"
+abstract type Explicit <: QuadratureRule end
+
+"Integration rules of the form x′ = f(x,u,x′,u′), where x′,u′ are the states and controls at the next time step."
+abstract type Implicit <: QuadratureRule end
 
 @autodiff struct DiscretizedDynamics{L,Q} <: DiscreteDynamics
     continuous_dynamics::L
@@ -16,6 +24,8 @@ function DiscretizedDynamics{Q}(
     DiscretizedDynamics(continuous_dynamics, Q(n, m))
 end
 
+const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit}
+
 state_dim(model::DiscretizedDynamics) = state_dim(model.continuous_dynamics)
 control_dim(model::DiscretizedDynamics) = control_dim(model.continuous_dynamics)
 
@@ -25,8 +35,55 @@ discrete_dynamics(model::DiscretizedDynamics, x, u, t, dt) =
 discrete_dynamics!(model::DiscretizedDynamics, xn, x, u, t, dt) =
     integrate!(integration(model), model.continuous_dynamics, xn, x, u, t, dt)
 
-# jacobian!(model::DiscretizedDynamics, J0, xdot, x, u, t, h) = 
-#     jacobian!(integration(model), sig, model.continuous_dynamics, J, xn, z)
-
 jacobian!(sig::FunctionSignature, ::UserDefined, model::DiscretizedDynamics, J, xn, z) =
-    jacobian!(integration(model), sig, model.continuous_dynamics, J, xn, state(z), control(z), time(z), timestep(z))
+    jacobian!(
+        integration(model),
+        sig,
+        model.continuous_dynamics,
+        J,
+        xn,
+        state(z),
+        control(z),
+        time(z),
+        timestep(z),
+    )
+
+
+########################################
+# Implicit Dynamics
+########################################
+dynamics_error(
+    model::ImplicitDynamicsModel,
+    z2::AbstractKnotPoint,
+    z1::AbstractKnotPoint,
+) = dynamics_error(integration(model), model.continuous_dynamics, z2, z1)
+
+dynamics_error!(
+    model::ImplicitDynamicsModel,
+    y2,
+    y1,
+    z2::AbstractKnotPoint,
+    z1::AbstractKnotPoint,
+) = dynamics_error!(integration(model), model.continuous_dynamics, y2, y1, z2, z1)
+
+dynamics_error_jacobian!(
+    sig::FunctionSignature,
+    ::UserDefined,
+    model::ImplicitDynamicsModel,
+    J2,
+    J1,
+    y2,
+    y1,
+    z2::AbstractKnotPoint,
+    z1::AbstractKnotPoint,
+) = dynamics_error_jacobian!(
+    integration(model),
+    sig,
+    model.continuous_dynamics,
+    J2,
+    J1,
+    y2,
+    y1,
+    z2,
+    z1,
+)

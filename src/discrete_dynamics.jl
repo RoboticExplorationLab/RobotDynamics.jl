@@ -53,8 +53,3 @@ dynamics_error_jacobian!(
     z1::AbstractKnotPoint,
 ) = error("User-defined dynamics error Jacobian not defined.")
 
-"Integration rule for approximating the continuous integrals for the equations of motion"
-abstract type QuadratureRule end
-
-"Integration rules of the form `x′ = f(x,u)`, where `x′` is the next state"
-abstract type Explicit <: QuadratureRule end

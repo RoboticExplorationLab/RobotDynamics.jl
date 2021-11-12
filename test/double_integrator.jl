@@ -78,6 +78,8 @@ function test_error_allocs(model)
     @test y2 ≈ RD.dynamics_error(model, z2, z1)
 
     allocs = 0
+    allocs += @allocated RD.dynamics_error_jacobian!(StaticReturn(), RD.UserDefined(), model, J2, J1, y2, y1, z2, z1)
+    allocs += @allocated RD.dynamics_error_jacobian!(InPlace(), RD.UserDefined(), model, J2, J1, y2, y1, z2, z1)
     allocs += @allocated RD.dynamics_error_jacobian!(StaticReturn(), ForwardAD(), model, J2, J1, y2, y1, z2, z1)
     allocs += @allocated RD.dynamics_error_jacobian!(InPlace(), ForwardAD(), model, J2, J1, y2, y1, z2, z1)
     allocs += @allocated RD.dynamics_error_jacobian!(StaticReturn(), FiniteDifference(), model, J2, J1, y2, y1, z2, z1)
@@ -85,8 +87,8 @@ function test_error_allocs(model)
 
     z1 = KnotPoint{n,m}(Vector(z1.z), z1.t, z1.dt)
     z2 = KnotPoint{n,m}(Vector(z2.z), z2.t, z2.dt)
+    allocs += @allocated RD.dynamics_error_jacobian!(InPlace(), RD.UserDefined(), model, J2, J1, y2, y1, z2, z1)
     allocs += @allocated RD.dynamics_error_jacobian!(InPlace(), ForwardAD(), model, J2, J1, y2, y1, z2, z1)
-    allocs += @allocated RD.dynamics_error_jacobian!(StaticReturn(), FiniteDifference(), model, J2, J1, y2, y1, z2, z1)
     allocs += @allocated RD.dynamics_error_jacobian!(InPlace(), FiniteDifference(), model, J2, J1, y2, y1, z2, z1)
     @test allocs == 0
 end
