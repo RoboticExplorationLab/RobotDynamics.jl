@@ -63,55 +63,123 @@
 # time(kp::KnotPointData) = kp.t
 # time_step(kp::KnotPointData) = kp.dt
 
+abstract type AbstractKnotPoint{Nx,Nu,V,T} <: AbstractVector{T} end
+# state_dim
+# control_dim
+# getparams
+# getdata
 
-mutable struct KnotPoint{Nx,Nu,T,V} <: AbstractVector{T}
-    z::V
-    t::Float64
-    dt::Float64
-    n::Int
-    m::Int
-    function KnotPoint{Nx,Nu}(z::V,t,dt) where {Nx,Nu,V} 
-        new{Nx,Nu,eltype(V),V}(z, t, dt, Nx, Nu)
-    end
-    function KnotPoint(n::Integer, m::Integer, z::V, t, dt) where V
-        new{Any,Any,eltype(V),V}(z, t, dt, n, m)
-    end
-end
-function KnotPoint(x::StaticVector{Nx}, u::StaticVector{Nu}, t, dt) where {Nx, Nu}
-    KnotPoint{Nx,Nu}([x;u], t, dt)
-end
-function KnotPoint(x::AbstractVector, u::AbstractVector, t, dt)
-    KnotPoint(length(x), length(u), [x;u], t, dt)
-end
+dims(z::AbstractKnotPoint) = (state_dim(z), control_dim(z))
+getstate(z::AbstractKnotPoint, v) = view(v, 1:state_dim(z))
+getcontrol(z::AbstractKnotPoint, v) = begin n,m = dims(z); view(v, n+1:n+m) end
+getstate(z::AbstractKnotPoint{Nx,Nu,<:StaticVector}, v) where {Nx,Nu} = v[SVector{Nx}(1:Nx)]
+getcontrol(z::AbstractKnotPoint{Nx,Nu,<:StaticVector}, v) where {Nx,Nu} = v[SVector{Nu}(Nx+1:Nx+Nu)]
 
-const SKnotPoint{n,m,nm,T} = KnotPoint{n,m,T,SVector{nm,T}} where {n,m,nm,T} 
-getstate(z::KnotPoint, v) = view(v, 1:z.n)
-getcontrol(z::KnotPoint, v) = view(v, z.n+1:z.n+z.m)
-getstate(z::SKnotPoint{Nx,Nu}, v) where {Nx,Nu} = v[SVector{Nx}(1:Nx)]
-getcontrol(z::SKnotPoint{Nx,Nu}, v) where {Nx,Nu} = v[SVector{Nu}(Nx+1:Nx+Nu)]
-getparams(z::KnotPoint) = (t=z.t, dt=z.dt)
-getdata(z::KnotPoint) = z.z
+state(z::AbstractKnotPoint) = getstate(z, getdata(z))
+control(z::AbstractKnotPoint) = getcontrol(z, getdata(z))
 
-setdata!(z::KnotPoint, v) = z.z .= v
-setdata!(z::SKnotPoint, v) = z.z = v
+setdata!(z::AbstractKnotPoint, v) = z.z .= v
+setdata!(z::AbstractKnotPoint{<:Any,<:Any,<:SVector}, v) = z.z = v
 
-state(z::KnotPoint) = getstate(z, z.z)
-control(z::KnotPoint) = getcontrol(z, z.z) 
+setstate!(z::AbstractKnotPoint, x) = state(z) .= x
+setcontrol(z::AbstractKnotPoint, u) = control(z) .= u
+setstate!(z::AbstractKnotPoint{<:Any,<:Any,<:SVector}, x) = setdata!(z, [x; control(z)])
+setcontrol(z::AbstractKnotPoint{<:Any,<:Any,<:SVector}, u) = setdata!(z, [state(z); u])
 
-time(z::KnotPoint) = z.t
-timestep(z::KnotPoint) = z.dt
-
+time(z::AbstractKnotPoint) = getparams(z).t 
+timestep(z::AbstractKnotPoint) = getparams(z).dt 
 
 # Array interface
-Base.size(z::KnotPoint{Nx,Nu}) where {Nx,Nu} = (Nx+Nu,)
-Base.size(z::KnotPoint{Any,Any}) = (z.n + z.m,)
-Base.getindex(z::KnotPoint, i::Int) = z.z[i]
-Base.setindex!(z::KnotPoint, v, i::Integer) = z.z[i] = v
-Base.IndexStyle(z::KnotPoint) = IndexLinear()
-Base.similar(z::KnotPoint{Nx,Nu,V,T}, ::Type{S}, dims::Dims) where {Nx,Nu,V,T,S} = 
-    KnotPoint{Nx,Nu}(z.n, z.m, similar(z.z, S, dims), z.t, z.dt)
-Base.similar(z::SKnotPoint{Nx,Nu,V,T}, ::Type{S}, dims::Dims) where {Nx,Nu,V,T,S} = 
-    KnotPoint{Nx,Nu}(z.n, z.m, similar(MVector{Nx+Nu,S}))
+Base.size(z::AbstractKnotPoint) = (state_dim(z) + control_dim(z), )
+Base.getindex(z::AbstractKnotPoint, i::Int) = Base.getindex(getdata(z), i) 
+Base.setindex!(z::AbstractKnotPoint, v, i::Integer) = Base.setindex!(getdata(z), v, i) 
+Base.IndexStyle(z::AbstractKnotPoint) = IndexLinear()
+
+for (name,mutable) in [(:KnotPoint, true), (:StaticKnotPoint, false)]
+    expr = quote
+        struct $name{Nx,Nu,V,T} <: AbstractKnotPoint{Nx,Nu,V,T}
+            z::V
+            t::Float64
+            dt::Float64
+            n::Int
+            m::Int
+            function $name{Nx,Nu}(z::V,t,dt) where {Nx,Nu,V} 
+                @assert Nx > 0
+                @assert Nu > 0
+                new{Nx,Nu,V,eltype(V)}(z, t, dt, Nx, Nu)
+            end
+            function $name(n::Integer, m::Integer, z::V, t, dt) where V
+                @assert n > 0
+                @assert m > 0
+                new{Any,Any,V,eltype(V)}(z, t, dt, n, m)
+            end
+            function $name{Nx,Nu}(n::Integer, m::Integer, z::V, t, dt) where {Nx,Nu,V} 
+                Nx != Any && @assert Nx == n
+                Nu != Any && @assert Nu == m
+                new{Nx,Nu,V,eltype(V)}(z, t, dt, n, m)
+            end
+        end
+        function $name(x::StaticVector{Nx}, u::StaticVector{Nu}, t, dt) where {Nx, Nu}
+            KnotPoint{Nx,Nu}([x;u], t, dt)
+        end
+        function $name(x::AbstractVector, u::AbstractVector, t, dt)
+            KnotPoint(length(x), length(u), [x;u], t, dt)
+        end
+
+        state_dim(z::$name{Any}) = z.n
+        control_dim(z::$name{<:Any,Any}) = z.m
+        state_dim(z::$name{Nx}) where Nx = Nx 
+        control_dim(z::$name{<:Any,Nu}) where Nu = Nu 
+
+        @inline getparams(z::$name) = (t=z.t, dt=z.dt)
+        @inline getdata(z::$name) = z.z
+
+        # Array interface
+        Base.similar(z::$name{Nx,Nu,V,T}, ::Type{S}, dims::Dims) where {Nx,Nu,V,T,S} = 
+            KnotPoint{Nx,Nu}(z.n, z.m, similar(z.z, S, dims), z.t, z.dt)
+        Base.similar(z::$name{Nx,Nu,<:SVector,T}, ::Type{S}, dims::Dims) where {Nx,Nu,T,S} = 
+            KnotPoint{Nx,Nu}(z.n, z.m, similar(MVector{Nx+Nu,S}))
+    end
+    # Set struct mutability
+    if mutable
+        struct_expr = expr.args[2]
+        @assert struct_expr.head == :struct
+        struct_expr.args[1] = mutable
+    end
+    eval(expr)
+end
+
+function StaticKnotPoint(z::AbstractKnotPoint{Nx,Nu}, v::AbstractVector) where {Nx,Nu}
+    StaticKnotPoint{Nx,Nu}(state_dim(z), control_dim(z), v, time(z), timestep(z))
+end
+
+# struct StaticKnotPoint{Nx,Nu,T,V} <: AbstractKnotPoint{Nx,Nu,T,V}
+#     z::V
+#     t::Float64
+#     dt::Float64
+#     n::Int
+#     m::Int
+#     function StaticKnotPoint{Nx,Nu}(z::V,t,dt) where {Nx,Nu,V} 
+#         new{Nx,Nu,eltype(V),V}(z, t, dt, Nx, Nu)
+#     end
+#     function StaticKnotPoint(n::Integer, m::Integer, z::V, t, dt) where V
+#         new{Any,Any,eltype(V),V}(z, t, dt, n, m)
+#     end
+# end
+# function StaticKnotPoint(x::StaticVector{Nx}, u::StaticVector{Nu}, t, dt) where {Nx, Nu}
+#     KnotPoint{Nx,Nu}([x;u], t, dt)
+# end
+# function StaticKnotPoint(x::AbstractVector, u::AbstractVector, t, dt)
+#     KnotPoint(length(x), length(u), [x;u], t, dt)
+# end
+
+# state_dim(z::StaticKnotPoint{Any}) = z.n
+# control_dim(z::StaticKnotPoint{<:Any,Any}) = z.m
+# state_dim(z::StaticKnotPoint{Nx}) where Nx = Nx 
+# control_dim(z::StaticKnotPoint{<:Any,Nu}) where Nu = Nu 
+
+# getparams(z::StaticKnotPoint) = (t=z.t, dt=z.dt)
+# getdata(z::StaticKnotPoint) = z.z
 
 # export
 #     KnotPoint,
