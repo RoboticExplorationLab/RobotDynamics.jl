@@ -17,6 +17,9 @@ up for efficient evaluation of the jacobians. The changes are usually transparen
 If an inner constructor is provided, the signature will be unchanged, but will be modified
 to initialize the new fields and provide the new type parameters.
 
+# Limitations
+* `RobotDynamics` must be defined the local module (cannot be hidden by an alias)
+
 # Examples
 
 ```julia
@@ -77,9 +80,17 @@ function _autodiff(mod, struct_expr::Expr, sigs::Vector{FunctionSignature}, meth
     # Get signature for jacobian methods 
     type_expr = struct_expr.args[2].args[1]
 
+    # Check if it's a subtype of DiscreteDynamics
+    parent_expr = get_struct_parent(struct_expr)
+    parent = mod.eval(parent_expr)
+    is_discrete_dynamics = parent <: RobotDynamics.DiscreteDynamics
+
     for method in methods
         for sig in sigs
             push!(jac_defs, gen_jacobian(sig, method, type_expr, mod))
+            if is_discrete_dynamics
+                push!(jac_defs, gen_dynamics_jacobian(sig, method, type_expr, mod))
+            end
         end
         struct_expr = modify_struct_def(method, struct_expr, mod)
     end
@@ -89,14 +100,14 @@ function _autodiff(mod, struct_expr::Expr, sigs::Vector{FunctionSignature}, meth
     end
 end
 
-function get_call_signature(sig, diff, type_expr, mod)
+function get_call_signature(sig, diff, fname, fargs, type_expr, mod)
     # Get the name of the type
     local type_name
     if type_expr isa Expr
         if type_expr.head == :curly
             type_name = type_expr.args[1]
         else
-            @show type_expr
+            display(type_expr)
             error("Got an unexpected type expression. Can't generate the Jacobian.")
         end
     elseif type_expr isa Symbol
@@ -107,7 +118,7 @@ function get_call_signature(sig, diff, type_expr, mod)
     (type_name isa Symbol) && (type_name = GlobalRef(mod, type_name))
 
     # Create the call signature
-    Expr(:call, GlobalRef(@__MODULE__, :jacobian!), :(::$(typeof(sig))), :(::$(typeof(diff))), :(fun::$type_name), :J, :y, :z)
+    Expr(:call, GlobalRef(@__MODULE__, fname), :(::$(typeof(sig))), :(::$(typeof(diff))), :(fun::$type_name), fargs...)
 end
 
 """
@@ -384,7 +395,9 @@ end
 #########################
 
 function gen_jacobian(sig::StaticReturn, diff::ForwardAD, type_expr, mod)
-    callsig = get_call_signature(sig, diff, type_expr, mod)
+    fname = :jacobian!
+    fargs = (:J, :y, :z)
+    callsig = get_call_signature(sig, diff, fname, fargs, type_expr, mod)
 
     eval = GlobalRef(@__MODULE__, :evaluate)
     fun_body = quote
@@ -396,12 +409,48 @@ function gen_jacobian(sig::StaticReturn, diff::ForwardAD, type_expr, mod)
 end
 
 function gen_jacobian(sig::InPlace, diff::ForwardAD, type_expr, mod)
-    callsig = get_call_signature(sig, diff, type_expr, mod)
+    fname = :jacobian!
+    fargs = (:J, :y, :z)
+    callsig = get_call_signature(sig, diff, fname, fargs, type_expr, mod)
 
     eval = GlobalRef(@__MODULE__, :(evaluate!))
     fun_body = quote
         f!(_y,_z) = $eval(fun, _y, getstate(z, _z), getcontrol(z, _z), getparams(z))
         ForwardDiff.jacobian!(J, f!, y, getdata(z), fun.cfg)
+        return nothing
+    end
+    Expr(:function, callsig, fun_body)
+end
+
+function gen_dynamics_jacobian(sig::StaticReturn, diff::ForwardAD, type_expr, mod)
+    fname = :dynamics_error_jacobian! 
+    fargs = (:J2, :J1, :y2, :y1, :(z2::AbstractKnotPoint), :(z1::AbstractKnotPoint))
+    callsig = get_call_signature(sig, diff, fname, fargs, type_expr, mod)
+
+    eval = GlobalRef(@__MODULE__, :dynamics_error)
+    fun_body = quote
+        f1(_z) = $eval(fun, z2, RobotDynamics.StaticKnotPoint(z1, _z))
+        J1 .= ForwardDiff.jacobian(f1, RobotDynamics.getdata(z1))
+
+        f2(_z) = $eval(fun, RobotDynamics.StaticKnotPoint(z2, _z), z1)
+        J2 .= ForwardDiff.jacobian(f2, RobotDynamics.getdata(z2))
+        return nothing
+    end
+    Expr(:function, callsig, fun_body)
+end
+
+function gen_dynamics_jacobian(sig::InPlace, diff::ForwardAD, type_expr, mod)
+    fname = :dynamics_error_jacobian! 
+    fargs = (:J2, :J1, :y2, :y1, :(z2::AbstractKnotPoint), :(z1::AbstractKnotPoint))
+    callsig = get_call_signature(sig, diff, fname, fargs, type_expr, mod)
+
+    eval = GlobalRef(@__MODULE__, :dynamics_error!)
+    fun_body = quote
+        f1!(_y, _z) = $eval(fun, _y, y1, z2, RobotDynamics.StaticKnotPoint(z1, _z))
+        ForwardDiff.jacobian!(J1, f1!, y2, RobotDynamics.getdata(z1), fun.cfg)
+
+        f2!(_y, _z) = $eval(fun, _y, y1, RobotDynamics.StaticKnotPoint(z2, _z), z1)
+        ForwardDiff.jacobian!(J1, f1!, y2, RobotDynamics.getdata(z2), fun.cfg)
         return nothing
     end
     Expr(:function, callsig, fun_body)
@@ -438,7 +487,9 @@ end
 #########################
 
 function gen_jacobian(sig::StaticReturn, diff::FiniteDifference, type_expr, mod)
-    callsig = get_call_signature(sig, diff, type_expr, mod)
+    fname = :jacobian!
+    fargs = (:J, :y, :z)
+    callsig = get_call_signature(sig, diff, fname, fargs, type_expr, mod)
 
     eval = GlobalRef(@__MODULE__, :evaluate)
     fun_body = quote
@@ -450,12 +501,48 @@ function gen_jacobian(sig::StaticReturn, diff::FiniteDifference, type_expr, mod)
 end
 
 function gen_jacobian(sig::InPlace, diff::FiniteDifference, type_expr, mod)
-    callsig = get_call_signature(sig, diff, type_expr, mod)
+    fname = :jacobian!
+    fargs = (:J, :y, :z)
+    callsig = get_call_signature(sig, diff, fname, fargs, type_expr, mod)
 
     eval = GlobalRef(@__MODULE__, :evaluate!)
     fun_body = quote
         f!(_y,_z) = $eval(fun, _y, getstate(z, _z), getcontrol(z, _z), getparams(z))
         FiniteDiff.finite_difference_jacobian!(J, f!, getdata(z), fun.cache)
+        return nothing
+    end
+    Expr(:function, callsig, fun_body)
+end
+
+function gen_dynamics_jacobian(sig::StaticReturn, diff::FiniteDifference, type_expr, mod)
+    fname = :dynamics_error_jacobian! 
+    fargs = (:J2, :J1, :y2, :y1, :(z2::AbstractKnotPoint), :(z1::AbstractKnotPoint))
+    callsig = get_call_signature(sig, diff, fname, fargs, type_expr, mod)
+
+    eval = GlobalRef(@__MODULE__, :dynamics_error)
+    fun_body = quote
+        f1!(_y, _z) = _y .= $eval(fun, z2, RobotDynamics.StaticKnotPoint(z1, _z))
+        FiniteDiff.finite_difference_jacobian!(J1, f1!, RobotDynamics.getdata(z1), fun.cache)
+
+        f2!(_y, _z) = _y .= $eval(fun, RobotDynamics.StaticKnotPoint(z2, _z), z1)
+        FiniteDiff.finite_difference_jacobian!(J2, f2!, RobotDynamics.getdata(z2), fun.cache)
+        return nothing
+    end
+    Expr(:function, callsig, fun_body)
+end
+
+function gen_dynamics_jacobian(sig::InPlace, diff::FiniteDifference, type_expr, mod)
+    fname = :dynamics_error_jacobian! 
+    fargs = (:J2, :J1, :y2, :y1, :(z2::AbstractKnotPoint), :(z1::AbstractKnotPoint))
+    callsig = get_call_signature(sig, diff, fname, fargs, type_expr, mod)
+
+    eval = GlobalRef(@__MODULE__, :dynamics_error!)
+    fun_body = quote
+        f1!(_y, _z) = $eval(fun, _y, y1, z2, RobotDynamics.StaticKnotPoint(z1, _z))
+        FiniteDiff.finite_difference_jacobian!(J1, f1!, RobotDynamics.getdata(z1), fun.cache)
+
+        f2!(_y, _z) = $eval(fun, _y, y1, RobotDynamics.StaticKnotPoint(z2, _z), z1)
+        FiniteDiff.finite_difference_jacobian!(J2, f2!, RobotDynamics.getdata(z2), fun.cache)
         return nothing
     end
     Expr(:function, callsig, fun_body)
