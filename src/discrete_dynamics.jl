@@ -15,6 +15,7 @@ discrete_dynamics!(model::DiscreteDynamics, xn, x, u, t, dt) =
     error("In-place discrete dynamics not defined yet.")
 
 jacobian!(model::DiscreteDynamics, J, y, x, u, p) = jacobian!(model, J, y, x, u, p.t, p.dt)
+jacobian!(model::DiscreteDynamics, J, y, x, u, t, dt) = error("User-defined discrete dynamics Jacobian not defined.")
 
 dynamics_error(model::DiscreteDynamics, z2::AbstractKnotPoint, z1::AbstractKnotPoint) =
     discrete_dynamics(model, z1) - state(z2)

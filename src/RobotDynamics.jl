@@ -88,5 +88,7 @@ include("dynamics.jl")
 include("discrete_dynamics.jl")
 
 include("jacobian_gen.jl")
+include("discretized_dynamics.jl")
+include("integration.jl")
 
 end # module

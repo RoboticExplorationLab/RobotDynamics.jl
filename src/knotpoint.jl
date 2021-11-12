@@ -82,9 +82,9 @@ setdata!(z::AbstractKnotPoint, v) = z.z .= v
 setdata!(z::AbstractKnotPoint{<:Any,<:Any,<:SVector}, v) = z.z = v
 
 setstate!(z::AbstractKnotPoint, x) = state(z) .= x
-setcontrol(z::AbstractKnotPoint, u) = control(z) .= u
+setcontrol!(z::AbstractKnotPoint, u) = control(z) .= u
 setstate!(z::AbstractKnotPoint{<:Any,<:Any,<:SVector}, x) = setdata!(z, [x; control(z)])
-setcontrol(z::AbstractKnotPoint{<:Any,<:Any,<:SVector}, u) = setdata!(z, [state(z); u])
+setcontrol!(z::AbstractKnotPoint{<:Any,<:Any,<:SVector}, u) = setdata!(z, [state(z); u])
 
 time(z::AbstractKnotPoint) = getparams(z).t 
 timestep(z::AbstractKnotPoint) = getparams(z).dt 
@@ -152,6 +152,9 @@ end
 function StaticKnotPoint(z::AbstractKnotPoint{Nx,Nu}, v::AbstractVector) where {Nx,Nu}
     StaticKnotPoint{Nx,Nu}(state_dim(z), control_dim(z), v, time(z), timestep(z))
 end
+@inline setdata(z::StaticKnotPoint, v) = StaticKnotPoint(z, v)
+setstate(z::StaticKnotPoint, x) = setdata(z, [x; control(z)])
+setcontrol(z::StaticKnotPoint, u) = setdata(z, [state(z); u)
 
 # struct StaticKnotPoint{Nx,Nu,T,V} <: AbstractKnotPoint{Nx,Nu,T,V}
 #     z::V
