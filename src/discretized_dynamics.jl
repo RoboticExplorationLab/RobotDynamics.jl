@@ -52,6 +52,10 @@ jacobian!(sig::FunctionSignature, ::UserDefined, model::DiscretizedDynamics, J, 
 ########################################
 # Implicit Dynamics
 ########################################
+
+# TODO: overwrite `evaluate` to solve for the next state using Newton
+# TODO: overwrite `jacobian` to provide A,B using implicit function theorem
+
 dynamics_error(
     model::ImplicitDynamicsModel,
     z2::AbstractKnotPoint,

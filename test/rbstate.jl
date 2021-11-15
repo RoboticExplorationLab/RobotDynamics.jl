@@ -12,36 +12,36 @@ v = @SVector rand(3)
 x = RBState{Float64}(r, q, v, ω)
 @test x[1:3] ≈ r ≈ position(x)
 @test x[4:7] ≈ Rotations.params(q)
-@test x[8:10] ≈ v ≈ linear_velocity(x)
-@test x[11:13] ≈ ω ≈ angular_velocity(x)
+@test x[8:10] ≈ v ≈ RD.linear_velocity(x)
+@test x[11:13] ≈ ω ≈ RD.angular_velocity(x)
 @test length(x) == 13
 
 x32 = RBState{Float32}(r, q, v, ω)
 @test x32 isa RBState{Float32}
 @test eltype(x32[1:3]) == Float32
-@test position(x32) isa SVector{3,Float32}
-@test orientation(x32) isa UnitQuaternion{Float32}
+@test RD.position(x32) isa SVector{3,Float32}
+@test RD.orientation(x32) isa UnitQuaternion{Float32}
 
 # Pass in other types of vectors
 x = RBState{Float64}(Vector(r), q, v, ω)
-@test position(x) isa SVector{3,Float64}
+@test RD.position(x) isa SVector{3,Float64}
 x = RBState{Float64}(Vector(r), q, Vector(v), Vector(ω))
-@test position(x) isa SVector{3,Float64}
-@test linear_velocity(x) isa SVector{3,Float64}
-@test angular_velocity(x) isa SVector{3,Float64}
+@test RD.position(x) isa SVector{3,Float64}
+@test RD.linear_velocity(x) isa SVector{3,Float64}
+@test RD.angular_velocity(x) isa SVector{3,Float64}
 
 x = RBState{Float64}(view(r,:), q, view(Vector(v),1:3), Vector(ω))
-@test position(x) isa SVector{3,Float64}
+@test RD.position(x) isa SVector{3,Float64}
 
-@test RBState{Float32}(x) isa RBState{Float32}
-@test RBState{Float64}(x32) isa RBState{Float64}
-@test RBState(x) isa RBState{Float64}
-@test RBState(x32) isa RBState{Float32}
+@test RD.RBState{Float32}(x) isa RBState{Float32}
+@test RD.RBState{Float64}(x32) isa RBState{Float64}
+@test RD.RBState(x) isa RBState{Float64}
+@test RD.RBState(x32) isa RBState{Float32}
 
 # Pass in other rotations
-x2 = RBState{Float64}(r, RotMatrix(q), v, ω)
-@test orientation(x2) \ orientation(x) ≈ one(UnitQuaternion)
-@test orientation(x2) isa UnitQuaternion
+x2 = RD.RBState{Float64}(r, RotMatrix(q), v, ω)
+@test RD.orientation(x2) \ RD.orientation(x) ≈ one(UnitQuaternion)
+@test RD.orientation(x2) isa UnitQuaternion
 
 # Let the constructor figure out data type
 @test RBState(r, q, v, ω) isa RBState{Float64}
@@ -60,12 +60,13 @@ x = [r; Rotations.params(RodriguesParam(q)); v; ω]
 # Pass in a vector for the quaternion
 q_ = Rotations.params(q)
 x = RBState(r, q_, v, ω)
-@test orientation(x) ≈ q
+@test RD.orientation(x) ≈ q
 x = RBState(r, 2q_, v, ω)
-@test orientation(x) ≈ 2q  # shouldnt renormalize
+@test RD.orientation(x) ≈ 2q  # shouldnt renormalize
 @test RBState(Float32.(r), Float32.(q_), Float32.(v), Float32.(ω)) isa RBState{Float32}
 
 # Pass in a vector for the entire state
+using RobotDynamics: position, orientation, linear_velocity, angular_velocity 
 x_ = [r; 2q_; v; ω]
 x = RBState(x_)
 @test position(x) ≈ r

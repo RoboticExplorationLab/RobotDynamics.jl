@@ -140,7 +140,6 @@ dt = 0.1
 zs = KnotPoint{n,m}([x;u],t,dt) 
 z = KnotPoint{n,m}(Vector([x;u]),t,dt)
 z_ = copy(z.z)
-@test zs isa RobotDynamics.SKnotPoint
 @test getstate(zs, z_) isa SVector{n}
 @test getcontrol(zs, z_) isa SVector{m}
 @test getstate(z, z_) isa SubArray 

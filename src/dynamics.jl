@@ -17,4 +17,3 @@ abstract type ContinuousDynamics <: AbstractModel end
 @inline dynamics!(model::ContinuousDynamics, ẋ, x, u, t) = dynamics!(model, ẋ, x, u)
 @inline jacobian!(::FunctionSignature, ::UserDefined, model::ContinuousDynamics, J, ẋ, z) =
     jacobian!(model, J, ẋ, state(z), control(z), time(z))
-

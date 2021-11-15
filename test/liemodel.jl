@@ -1,4 +1,4 @@
-struct Satellite <: LieGroupModel
+struct Satellite <: RD.LieGroupModel
     J::Diagonal{Float64,SVector{3,Float64}}
 end
 
@@ -22,8 +22,8 @@ end
 
 model = Satellite()
 @test LieState(model) === RobotDynamics.QuatState(7, (4,))
-@test state_dim(model) == 7
-@test state_diff_size(model) == 6
+@test RD.state_dim(model) == 7
+@test RD.errstate_dim(model) == 6
 
 x,u = rand(model)
 s = LieState(model)

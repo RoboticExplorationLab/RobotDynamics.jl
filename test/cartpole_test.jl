@@ -2,10 +2,10 @@ using RobotDynamics
 using Test
 using StaticArrays
 
-struct MyModel <: AbstractModel end
+struct MyModel <: RD.ContinuousDynamics end
 model = MyModel()
-@test_throws ErrorException state_dim(model)
-@test_throws ErrorException control_dim(model)
+@test_throws RD.NotImplementedError RD.state_dim(model)
+@test_throws RD.NotImplementedError RD.control_dim(model)
 
 model = Cartpole()
 x,u = zeros(model)
@@ -14,8 +14,15 @@ x,u = zeros(model)
 x,u = rand(model)
 @test sum(x) != 0
 @test sum(u) != 0
-xdot = dynamics(model, x, u)
+xdot = RD.dynamics(model, x, u)
 @test sum(x) != 0
+xdot = RD.dynamics(model, x, u, 0.0)
+@test sum(x) != 0
+y = zeros(length(x))
+RD.dynamics!(model, y, x, u)
+@test y ≈ xdot
+RD.dynamics!(model, y, x, u, 0.0)
+@test y ≈ xdot
 
 x,u = zeros(Float32,model)
 @test x isa SVector{4,Float32}
@@ -31,48 +38,46 @@ x,u = fill(model, 10.0)
 
 
 n,m = size(model)
-dt = 0.1
+t,dt = 0, 0.1
 F = zeros(n,n+m)
-z = KnotPoint(x,u,dt)
-jacobian!(F, model, z)
+y = zeros(n)
+z = RD.KnotPoint(x,u,t,dt)
+RD.jacobian!(RD.StaticReturn(), RD.ForwardAD(), model, F, y, z)
 @test sum(F) != 0
 
 D = RobotDynamics.DynamicsJacobian(n,m)
-jacobian!(D, model, z)
+RD.jacobian!(RD.StaticReturn(), RD.ForwardAD(), model, D, y, z)
 @test D.A == F[:,1:n]
 @test D.B ≈ F[:,n .+ (1:m)]
+RD.jacobian!(RD.StaticReturn(), RD.FiniteDifference(), model, D, y, z)
+@test D.A ≈ F[:,1:n] atol=1e-6
+@test D.B ≈ F[:,n .+ (1:m)] atol=1e-6
 
-@test discrete_dynamics(RK3, model, x, u, 0.0, dt) ≈
-    discrete_dynamics(RK3, model, z)
-@test discrete_dynamics(RK3, model, z) ≈ discrete_dynamics(model, z)
+RD.jacobian!(RD.InPlace(), RD.ForwardAD(), model, D, y, z)
+@test D.A == F[:,1:n]
+@test D.B ≈ F[:,n .+ (1:m)]
+RD.jacobian!(RD.InPlace(), RD.FiniteDifference(), model, D, y, z)
+@test D.A ≈ F[:,1:n] atol=1e-6
+@test D.B ≈ F[:,n .+ (1:m)] atol=1e-6
 
-z_ = KnotPoint(zero(x),zero(m),dt)
-RobotDynamics.propagate_dynamics(RK3, model, z_, z)
-@test state(z_) ≈ discrete_dynamics(model, z)
+# Discretize
+dmodel = RD.DiscretizedDynamics{RD.RK4}(model)
+@test RD.discrete_dynamics(dmodel, x, u, t, dt) ≈ RD.discrete_dynamics(dmodel, z)
+
+z_ = RD.KnotPoint(zero(x),zero(u),t,dt)
+RD.propagate_dynamics!(RD.StaticReturn(), dmodel, z_, z)
+@test RD.state(z_) ≈ RD.discrete_dynamics(dmodel, z)
 
 F = zeros(n,n+m)
-discrete_jacobian!(RK3, F, model, z)
-
-tmp = [RobotDynamics.DynamicsJacobian(n,m) for k = 1:3]
-jacobian!(RK3, D, model, z, tmp)
-@test D.A ≈ F[1:n,1:n]
-@test D.B ≈ F[1:n,n .+ (1:m)]
-@test sum(F) != 0
-@test F[1] == 1
+RD.jacobian!(RD.StaticReturn(), RD.ForwardAD(), dmodel, F, y, z)
 
 # Error state
 x0 = rand(model)[1]
-@test RobotDynamics.state_diff(model, x, x0) ≈ x - x0
-@test state_diff_size(model) == state_dim(model)
+@test RD.state_diff(model, x, x0) ≈ x - x0
+@test RD.errstate_dim(model) == RD.state_dim(model)
 G = zeros(n,n)
-RobotDynamics.state_diff_jacobian!(G, model, z)
+RD.errstate_jacobian!(model, G, z)
 @test G ≈ I(n)
 G .= 0
-RobotDynamics.state_diff_jacobian!(G, model, x)
+RobotDynamics.errstate_jacobian!(model, G, x)
 @test G ≈ I(n)
-@test RobotDynamics.state_diff_jacobian(model, x) ≈ G
-
-
-
-# @btime discrete_jacobian!($RK3, $F, $model, $z)
-# @btime jacobian!($RK3, $D, $model, $z, $tmp)

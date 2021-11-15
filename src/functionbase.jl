@@ -11,9 +11,11 @@ struct FiniteDifference <: DiffMethod end
 struct UserDefined <: DiffMethod end
 diff_method(fun::AbstractFunction) = UserDefined
 
-state_dim(fun::AbstractFunction) = state_dim(typeof(fun))
-control_dim(fun::AbstractFunction) = control_dim(typeof(fun))
-output_dim(fun::AbstractFunction) = error("output_dim not implemented!")
+dims(fun::AbstractFunction) = (state_dim(fun), control_dim(fun), output_dim(fun))
+state_dim(fun::AbstractFunction) = throw(NotImplementedError("state_dim needs to be implemented for $(typeof(fun))."))
+control_dim(fun::AbstractFunction) = throw(NotImplementedError("control_dim needs to be implemented for $(typeof(fun))."))
+output_dim(fun::AbstractFunction) = throw(NotImplementedError("output_dim needs to be implemented for $(typeof(fun))"))
+errstate_dim(fun::AbstractKnotPoint) = state_dim(fun)
 
 Base.size(fun::AbstractFunction) = (state_dim(fun), control_dim(fun), output_dim(fun))
 @inline getinputs(z::AbstractVector) = z
@@ -39,5 +41,16 @@ jacobian!(fun::AbstractFunction, J, y, z::AbstractKnotPoint) = jacobian!(fun, J,
 jacobian!(fun::AbstractFunction, J, y, x, u, p) = jacobian!(fun, J, y, x, u)
 jacobian!(fun, J, y, x, u) = error("User-defined Jacobian hasn't been specified.")
 
+state_diff(fun::AbstractFunction, x, x0) = x - x0
+errstate_dim(fun::AbstractFunction) = state_dim(fun)
+state_diff_jacobian!(fun::AbstractFunction, J, x) = J .= I(state_dim(fun))
+
 # Some convenience methods
-Base.randn(model::AbstractFunction) = ((@SVector randn(state_dim(model))), (@SVector randn(control_dim(model))))
+Base.randn(::Type{T}, model::AbstractFunction) where {T} = ((@SVector randn(T, state_dim(model))), (@SVector randn(T, control_dim(model))))
+Base.zeros(::Type{T}, model::AbstractFunction) where {T} = ((@SVector zeros(T, state_dim(model))), (@SVector zeros(T, control_dim(model))))
+Base.rand(::Type{T}, model::AbstractFunction) where {T} = ((@SVector rand(T, state_dim(model))), (@SVector rand(T, control_dim(model))))
+Base.fill(model::AbstractFunction, v) = ((@SVector fill(v, state_dim(model))), (@SVector fill(v, control_dim(model))))
+
+Base.randn(model::AbstractFunction) = Base.randn(Float64, model)
+Base.zeros(model::AbstractFunction) = Base.zeros(Float64, model)
+Base.rand(model::AbstractFunction) = Base.rand(Float64, model)

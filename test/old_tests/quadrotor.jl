@@ -18,7 +18,7 @@ where `R <: Rotation{3}` and defaults to `UnitQuaternion{Float64}` if omitted. T
 * `km` - motor torque constant (default = 0.0245)
 * `kf` - motor force constant (default = 1.0)
 """
-struct Quadrotor{R} <: RigidBody{R}
+struct Quadrotor{R} <: RD.RigidBody{R}
     n::Int
     m::Int
     mass::Float64
