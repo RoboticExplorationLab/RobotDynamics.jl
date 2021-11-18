@@ -76,8 +76,8 @@ x0 = rand(model)[1]
 @test RD.state_diff(model, x, x0) ≈ x - x0
 @test RD.errstate_dim(model) == RD.state_dim(model)
 G = zeros(n,n)
-RD.errstate_jacobian!(model, G, z)
+RD.state_diff_jacobian!(model, G, z)
 @test G ≈ I(n)
 G .= 0
-RobotDynamics.errstate_jacobian!(model, G, x)
+RobotDynamics.state_diff_jacobian!(model, G, x)
 @test G ≈ I(n)

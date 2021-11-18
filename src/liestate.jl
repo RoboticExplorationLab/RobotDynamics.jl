@@ -211,7 +211,9 @@ end
 end
 
 @inline state_diff_jacobian!(model::LieGroupModel, G, z::AbstractKnotPoint) =
-    state_diff_jacobian!(G, LieState(model), state(z))
+    state_diff_jacobian!(LieState(model), G, state(z))
+@inline state_diff_jacobian!(model::LieGroupModel, G, x::AbstractVector) =
+    state_diff_jacobian!(LieState(model), G, x)
 @generated function state_diff_jacobian!(s::LieState{R,P}, G, x) where {R,P}
     nr = length(P) - 1   # number of rotations
     np = nr + length(P)  # number of partitions
@@ -251,7 +253,7 @@ end
 end
 
 @inline ∇²differential!(model::LieGroupModel, ∇G, x::StaticVector, dx::AbstractVector) =
-    ∇²differential!(∇G, LieState(model), x, dx)
+    ∇²differential!(LieState(model), ∇G, x, dx)
 @generated function ∇²differential!(s::LieState{R,P}, ∇G, x::StaticVector, dx::AbstractVector) where {R,P}
     nr = length(P) - 1   # number of rotations
     np = nr + length(P)  # number of partitions

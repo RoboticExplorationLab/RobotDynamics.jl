@@ -77,7 +77,7 @@ s = LieState{R,P}()
 n = length(s)
 n̄ = RD.errstate_dim(s)
 G = zeros(n,n̄)
-RobotDynamics.state_diff_jacobian!(G, s, x)
+RobotDynamics.state_diff_jacobian!(s, G, x)
 
 q1 = UnitQuaternion(x[4],x[5],x[6],x[7])
 q2 = UnitQuaternion(x[10],x[11],x[12],x[13])
@@ -92,7 +92,7 @@ dx = @SVector rand(n)
 
 dq1 = SVector(dx[4],dx[5],dx[6],dx[7])
 dq2 = SVector(dx[10],dx[11],dx[12],dx[13])
-RobotDynamics.∇²differential!(∇G, s, x, dx)
+RobotDynamics.∇²differential!(s, ∇G, x, dx)
 ∇G1 = Rotations.∇²differential(q1, dq1)
 ∇G2 = Rotations.∇²differential(q2, dq2)
 ∇G0 = cat(zeros(3,3), ∇G1, zeros(2,2), ∇G2, zeros(3,3), dims=(1,2))
@@ -106,7 +106,7 @@ model = LieBody()
 @test s === LieState(model)
 G .= 0
 ∇G .= 0
-RobotDynamics.state_diff_jacobian!(G, model, x)
-RobotDynamics.∇²differential!(∇G, model, x, dx)
+RobotDynamics.state_diff_jacobian!(model, G, x)
+RobotDynamics.∇²differential!(model, ∇G, x, dx)
 @test G0 ≈ G
 @test ∇G0 ≈ ∇G

@@ -1,12 +1,14 @@
-@testset "Trajectories" begin
+using RobotDynamics: state, control, states, controls
+
+# @testset "Trajectories" begin
 n,m,N = 5,3,11
-dt = 0.1
+t,dt = 0.0,0.1
 x = @SVector rand(n)
 u = @SVector rand(m)
-z = KnotPoint(x,u,dt)
+z = RD.KnotPoint(x,u,t,dt)
 
 #--- Empty contructor
-Z = Traj(n,m,dt,N)
+Z = RD.Traj(n,m,dt,N)
 @test all(isnan, state(Z[rand(1:N)]))
 @test control(Z[rand(1:N-1)]) == zeros(m)
 @test length(controls(Z)) == N-1
@@ -21,7 +23,7 @@ Z = Traj(n,m,dt,N)
 @test RobotDynamics.traj_size(Z) == (n,m,N)
 @test RobotDynamics.num_vars(Z) == N*(n+m)-m 
 
-Z = Traj(n,m,dt,N, equal=true)
+Z = RD.Traj(n,m,dt,N, equal=true)
 @test all(isnan, state(Z[rand(1:N)]))
 @test control(Z[rand(1:N)]) == zeros(m)
 @test length(controls(Z)) == N
@@ -36,9 +38,9 @@ Z = Traj(n,m,dt,N, equal=true)
 @test RobotDynamics.num_vars(Z) == N*(n+m) 
 
 #--- Copy single constructor
-Z = Traj(x, u, dt, N)
+Z = RD.Traj(x, u, dt, N)
 @test length(Z) == N
-@test eltype(Z) <: KnotPoint{Float64,n,m}
+@test eltype(Z) <: RD.KnotPoint{n,m,<:Any,Float64}
 @test state(Z[1]) == x
 Z[1].z = 2*Z[1].z
 @test state(Z[1]) ≈ 2x
@@ -53,10 +55,10 @@ Z[1].z = 2*Z[1].z
 #--- Vector constructor
 X = [@SVector rand(n) for k = 1:N]
 U = [@SVector rand(m) for k = 1:N-1]
-Z = Traj(X,U,fill(dt,N))
+Z = RD.Traj(X,U,fill(dt,N))
 @test states(Z) ≈ X
 @test controls(Z) ≈ U
-@test RobotDynamics.get_times(Z) ≈ range(0, length=N, step=dt)
+@test RobotDynamics.gettimes(Z) ≈ range(0, length=N, step=dt)
 
 Z2 = copy(Z)
 RobotDynamics.set_state!(Z[1], x)
@@ -159,4 +161,4 @@ RobotDynamics.shift_fill!(Z)
 # rollout!(model, Z, X[1])
 # TO.evaluate!(conval, Z)
 # @test conval.vals ≈ [zeros(n) for k = 1:N-1]
-end
+# end
