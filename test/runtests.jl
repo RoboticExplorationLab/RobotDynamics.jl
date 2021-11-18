@@ -56,9 +56,9 @@ end
     include("rigid_body_jacobians.jl")
 end
 
-# only test plotting on a desktop since it takes a while to compile Plots on CI...
-# if !haskey(ENV, "CI")
-#     @testset "Plotting" begin
-#         include("plotting.jl")
-#     end
-# end
+# only test plotting on a desktop since it takes a while to compile Plots on CI
+if !haskey(ENV, "CI")
+    @testset "Plotting" begin
+        include("plotting.jl")
+    end
+end

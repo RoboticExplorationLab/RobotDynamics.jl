@@ -16,6 +16,16 @@ end
     t, (hcat(Vector.(X)...)[inds,:])'
 end
 
+@recipe function f(Z::T; inds=1:state_dim(Z) + control_dim(Z)) where T <: AbstractTrajectory
+    default_xlabels = ["x" * string(i) for i = 1:state_dim(Z)]
+    default_ulabels = ["u" * string(i) for i = 1:control_dim(Z)]
+    default_labels = [default_xlabels; default_ulabels]
+    xguide --> "time (s)"
+    yguide --> "states"
+    label --> reshape(default_labels[inds], 1, :)
+    gettimes(Z), (hcat(Vector.(get_data(Z))...)[inds,:])'
+end
+
 """
     traj2(x, y)
     traj2(X; xind=1, yind=2)

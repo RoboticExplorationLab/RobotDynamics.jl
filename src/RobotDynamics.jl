@@ -80,7 +80,6 @@ using StaticArrays: SUnitRange
 # include("trajectories.jl")
 # include("linearmodel.jl")
 # include("linearization.jl")
-# include("plot_recipes.jl")
 
 include("utils.jl")
 include("knotpoint.jl")
@@ -97,4 +96,6 @@ include("rbstate.jl")
 include("rigidbody.jl")
 
 include("jacobian.jl")
+include("trajectories.jl")
+include("plot_recipes.jl")
 end # module
