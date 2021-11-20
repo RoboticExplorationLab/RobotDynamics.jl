@@ -14,6 +14,7 @@ include("cartpole_model.jl")
 ##
 @testset "Function Base" begin
     include("function_base_test.jl")
+    include("scalar_function_test.jl")
 end
 
 @testset "Basic Dynamics" begin

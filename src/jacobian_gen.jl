@@ -85,14 +85,25 @@ function _autodiff(mod, struct_expr::Expr, sigs::Vector{FunctionSignature}, meth
     parent = mod.eval(parent_expr)
     is_discrete_dynamics = parent <: RobotDynamics.DiscreteDynamics
 
+    # Check if it's a subtype of ScalarFunction
+    is_scalar_fun = parent <: RobotDynamics.ScalarFunction
+
     for method in methods
         for sig in sigs
-            push!(jac_defs, gen_jacobian(sig, method, type_expr, mod))
-            if is_discrete_dynamics
-                push!(jac_defs, gen_dynamics_jacobian(sig, method, type_expr, mod))
+            if !is_scalar_fun
+                push!(jac_defs, gen_jacobian(sig, method, type_expr, mod))
+                if is_discrete_dynamics
+                    push!(jac_defs, gen_dynamics_jacobian(sig, method, type_expr, mod))
+                end
             end
         end
-        struct_expr = modify_struct_def(method, struct_expr, mod)
+        struct_expr = modify_struct_def(method, struct_expr, mod, is_scalar_fun)
+
+        if is_scalar_fun
+            gradfun, hessfun = gen_hessgrad(method, type_expr, mod)
+            push!(jac_defs, gradfun)
+            push!(jac_defs, hessfun)
+        end
     end
     return quote
         $struct_expr
@@ -118,7 +129,11 @@ function get_call_signature(sig, diff, fname, fargs, type_expr, mod)
     (type_name isa Symbol) && (type_name = GlobalRef(mod, type_name))
 
     # Create the call signature
-    Expr(:call, GlobalRef(@__MODULE__, fname), :(::$(typeof(sig))), :(::$(typeof(diff))), :(fun::$type_name), fargs...)
+    if isnothing(sig)
+        Expr(:call, GlobalRef(@__MODULE__, fname), :(::$(typeof(diff))), :(fun::$type_name), fargs...)
+    else
+        Expr(:call, GlobalRef(@__MODULE__, fname), :(::$(typeof(sig))), :(::$(typeof(diff))), :(fun::$type_name), fargs...)
+    end
 end
 
 """
@@ -194,7 +209,7 @@ function get_parent_name(parent)
     error("Couldn't get parent name")
 end
 
-function add_field_to_struct(struct_expr0::Expr, newfield::Expr, init_field, pname::Union{Symbol,Nothing}, init_param, mod)
+function add_field_to_struct(struct_expr0::Expr, newfield::Vector{Expr}, init_field, pname::Union{Symbol,Nothing}, init_param, mod)
 
     struct_expr = copy(struct_expr0)
     @assert struct_expr.head == :struct
@@ -242,24 +257,29 @@ function add_field_to_struct(struct_expr0::Expr, newfield::Expr, init_field, pna
     end
 
     # Add field
-    @assert newfield isa Expr && newfield.head == :(::)
-    name = newfield.args[1]
+    names = map(newfield) do field
+        @assert field isa Expr && field.head == :(::)
+        name = field.args[1]
 
-    # Check if the field name already exists
-    for field in body.args
-        if field isa Expr && field.head == :(::) && field.args[1] == name 
-            error("Cannot add field, the field $name already exists")
+        # Check if the field name already exists
+        for field in body.args
+            if field isa Expr && field.head == :(::) && field.args[1] == name 
+                error("Cannot add field, the field $name already exists")
+            end
         end
+
+        # Add the field to the end of the struct
+        push!(body.args, field)
+
+        name
     end
 
-    # Add the field to the end of the struct
-    push!(body.args, newfield)
 
     # Modify the constructor
     constructor_found = false
     for field in body.args
         if field isa Expr && field.head == :function
-            constructor_found |= add_config_to_constructor(field, type_param, name, init_field, init_param)
+            constructor_found |= add_config_to_constructor(field, type_param, names, init_field, init_param)
         end
     end
 
@@ -267,7 +287,7 @@ function add_field_to_struct(struct_expr0::Expr, newfield::Expr, init_field, pna
     if !constructor_found
         inner_con = new_default_constructor(struct_expr0)
         push!(body.args, inner_con)
-        add_config_to_constructor(inner_con, type_param, name, init_field, init_param)
+        add_config_to_constructor(inner_con, type_param, names, init_field, init_param)
     end
     return struct_expr
 end
@@ -376,7 +396,7 @@ function add_config_to_constructor(con, type_param, fieldname, init_field, init_
         if add_newparam 
             callfun_new.args[1].args[end] = newparam 
         end
-        push!(callfun_new.args, fieldname)  # add to the arguments to "new"
+        append!(callfun_new.args, fieldname)  # add to the arguments to "new"
 
         # add lines after the call to "new" that initialize the new variables 
         init_expr = init_field(outname, fieldname, type_param, callfun_new)
@@ -419,7 +439,32 @@ function gen_jacobian(sig::InPlace, diff::ForwardAD, type_expr, mod)
         ForwardDiff.jacobian!(J, f!, y, getdata(z), fun.cfg)
         return nothing
     end
-    Expr(:function, callsig, fun_body)
+    jacfun = Expr(:function, callsig, fun_body)
+end
+
+function gen_hessgrad(diff::ForwardAD, type_expr, mod)
+    fname = :gradient!
+    fargs = (:grad, :z)
+    callsig = get_call_signature(nothing, diff, fname, fargs, type_expr, mod)
+
+    eval = GlobalRef(@__MODULE__, :evaluate)
+    fun_body = quote
+        f(_z) = $eval(fun, getstate(z, _z), getcontrol(z, _z), getparams(z))
+        ForwardDiff.gradient!(grad, f, getdata(z), fun.gradcfg)
+        return nothing
+    end
+    gradfun = Expr(:function, callsig, fun_body)
+
+    fname = :hessian!
+    fargs = (:hess, :z)
+    callsig = get_call_signature(nothing, diff, fname, fargs, type_expr, mod)
+    fun_body = quote
+        f(_z) = $eval(fun, getstate(z, _z), getcontrol(z, _z), getparams(z))
+        ForwardDiff.hessian!(hess, f, getdata(z), fun.hesscfg)
+        return nothing
+    end
+    hessfun = Expr(:function, callsig, fun_body)
+    return gradfun, hessfun
 end
 
 function gen_dynamics_jacobian(sig::StaticReturn, diff::ForwardAD, type_expr, mod)
@@ -457,24 +502,47 @@ function gen_dynamics_jacobian(sig::InPlace, diff::ForwardAD, type_expr, mod)
 end
 
 function init_cfg(outname, fieldname, type_param, callfun)
+    if length(fieldname) == 1
+        init = [
+            :($(fieldname[1]) = ForwardDiff.JacobianConfig(nothing, zeros($type_param, _m), zeros($type_param, _n)))
+        ]
+    else
+        init = [
+            :($(fieldname[1]) = ForwardDiff.GradientConfig(nothing, zeros($type_param, _n)))
+            :($(fieldname[2]) = ForwardDiff.HessianConfig(nothing, zeros($type_param, _n)))
+        ] 
+    end
     quote
         _n = RobotDynamics.state_dim($outname) + RobotDynamics.control_dim($outname)
         _m = RobotDynamics.output_dim($outname)
-        $fieldname = ForwardDiff.JacobianConfig(nothing, zeros($type_param, _m), zeros($type_param, _n))
+        $(init...)
         $outname = $callfun
     end
 end
 
 function init_cfg_param(fieldname)
-    :(length($fieldname.seeds))
+    if length(fieldname) == 1
+        :(length($(fieldname[1]).seeds))
+    else
+        :(length($(fieldname[1]).seeds))
+    end
 end
 
-function modify_struct_def(::ForwardAD, struct_expr::Expr, mod)
+function modify_struct_def(::ForwardAD, struct_expr::Expr, mod, is_scalar_fun)
     pname = :JCH
     parent_name = get_struct_parent(struct_expr)
     parent = mod.eval(parent_name)
     type_param = Symbol(inputtype(parent))
-    newfield = :(cfg::ForwardDiff.JacobianConfig{Nothing, $type_param, $pname, Tuple{Vector{ForwardDiff.Dual{Nothing, $type_param, $pname}}, Vector{ForwardDiff.Dual{Nothing, $type_param, $pname}}}})
+    if is_scalar_fun
+        newfield = [
+            :(gradcfg::ForwardDiff.GradientConfig{Nothing, Float64, JCH, Vector{ForwardDiff.Dual{Nothing, Float64, JCH}}})
+            :(hesscfg::ForwardDiff.HessianConfig{Nothing, Float64, JCH, Vector{ForwardDiff.Dual{Nothing, ForwardDiff.Dual{Nothing, Float64, JCH}, JCH}}, Vector{ForwardDiff.Dual{Nothing, Float64, JCH}}})
+        ]
+    else
+        newfield = [
+            :(cfg::ForwardDiff.JacobianConfig{Nothing, $type_param, $pname, Tuple{Vector{ForwardDiff.Dual{Nothing, $type_param, $pname}}, Vector{ForwardDiff.Dual{Nothing, $type_param, $pname}}}})
+        ]
+    end
 
     struct_expr = copy(struct_expr)
     @assert struct_expr.head == :struct
@@ -514,6 +582,33 @@ function gen_jacobian(sig::InPlace, diff::FiniteDifference, type_expr, mod)
     Expr(:function, callsig, fun_body)
 end
 
+function gen_hessgrad(diff::FiniteDifference, type_expr, mod)
+    fname = :gradient!
+    fargs = (:grad, :z)
+    callsig = get_call_signature(nothing, diff, fname, fargs, type_expr, mod)
+
+    eval = GlobalRef(@__MODULE__, :evaluate)
+    fun_body = quote
+        f(_z) = $eval(fun, getstate(z, _z), getcontrol(z, _z), getparams(z))
+        FiniteDiff.finite_difference_gradient!(grad, f, getdata(z), fun.gradcache)
+        return nothing
+    end
+    gradfun = Expr(:function, callsig, fun_body)
+
+    fname = :hessian!
+    fargs = (:hess, :z)
+    callsig = get_call_signature(nothing, diff, fname, fargs, type_expr, mod)
+    fun_body = quote
+        cache = fun.hesscache
+        cache.xmm .= z; cache.xmp .= z; cache.xpm .= z; cache.xpp .= z
+        f(_z) = $eval(fun, getstate(z, _z), getcontrol(z, _z), getparams(z))
+        FiniteDiff.finite_difference_hessian!(hess, f, getdata(z), cache)
+        return nothing
+    end
+    hessfun = Expr(:function, callsig, fun_body)
+    return gradfun, hessfun
+end
+
 function gen_dynamics_jacobian(sig::StaticReturn, diff::FiniteDifference, type_expr, mod)
     fname = :dynamics_error_jacobian! 
     fargs = (:J2, :J1, :y2, :y1, :(z2::AbstractKnotPoint), :(z1::AbstractKnotPoint))
@@ -549,22 +644,41 @@ function gen_dynamics_jacobian(sig::InPlace, diff::FiniteDifference, type_expr, 
 end
 
 function init_cache(outname, fieldname, type_param, callfun)
+    if length(fieldname) == 1
+        init = [
+            :($(fieldname[1]) = FiniteDiff.JacobianCache(zeros($type_param, _n), zeros($type_param, _m)))
+        ]
+    else
+        init = [
+            :($(fieldname[1]) = FiniteDiff.GradientCache(zeros(_n), zeros(_n), Val(:forward)))
+            :($(fieldname[2]) = FiniteDiff.HessianCache(zeros(_n), zeros(_n), zeros(_n), zeros(_n), Val(:hcentral), Val(true)))
+        ]
+    end
     quote
         _n = RobotDynamics.state_dim($outname) + RobotDynamics.control_dim($outname)
         _m = RobotDynamics.output_dim($outname)
-        $fieldname = FiniteDiff.JacobianCache(zeros($type_param, _n), zeros($type_param, _m))
+        $(init...)
         $outname = $callfun
     end
 end
 
 init_cache_param(fieldname) = nothing
 
-function modify_struct_def(::FiniteDifference, struct_expr::Expr, mod)
+function modify_struct_def(::FiniteDifference, struct_expr::Expr, mod, is_scalar_fun)
     pname = nothing 
     parent_name = get_struct_parent(struct_expr)
     parent = mod.eval(parent_name)
     type_param = Symbol(inputtype(parent))
-    newfield = :(cache::FiniteDiff.JacobianCache{Vector{$type_param}, Vector{$type_param}, Vector{$type_param}, UnitRange{Int64}, Nothing, Val{:forward}(), $type_param})
+    if is_scalar_fun
+        newfield = [
+            :(gradcache::FiniteDiff.GradientCache{Nothing, Nothing, Nothing, Vector{Float64}, Val{:forward}(), Float64, Val{true}()})
+            :(hesscache::FiniteDiff.HessianCache{Vector{Float64}, Val{:hcentral}(), Val{true}()})
+        ]
+    else
+        newfield = [
+            :(cache::FiniteDiff.JacobianCache{Vector{$type_param}, Vector{$type_param}, Vector{$type_param}, UnitRange{Int64}, Nothing, Val{:forward}(), $type_param})
+        ]
+    end
 
     struct_expr = copy(struct_expr)
     @assert struct_expr.head == :struct

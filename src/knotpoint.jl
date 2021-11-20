@@ -55,6 +55,11 @@ for (name,mutable) in [(:KnotPoint, true), (:StaticKnotPoint, false)]
                 @assert Nu > 0
                 new{Nx,Nu,V,eltype(V)}(z, t, dt, Nx, Nu)
             end
+            function $name{Nx,Nu}(x::V, u::V, t,dt) where {Nx,Nu,V} 
+                @assert Nx > 0
+                @assert Nu > 0
+                new{Nx,Nu,V,eltype(V)}([x;u], t, dt, Nx, Nu)
+            end
             function $name(n::Integer, m::Integer, z::V, t, dt) where V
                 @assert n > 0
                 @assert m > 0

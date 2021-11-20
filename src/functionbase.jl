@@ -20,6 +20,7 @@ errstate_dim(fun::AbstractKnotPoint) = state_dim(fun)
 Base.size(fun::AbstractFunction) = (state_dim(fun), control_dim(fun), output_dim(fun))
 @inline getinputs(z::AbstractVector) = z
 @inline setinputs!(dest::AbstractVector{<:Real}, src::AbstractVector{<:Real}) = src 
+inputtype(::Type{<:AbstractFunction}) = Float64
 
 # Top-level command that can be overridden
 # Should only be overridden if using hand-written Jacobian methods
@@ -31,19 +32,31 @@ evaluate!(fun::AbstractFunction, y, x, u, p) = evaluate!(fun, y, x, u)
 evaluate(fun::AbstractFunction, x, u, p) = evaluate(fun, x, u) 
 
 # Minimal call that must be implemented
-evaluate!(::AbstractFunction, y, x, u) = error("In-place function evaluation not defined yet!")
-evaluate(::AbstractFunction, x, u) = error("Static return function evaluation not defined yet!")
+evaluate!(::AbstractFunction, y, x, u) = 
+    throw(NotImplementedError("User-defined in-place function not implemented for $(typeof(fun))")) 
+evaluate(::AbstractFunction, x, u) = 
+    throw(NotImplementedError("User-defined static return function not implemented for $(typeof(fun))")) 
 
-inputtype(::Type{<:AbstractFunction}) = Float64
-
+# Jacobian
 jacobian!(::FunctionSignature, ::UserDefined, fun::AbstractFunction, J, y, z) = jacobian!(fun, J, y, z)
 jacobian!(fun::AbstractFunction, J, y, z::AbstractKnotPoint) = jacobian!(fun, J, y, state(z), control(z), getparams(z))
 jacobian!(fun::AbstractFunction, J, y, x, u, p) = jacobian!(fun, J, y, x, u)
-jacobian!(fun, J, y, x, u) = error("User-defined Jacobian hasn't been specified.")
+jacobian!(fun, J, y, x, u) = throw(NotImplementedError("User-defined Jacobian not implemented for $(typeof(fun))")) 
+
+# Jacobian of Jacobian-vector product 
+∇jacobian!(::FunctionSignature, ::UserDefined, fun::AbstractFunction, H, b, y, z) = 
+    ∇jacobian!(fun, H, b, y, z)
+∇jacobian!(fun::AbstractFunction, H, b, y, z::AbstractKnotPoint) = 
+    ∇jacobian!(fun, H, b, y, state(z), control(z), getparams(z))
+∇jacobian!(fun::AbstractFunction, H, b, y, x, u, p) = 
+    ∇jacobian!(fun, H, b, y, state(z), control(z))
+∇jacobian!(fun::AbstractFunction, H, b, y, x, u) = 
+    throw(UserDefined("User-defined Jacobian of Jacobian-vector product is undefined for $(typeof(fun))"))
 
 state_diff(fun::AbstractFunction, x, x0) = x - x0
 errstate_dim(fun::AbstractFunction) = state_dim(fun)
 state_diff_jacobian!(fun::AbstractFunction, J, x) = J .= I(state_dim(fun))
+∇²differential!(fun::AbstractFunction, ∇G, x, dx) = ∇G .= 0
 
 # Some convenience methods
 Base.randn(::Type{T}, model::AbstractFunction) where {T} = ((@SVector randn(T, state_dim(model))), (@SVector randn(T, control_dim(model))))
