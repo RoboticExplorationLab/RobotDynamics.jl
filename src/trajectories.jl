@@ -187,7 +187,7 @@ end
 function state_diff_jacobian!(model::LieGroupModel, G, Z::Traj)
 	for k in eachindex(Z)
 		G[k] .= 0
-		state_diff_jacobian!(G[k], model, Z[k])
+		state_diff_jacobian!(model, G[k], Z[k])
 	end
 end
 

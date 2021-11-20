@@ -5,9 +5,7 @@ using StaticArrays
 using LinearAlgebra
 using ForwardDiff
 using FiniteDiff
-using UnsafeArrays
 using RecipesBase
-using SparseDiffTools
 using SparseArrays
 
 using Rotations: skew

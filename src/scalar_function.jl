@@ -12,7 +12,13 @@ end
 
 gradient!(::FunctionSignature, diff::DiffMethod, fun::ScalarFunction, grad, z) = 
     gradient!(diff, fun, grad, z)
-gradient!(diff::DiffMethod, fun::ScalarFunction, grad, z) = 
+gradient!(diff::UserDefined, fun::ScalarFunction, grad, z) = 
+    gradient!(fun, grad, z)
+gradient!(fun::AbstractFunction, grad, z::AbstractKnotPoint) = 
+    gradient!(fun, grad, state(z), control(z), getparams(z))
+gradient!(fun::AbstractFunction, grad, x, u, p) = 
+    gradient!(fun, grad, x, u)
+gradient!(fun::AbstractFunction, grad, x, u) = 
     throw(NotImplementedError("Gradient not implemented for scalar function $(typeof(fun))"))
 
 # Hessian
