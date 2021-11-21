@@ -5,6 +5,7 @@ Abstraction of a dynamical system whose state contains at least one arbitrary ro
 """
 abstract type LieGroupModel <: ContinuousDynamics end
 
+const DiscreteLieDynamics = DiscretizedDynamics{Q,L} where {Q<:QuadratureRule, L<:LieGroupModel}
 
 import Rotations.params
 

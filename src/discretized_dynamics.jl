@@ -7,6 +7,8 @@ abstract type Explicit <: QuadratureRule end
 "Integration rules of the form x′ = f(x,u,x′,u′), where x′,u′ are the states and controls at the next time step."
 abstract type Implicit <: QuadratureRule end
 
+(::Type{Q})(model::AbstractModel) where {Q<:QuadratureRule} = Q(state_dim(model), control_dim(model))
+
 @autodiff struct DiscretizedDynamics{L,Q} <: DiscreteDynamics
     continuous_dynamics::L
     integrator::Q

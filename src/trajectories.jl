@@ -98,20 +98,21 @@ function Traj(x::SVector, u::SVector, dt::AbstractFloat, N::Int; equal=false)
 end
 
 function Traj(X::Vector, U::Vector, dt::Vector, t=cumsum(dt) .- dt[1])
-    Z = [KnotPoint(X[k], U[k], t[k], t[k]) for k = 1:length(U)]
+    n,m = length(X[1]), length(U[1])
+    Z = [KnotPoint{n,m}(n,m,[X[k]; U[k]], t[k], dt[k]) for k = 1:length(U)]
     if length(U) == length(X)-1
-        push!(Z, KnotPoint(X[end],U[1]*0,t[end],0.0))
+        push!(Z, KnotPoint{n,m}(n,m,[X[end]; U[1]*0],t[end],0.0))
     end
     return Traj(Z)
 end
 
-function set_states!(Z::Traj, X)
+function setstates!(Z::Traj, X)
     for k in eachindex(Z)
 		setstate!(Z[k], X[k])
     end
 end
 
-function set_states!(Z::Traj, X::AbstractMatrix)
+function setstates!(Z::Traj, X::AbstractMatrix)
     for k in eachindex(Z)
 		setstate!(Z[k], X[:,k])
     end
