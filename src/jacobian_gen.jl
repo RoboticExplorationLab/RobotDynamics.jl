@@ -495,7 +495,7 @@ function gen_dynamics_jacobian(sig::InPlace, diff::ForwardAD, type_expr, mod)
         ForwardDiff.jacobian!(J1, f1!, y2, RobotDynamics.getdata(z1), fun.cfg)
 
         f2!(_y, _z) = $eval(fun, _y, y1, RobotDynamics.StaticKnotPoint(z2, _z), z1)
-        ForwardDiff.jacobian!(J1, f1!, y2, RobotDynamics.getdata(z2), fun.cfg)
+        ForwardDiff.jacobian!(J2, f2!, y2, RobotDynamics.getdata(z2), fun.cfg)
         return nothing
     end
     Expr(:function, callsig, fun_body)
