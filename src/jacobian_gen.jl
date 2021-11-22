@@ -182,7 +182,7 @@ function get_struct_parent(struct_expr::Expr)
     end
 end
 
-function get_parent_name(parent)
+function get_parent_name(parent, mod)
     loc = nothing
     if parent isa Symbol
         return (parent, loc)
@@ -204,7 +204,8 @@ function get_parent_name(parent)
     end
 
     if name isa Expr && name.head == :.
-        return (GlobalRef(eval(name.args[1]), name.args[2].value), loc)
+        return (name, loc)
+        # return (GlobalRef(mod.eval(name.args[1]), name.args[2].value), loc)
     end
     error("Couldn't get parent name")
 end
@@ -225,14 +226,25 @@ function add_field_to_struct(struct_expr0::Expr, newfield::Vector{Expr}, init_fi
     type_param = Symbol(inputtype(parent))
 
     # Resolve the parent name in the original scope
-    parent_name, loc = get_parent_name(parent_expr)
-    if parent_name isa Symbol
-        if isnothing(loc)
-            typedef.args[2] = GlobalRef(mod, parent_name)
+    parent_name, loc = get_parent_name(parent_expr, mod)
+    if !(parent_name isa GlobalRef)
+        local gref
+        if parent_name isa Symbol
+            gref = GlobalRef(mod, parent_name)
         else
-            loc.args[1] = GlobalRef(mod, parent_name)
+            typename = parent_name.args[2].value
+            parent_module_symb = parent_name.args[1]
+            parent_module = mod.eval(parent_module_symb)
+            gref = GlobalRef(parent_module, parent_name.args[2].value)
+        end
+        if isnothing(loc)
+            typedef.args[2] = gref
+        else
+            loc.args[1] = gref
         end
     end
+    # @show parent_name.mod
+    # @show parent_name
 
     # Add type parameter 
     has_params = false

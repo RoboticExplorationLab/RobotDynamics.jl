@@ -101,6 +101,10 @@ for (name,mutable) in [(:KnotPoint, true), (:StaticKnotPoint, false)]
     eval(expr)
 end
 
+function (::Type{<:KnotPoint{Nx,Nu}})(z, t, dt) where {Nx,Nu}
+    KnotPoint{Nx,Nu}(z, t, dt)
+end
+
 function StaticKnotPoint(z::AbstractKnotPoint{Nx,Nu}, v::AbstractVector) where {Nx,Nu}
     StaticKnotPoint{Nx,Nu}(state_dim(z), control_dim(z), v, time(z), timestep(z))
 end
@@ -108,3 +112,7 @@ end
 @inline setdata(z::StaticKnotPoint, v) = StaticKnotPoint(z, v)
 setstate(z::StaticKnotPoint, x) = setdata(z, [x; control(z)])
 setcontrol(z::StaticKnotPoint, u) = setdata(z, [state(z); u])
+
+function Base.:*(c::Real, z::KP) where {KP<:AbstractKnotPoint}
+    KP(getdata(z)*c, getparams(z)...)
+end

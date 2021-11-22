@@ -32,9 +32,9 @@ evaluate!(fun::AbstractFunction, y, x, u, p) = evaluate!(fun, y, x, u)
 evaluate(fun::AbstractFunction, x, u, p) = evaluate(fun, x, u) 
 
 # Minimal call that must be implemented
-evaluate!(::AbstractFunction, y, x, u) = 
+evaluate!(fun::AbstractFunction, y, x, u) = 
     throw(NotImplementedError("User-defined in-place function not implemented for $(typeof(fun))")) 
-evaluate(::AbstractFunction, x, u) = 
+evaluate(fun::AbstractFunction, x, u) = 
     throw(NotImplementedError("User-defined static return function not implemented for $(typeof(fun))")) 
 
 # Jacobian
