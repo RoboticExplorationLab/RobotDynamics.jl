@@ -64,7 +64,7 @@ function test_fun(fun)
     jacobian!(RobotDynamics.StaticReturn(), RobotDynamics.FiniteDifference(), fun, J, y, z)
     @test J ≈ J0 atol = 1e-6
 
-    @test test_allocs(fun) == 0
+    run_alloc_tests && (@test test_allocs(fun) == 0)
 end
 
 

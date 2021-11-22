@@ -45,7 +45,7 @@ end
 function Base.zeros(model::RigidBody{D}) where D
     n,m = size(model)
     r = @SVector zeros(3)
-    q = zero(D)
+    q = one(D)
     v = @SVector zeros(3)
     ω = @SVector zeros(3)
     x = build_state(model, r, q, v, ω)

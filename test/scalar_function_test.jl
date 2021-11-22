@@ -100,15 +100,17 @@ function test_scalar_fun(fun)
     RD.gradient!(FiniteDifference(), fun, grad, zs)
     @test grad ≈ grad0 atol = 1e-6
 
-    allocs = 0
-    allocs += @allocated RD.gradient!(ForwardAD(), fun, grad, z)
-    @test allocs == 0
-    allocs += @allocated RD.gradient!(ForwardAD(), fun, grad, zs)
-    @test allocs == 0
-    allocs += @allocated RD.gradient!(FiniteDifference(), fun, grad, z)
-    @test allocs == 0
-    allocs += @allocated RD.gradient!(FiniteDifference(), fun, grad, zs)
-    @test allocs == 0
+    if run_alloc_tests
+        allocs = 0
+        allocs += @allocated RD.gradient!(ForwardAD(), fun, grad, z)
+        @test allocs == 0
+        allocs += @allocated RD.gradient!(ForwardAD(), fun, grad, zs)
+        @test allocs == 0
+        allocs += @allocated RD.gradient!(FiniteDifference(), fun, grad, z)
+        @test allocs == 0
+        allocs += @allocated RD.gradient!(FiniteDifference(), fun, grad, zs)
+        @test allocs == 0
+    end
 
     RD.hessian!(fun, hess0, x, u)
     RD.hessian!(ForwardAD(), fun, hess, z)
@@ -120,12 +122,14 @@ function test_scalar_fun(fun)
     RD.hessian!(FiniteDifference(), fun, hess, zs)
     @test hess ≈ hess0 atol = 1e-6
 
-    allocs += @allocated RD.hessian!(RD.UserDefined(), fun, hess, z)
-    # allocs += @allocated RD.hessian!(ForwardAD(), fun, hess, z)  # this has some un-avoidable allocations
-    allocs += @allocated RD.hessian!(ForwardAD(), fun, hess, zs)
-    allocs += @allocated RD.hessian!(FiniteDifference(), fun, hess, z)
-    allocs += @allocated RD.hessian!(FiniteDifference(), fun, hess, zs)
-    @test allocs == 0
+    if run_alloc_tests
+        allocs += @allocated RD.hessian!(RD.UserDefined(), fun, hess, z)
+        # allocs += @allocated RD.hessian!(ForwardAD(), fun, hess, z)  # this has some un-avoidable allocations
+        allocs += @allocated RD.hessian!(ForwardAD(), fun, hess, zs)
+        allocs += @allocated RD.hessian!(FiniteDifference(), fun, hess, z)
+        allocs += @allocated RD.hessian!(FiniteDifference(), fun, hess, zs)
+        @test allocs == 0
+    end
 end
 
 ##

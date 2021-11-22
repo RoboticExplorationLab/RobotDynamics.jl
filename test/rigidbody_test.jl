@@ -62,7 +62,7 @@ x,u = rand(model)
 q = orientation(model, x)
 @test Rotations.params(q) == x[4:7]
 @test norm(q) ≈ 1
-z = KnotPoint(x,u,0.0,0.01)
+z = RD.KnotPoint(x,u,0.0,0.01)
 @test length(x) == 13
 @test length(u) == 6
 @test norm(x[4:7]) ≈ 1
@@ -73,6 +73,7 @@ z = KnotPoint(x,u,0.0,0.01)
 x0,u0 = zeros(model)
 @test RBState(model, x0) ≈ zero(RBState)
 @test u0 ≈ zeros(RD.control_dim(model))
+@test x0[4:7] ≈ [1,0,0,0]
 
 # Test diferent rotations
 for R in [UnitQuaternion{Float64}, MRP{Float64}, RodriguesParam{Float64}]
@@ -148,9 +149,9 @@ T = ξ[SA[4,5,6]]
 
 # Test body-frame velocity
 RobotDynamics.velocity_frame(::Body) = :body
-xdot = dynamics(model, x, u)
-@test xdot ≈ dynamics(model, x, u, 1.0)
-@test xdot ≈ dynamics(model, z)
+xdot = RD.dynamics(model, x, u)
+@test xdot ≈ RD.dynamics(model, x, u, 1.0)
+@test xdot ≈ RD.dynamics(model, z)
 xdot = RBState(xdot)
 x_ = RBState(x)
 q = orientation(x_)

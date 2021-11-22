@@ -11,6 +11,8 @@ include("cartpole_model.jl")
 # include("random_linear.jl")
 # include("quadrotor.jl")
 
+const run_alloc_tests = !haskey(ENV, "CI") 
+
 ##
 @testset "Function Base" begin
     include("function_base_test.jl")
