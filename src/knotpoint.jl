@@ -17,8 +17,8 @@ abstract type AbstractKnotPoint{Nx,Nu,V,T} <: AbstractVector{T} end
 dims(z::AbstractKnotPoint) = (state_dim(z), control_dim(z))
 getstate(z::AbstractKnotPoint, v) = view(v, 1:state_dim(z))
 getcontrol(z::AbstractKnotPoint, v) = begin n,m = dims(z); view(v, n+1:n+m) end
-getstate(z::AbstractKnotPoint{Nx,Nu,<:StaticVector}, v) where {Nx,Nu} = v[SVector{Nx}(1:Nx)]
-getcontrol(z::AbstractKnotPoint{Nx,Nu,<:StaticVector}, v) where {Nx,Nu} = v[SVector{Nu}(Nx+1:Nx+Nu)]
+getstate(z::AbstractKnotPoint{Nx,Nu,<:SVector}, v) where {Nx,Nu} = v[SVector{Nx}(1:Nx)]
+getcontrol(z::AbstractKnotPoint{Nx,Nu,<:SVector}, v) where {Nx,Nu} = v[SVector{Nu}(Nx+1:Nx+Nu)]
 
 state(z::AbstractKnotPoint) = getstate(z, getdata(z))
 control(z::AbstractKnotPoint) = getcontrol(z, getdata(z))
@@ -76,6 +76,9 @@ for (name,mutable) in [(:KnotPoint, true), (:StaticKnotPoint, false)]
         end
         function $name(x::AbstractVector, u::AbstractVector, t, dt)
             $name(length(x), length(u), [x;u], t, dt)
+        end
+        function Base.copy(z::$name{Nx,Nu}) where {Nx,Nu}
+            $name{Nx,Nu}(z.n, z.m, z.z, z.t, z.dt)
         end
 
         state_dim(z::$name{Any}) = z.n

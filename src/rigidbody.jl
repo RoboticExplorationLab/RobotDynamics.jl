@@ -217,11 +217,11 @@ end
 
 # Use the StaticArrays methods since we know the size will always be small enough
 @inline function dynamics!(model::RigidBody{D}, xdot, x, u, t=0) where D
-    xdot .= dynamics(x, u, t)
+    xdot .= dynamics(model, x, u, t)
 end
 
 @inline wrenches(model::RigidBody, z::AbstractKnotPoint) = wrenches(model, state(z), control(z), time(z))
-function wrenches(model::RigidBody, x::StaticVector, u::StaticVector, t)
+function wrenches(model::RigidBody, x, u, t)
     F = forces(model, x, u, t)
     M = moments(model, x, u, t)
     SA[F[1], F[2], F[3], M[1], M[2], M[3]]

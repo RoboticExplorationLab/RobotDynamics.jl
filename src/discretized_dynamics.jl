@@ -30,6 +30,7 @@ const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit
 
 state_dim(model::DiscretizedDynamics) = state_dim(model.continuous_dynamics)
 control_dim(model::DiscretizedDynamics) = control_dim(model.continuous_dynamics)
+errstate_dim(model::DiscretizedDynamics) = errstate_dim(model.continuous_dynamics)
 
 @inline integration(model::DiscretizedDynamics) = model.integrator
 discrete_dynamics(model::DiscretizedDynamics, x, u, t, dt) =
@@ -49,7 +50,6 @@ jacobian!(sig::FunctionSignature, ::UserDefined, model::DiscretizedDynamics, J, 
         time(z),
         timestep(z),
     )
-
 
 ########################################
 # Implicit Dynamics

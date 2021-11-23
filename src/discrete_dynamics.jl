@@ -60,7 +60,7 @@ function propagate_dynamics!(
     z2::AbstractKnotPoint,
     z1::AbstractKnotPoint,
 )
-    discrete_dynamics!(model, getstate(z2), z1)
+    discrete_dynamics!(model, state(z2), z1)
     return nothing
 end
 

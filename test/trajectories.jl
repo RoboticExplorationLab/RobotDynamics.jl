@@ -1,6 +1,6 @@
 using RobotDynamics: state, control, states, controls
 
-# @testset "Trajectories" begin
+@testset "Trajectories" begin
 n,m,N = 5,3,11
 t,dt = 0.0,0.1
 x = @SVector rand(n)
@@ -61,36 +61,36 @@ Z = RD.Traj(X,U,fill(dt,N))
 @test RobotDynamics.gettimes(Z) ≈ range(0, length=N, step=dt)
 
 Z2 = copy(Z)
-RobotDynamics.set_state!(Z[1], x)
+RobotDynamics.setstate!(Z[1], x)
 @test !(state(Z[1]) ≈ state(Z2[1]))
 @test state(Z[2]) ≈ state(Z2[2])
 X = 2 .* X
 U = 3 .* U
 X[1] = x
-RobotDynamics.set_states!(Z2, X)
+RobotDynamics.setstates!(Z2, X)
 @test state(Z[1]) ≈ state(Z2[1])
 @test !(control(Z2[2]) ≈ U[2])
-RobotDynamics.set_controls!(Z2, U)
+RobotDynamics.setcontrols!(Z2, U)
 @test control(Z2[2]) ≈ U[2]
 
 X2 = hcat(3X...)
-RobotDynamics.set_states!(Z2, X2)
+RobotDynamics.setstates!(Z2, X2)
 state(Z2[4]) ≈ 3X[4]
 U2 = hcat(2U...) 
-RobotDynamics.set_controls!(Z2, U2)
+RobotDynamics.setcontrols!(Z2, U2)
 @test control(Z2[2]) ≈ 2U[2]
 
-RobotDynamics.set_controls!(Z2, u)
+RobotDynamics.setcontrols!(Z2, u)
 @test control(Z2[3]) ≈ u
 
 times = range(0,length=N,step=dt*2)
-@test RobotDynamics.get_times(Z) ≈ times ./2
-RobotDynamics.set_times!(Z, times)
+@test RobotDynamics.gettimes(Z) ≈ times ./2
+RobotDynamics.settimes!(Z, times)
 @test Z[end].t ≈ 2
 @test Z[1].dt ≈ 2dt
 
 # Test approx
-RobotDynamics.set_times!(Z, times ./ 2)
+RobotDynamics.settimes!(Z, times ./ 2)
 @test !(Z ≈ Z2)
 copyto!(Z, Z2)
 @test Z[1] ≈ Z2[1]
@@ -98,19 +98,19 @@ copyto!(Z, Z2)
 
 @test RobotDynamics.is_terminal(Z[end]) == true
 push!(U, 2*U[end])
-Z = Traj(X,U,fill(dt,N))
+Z = RD.Traj(X,U,fill(dt,N))
 @test length(controls(Z)) == N
 @test RobotDynamics.is_terminal(Z[end]) == false
 
 #--- Test copyto!
-Z0 = [KnotPoint(3*X[k], 2*U[k], dt, dt*(k-1)) for k = 1:N]
+Z0 = [RD.KnotPoint(3*X[k], 2*U[k], dt, dt*(k-1)) for k = 1:N]
 @test state.(Z0) ≈ 3 .* states(Z)
 @test control.(Z0) ≈ 2 .* controls(Z)
 copyto!(Z0, Z)
 @test state.(Z0) ≈ states(Z)
 @test control.(Z0) ≈ controls(Z)
 
-Z2 = Traj(rand() .* X, rand() .* U,fill(dt,N))
+Z2 = RD.Traj(rand() .* X, rand() .* U,fill(dt,N))
 @test !(states(Z) ≈ states(Z2))
 @test !(controls(Z) ≈ controls(Z2))
 copyto!(Z2, Z)
@@ -118,9 +118,9 @@ copyto!(Z2, Z)
 @test controls(Z) ≈ controls(Z2)
 
 # Test iteration
-Z = Traj(X,U,fill(dt,N))
-@test Z[1] ≈ KnotPoint(X[1],U[1],dt)
-@test Z[end] ≈ KnotPoint(X[end], U[end], dt, dt*(N-1))
+Z = RD.Traj(X,U,fill(dt,N))
+@test Z[1] ≈ RD.KnotPoint(X[1],U[1],0.0,dt)
+@test Z[end] ≈ RD.KnotPoint(X[end], U[end], dt, dt*(N-1))
 @test Base.IndexStyle(Z) == IndexLinear()
 Z_ = [z for z in Z] 
 @test Z_[1] === Z[1]
@@ -128,18 +128,19 @@ Z_ = [z for z in Z]
 @test Base.IteratorEltype(Z) == Base.HasEltype()
 
 @test states(Z, 2) == [x[2] for x in X]
-@test states(Z, 1:3) == [x[1:3] for x in X]
+@test states(Z, 1:3) == [[x[i] for x in X] for i = 1:3]
 
 #--- Test functions on trajectories
 model = Cartpole()
+dmodel = RD.DiscretizedDynamics{RD.RK4}(model)
 n,m = size(model)
 fVal = [@SVector zeros(n) for k = 1:N]
 X = [@SVector rand(n) for k = 1:N]
 U = [@SVector rand(m) for k = 1:N-1]
-Z = Traj(X,U,fill(dt,N))
+Z = RD.Traj(X,U,fill(dt,N))
 
 # Test shift fill
-Z = Traj(X,U,fill(dt,N))
+Z = RD.Traj(X,U,fill(dt,N))
 RobotDynamics.shift_fill!(Z)
 @test state(Z[1]) ≈ X[2]
 @test control(Z[2]) ≈ U[3]
@@ -157,8 +158,9 @@ RobotDynamics.shift_fill!(Z)
 # @test conval.vals ≈ fVal[1:N-1] .- X[2:N]
 # @test !(conval.vals ≈ [zeros(n) for k = 1:N-1])
 
-# # Test rollout
-# rollout!(model, Z, X[1])
-# TO.evaluate!(conval, Z)
-# @test conval.vals ≈ [zeros(n) for k = 1:N-1]
-# end
+# Test rollout
+RD.rollout!(RD.StaticReturn(), dmodel, Z, X[1])
+Zmut = RD.Traj([RD.KnotPoint{n,m}(MVector(z.z), z.t, z.dt) for z in Z])
+RD.rollout!(RD.InPlace(), dmodel, Zmut, X[1])
+@test Z ≈ Zmut
+end

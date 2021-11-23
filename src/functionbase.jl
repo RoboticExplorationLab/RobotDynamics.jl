@@ -41,7 +41,7 @@ evaluate(fun::AbstractFunction, x, u) =
 jacobian!(::FunctionSignature, ::UserDefined, fun::AbstractFunction, J, y, z) = jacobian!(fun, J, y, z)
 jacobian!(fun::AbstractFunction, J, y, z::AbstractKnotPoint) = jacobian!(fun, J, y, state(z), control(z), getparams(z))
 jacobian!(fun::AbstractFunction, J, y, x, u, p) = jacobian!(fun, J, y, x, u)
-jacobian!(fun, J, y, x, u) = throw(NotImplementedError("User-defined Jacobian not implemented for $(typeof(fun))")) 
+jacobian!(fun::AbstractFunction, J, y, x, u) = throw(NotImplementedError("User-defined Jacobian not implemented for $(typeof(fun))")) 
 
 # Jacobian of Jacobian-vector product 
 ∇jacobian!(::FunctionSignature, ::UserDefined, fun::AbstractFunction, H, b, y, z) = 

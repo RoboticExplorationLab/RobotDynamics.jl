@@ -25,6 +25,12 @@ function controls(Z::AbstractTrajectory)
 	return [control(Z[k]) for k in eachcontrol(Z) ]
 end
 
+states(Z::AbstractTrajectory, inds::AbstractVector{<:Integer}) = [states(Z, i) for i in inds]
+controls(Z::AbstractTrajectory, inds::AbstractVector{<:Integer}) = [controls(Z, i) for i in inds]
+
+states(Z::AbstractTrajectory, ind::Integer) = [state(z)[ind] for z in Z] 
+controls(Z::AbstractTrajectory, ind::Integer) = [control(z)[ind] for z in Z] 
+
 get_data(Z::AbstractTrajectory) = get_data.(Z)
 
 function Base.isapprox(Z1::AbstractTrajectory, Z2::AbstractTrajectory)
@@ -77,8 +83,8 @@ Base.IndexStyle(::Traj) = IndexLinear()
 
 Traj(Z::Traj) = Z
 
-function Base.copy(Z::AbstractTrajectory) where {T,N,M}
-    Traj([KnotPoint(copy(z.z), copy(z._x), copy(z._u), z.dt, z.t) for z in Z])
+function Base.copy(Z::AbstractTrajectory{Nx,Nu}) where {T,Nx,Nu}
+    Traj([KnotPoint{Nx,Nu}(copy(z.z), z.dt, z.t) for z in Z])
 end
 
 function Traj(n::Int, m::Int, dt::AbstractFloat, N::Int; equal=false)
@@ -126,13 +132,13 @@ end
 
 function setcontrols!(Z::AbstractTrajectory, U::AbstractMatrix)
     for k in 1:length(Z)-1
-		set_control!(Z[k], U[:,k])
+		setcontrol!(Z[k], U[:,k])
     end
 end
 
 function setcontrols!(Z::AbstractTrajectory, u::SVector)
     for k in 1:length(Z)-1
-		set_control!(Z[k], u)
+		setcontrol!(Z[k], u)
     end
 end
 
@@ -157,12 +163,12 @@ function shift_fill!(Z::Traj, n=1)
     uf = control(Z[N-n])
     dt = Z[N-n-1].dt
     for k = N-n:N
-        set_state!(Z[k], xf) 
+        setstate!(Z[k], xf) 
         Z[k].t = Z[k-1].t + dt
         if k == N && is_terminal(Z[k])
             Z[k].dt = 0
         else
-            set_control!(Z[k], uf) 
+            setcontrol!(Z[k], uf) 
             Z[k].dt = dt
         end
     end
@@ -184,13 +190,18 @@ end
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~ FUNCTIONS ON TRAJECTORIES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
-@inline state_diff_jacobian!(model::AbstractModel, G, Z::Traj) = nothing
-function state_diff_jacobian!(model::LieGroupModel, G, Z::Traj)
+@inline state_diff_jacobian!(model::AbstractModel, G, Z::AbstractTrajectory) = nothing
+function state_diff_jacobian!(model::LieGroupModel, G, Z::AbstractTrajectory)
 	for k in eachindex(Z)
 		G[k] .= 0
 		state_diff_jacobian!(model, G[k], Z[k])
 	end
 end
+
+@inline function state_diff_jacobian!(model::DiscreteLieDynamics, G, Z::AbstractTrajectory)
+    state_diff_jacobian!(model.continuous_dynamics, G, Z)
+end
+
 
 function rollout!(sig::FunctionSignature, model::DiscreteDynamics, Z::AbstractTrajectory, x0=state(Z[1]))
     setstate!(Z[1], x0)

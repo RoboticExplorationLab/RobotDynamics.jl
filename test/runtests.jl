@@ -28,7 +28,7 @@ end
     end
     @testset "KnotPoints" begin
         include("knotpoints.jl")
-        # include("trajectories.jl")
+        include("trajectories.jl")
     end
 end
 
