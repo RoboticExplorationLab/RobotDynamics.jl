@@ -52,7 +52,7 @@ dynamics_error_jacobian!(
     y1,
     z2::AbstractKnotPoint,
     z1::AbstractKnotPoint,
-) = error("User-defined dynamics error Jacobian not defined.")
+) = error("User-defined dynamics error Jacobian not defined for $(typeof(model)).")
 
 function propagate_dynamics!(
     ::InPlace,

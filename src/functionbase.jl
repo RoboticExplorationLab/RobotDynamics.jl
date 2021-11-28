@@ -9,7 +9,8 @@ abstract type DiffMethod end
 struct ForwardAD <: DiffMethod end
 struct FiniteDifference <: DiffMethod end
 struct UserDefined <: DiffMethod end
-diff_method(fun::AbstractFunction) = UserDefined
+default_diffmethod(::AbstractFunction) = UserDefined()
+default_signature(::AbstractFunction) = StaticReturn()
 
 dims(fun::AbstractFunction) = (state_dim(fun), control_dim(fun), output_dim(fun))
 state_dim(fun::AbstractFunction) = throw(NotImplementedError("state_dim needs to be implemented for $(typeof(fun))."))

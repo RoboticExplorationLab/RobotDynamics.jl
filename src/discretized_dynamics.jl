@@ -28,9 +28,10 @@ end
 
 const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit}
 
-state_dim(model::DiscretizedDynamics) = state_dim(model.continuous_dynamics)
-control_dim(model::DiscretizedDynamics) = control_dim(model.continuous_dynamics)
-errstate_dim(model::DiscretizedDynamics) = errstate_dim(model.continuous_dynamics)
+@inline state_dim(model::DiscretizedDynamics) = state_dim(model.continuous_dynamics)
+@inline control_dim(model::DiscretizedDynamics) = control_dim(model.continuous_dynamics)
+@inline errstate_dim(model::DiscretizedDynamics) = errstate_dim(model.continuous_dynamics)
+@inline state_diff(model::DiscretizedDynamics, x, x0) = state_diff(model.continuous_dynamics, x, x0)
 
 @inline integration(model::DiscretizedDynamics) = model.integrator
 discrete_dynamics(model::DiscretizedDynamics, x, u, t, dt) =

@@ -83,8 +83,8 @@ Base.IndexStyle(::Traj) = IndexLinear()
 
 Traj(Z::Traj) = Z
 
-function Base.copy(Z::AbstractTrajectory{Nx,Nu}) where {T,Nx,Nu}
-    Traj([KnotPoint{Nx,Nu}(copy(z.z), z.dt, z.t) for z in Z])
+function Base.copy(Z::AbstractTrajectory{Nx,Nu}) where {Nx,Nu}
+    Traj([KnotPoint{Nx,Nu}(copy(z.z), z.t, z.dt) for z in Z])
 end
 
 function Traj(n::Int, m::Int, dt::AbstractFloat, N::Int; equal=false)
