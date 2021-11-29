@@ -63,6 +63,8 @@ jacobian!(fun::AbstractFunction, J, y, x, u) = throw(NotImplementedError("User-d
 # Dispatch on `statevectortype` trait
 state_diff(fun::AbstractFunction, x, x0) = state_diff(statevectortype(fun), fun, x, x0)
 errstate_dim(fun::AbstractFunction) = errstate_dim(statevectortype(fun), fun)
+state_diff_jacobian!(fun::AbstractFunction, J, z::AbstractKnotPoint) = 
+    state_diff_jacobian!(statevectortype(fun), fun, J, state(z))
 state_diff_jacobian!(fun::AbstractFunction, J, x) = 
     state_diff_jacobian!(statevectortype(fun), fun, J, x)
 ∇²differential!(fun::AbstractFunction, ∇G, x, dx) = 

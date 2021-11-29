@@ -212,8 +212,8 @@ end
     end
 end
 
-@inline state_diff_jacobian!(::RotationState, model::AbstractModel, G, z::AbstractKnotPoint) =
-    state_diff_jacobian!(LieState(model), G, state(z))
+@inline state_diff_jacobian!(::RotationState, model::AbstractModel, G, x) =
+    state_diff_jacobian!(LieState(model), G, x)
 
 @generated function state_diff_jacobian!(s::LieState{R,P}, G, x) where {R,P}
     nr = length(P) - 1   # number of rotations
