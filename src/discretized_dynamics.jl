@@ -33,6 +33,7 @@ const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit
 @inline errstate_dim(model::DiscretizedDynamics) = errstate_dim(model.continuous_dynamics)
 @inline state_diff(model::DiscretizedDynamics, x, x0) = state_diff(model.continuous_dynamics, x, x0)
 statevectortype(::Type{<:DiscretizedDynamics{L}}) where L = statevectortype(L)
+default_diffmethod(::DiscretizedDynamics) = ForwardAD()
 
 @inline integration(model::DiscretizedDynamics) = model.integrator
 discrete_dynamics(model::DiscretizedDynamics, x, u, t, dt) =

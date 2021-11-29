@@ -19,6 +19,9 @@ to initialize the new fields and provide the new type parameters.
 
 # Limitations
 * `RobotDynamics` must be defined the local module (cannot be hidden by an alias)
+* If the type has type parameters and no inner constructor, the type parameters must be 
+  explicitly provided when constructing the object. No automatic inference will be done.
+  It's best to explicitly provide an inner constructor with the desired behavior.
 
 # Examples
 
