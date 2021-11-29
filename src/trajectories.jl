@@ -190,18 +190,16 @@ end
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~ FUNCTIONS ON TRAJECTORIES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
-@inline state_diff_jacobian!(model::AbstractModel, G, Z::AbstractTrajectory) = nothing
-function state_diff_jacobian!(model::LieGroupModel, G, Z::AbstractTrajectory)
+state_diff_jacobian!(model::AbstractModel, G, Z::AbstractTrajectory) = 
+    state_diff_jacobian!(statevectortype(model), model, G, Z)
+state_diff_jacobian!(::EuclideanState, model::AbstractModel, G, Z::AbstractTrajectory) = nothing
+
+function state_diff_jacobian!(::RotationState, model::AbstractModel, G, Z::AbstractTrajectory)
 	for k in eachindex(Z)
 		G[k] .= 0
-		state_diff_jacobian!(model, G[k], Z[k])
+		state_diff_jacobian!(RotationState(), model, G[k], Z[k])
 	end
 end
-
-@inline function state_diff_jacobian!(model::DiscreteLieDynamics, G, Z::AbstractTrajectory)
-    state_diff_jacobian!(model.continuous_dynamics, G, Z)
-end
-
 
 function rollout!(sig::FunctionSignature, model::DiscreteDynamics, Z::AbstractTrajectory, x0=state(Z[1]))
     setstate!(Z[1], x0)

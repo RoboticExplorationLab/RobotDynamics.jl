@@ -12,6 +12,12 @@ struct UserDefined <: DiffMethod end
 default_diffmethod(::AbstractFunction) = UserDefined()
 default_signature(::AbstractFunction) = StaticReturn()
 
+abstract type StateVectorType end
+struct EuclideanState <: StateVectorType end
+struct RotationState <: StateVectorType end
+statevectortype(::Type{<:AbstractFunction}) = EuclideanState()
+statevectortype(fun::AbstractFunction) = statevectortype(typeof(fun))
+
 dims(fun::AbstractFunction) = (state_dim(fun), control_dim(fun), output_dim(fun))
 state_dim(fun::AbstractFunction) = throw(NotImplementedError("state_dim needs to be implemented for $(typeof(fun))."))
 control_dim(fun::AbstractFunction) = throw(NotImplementedError("control_dim needs to be implemented for $(typeof(fun))."))
@@ -54,10 +60,19 @@ jacobian!(fun::AbstractFunction, J, y, x, u) = throw(NotImplementedError("User-d
 ∇jacobian!(fun::AbstractFunction, H, b, y, x, u) = 
     throw(UserDefined("User-defined Jacobian of Jacobian-vector product is undefined for $(typeof(fun))"))
 
-state_diff(fun::AbstractFunction, x, x0) = x - x0
-errstate_dim(fun::AbstractFunction) = state_dim(fun)
-state_diff_jacobian!(fun::AbstractFunction, J, x) = J .= I(state_dim(fun))
-∇²differential!(fun::AbstractFunction, ∇G, x, dx) = ∇G .= 0
+# Dispatch on `statevectortype` trait
+state_diff(fun::AbstractFunction, x, x0) = state_diff(statevectortype(fun), fun, x, x0)
+errstate_dim(fun::AbstractFunction) = errstate_dim(statevectortype(fun), fun)
+state_diff_jacobian!(fun::AbstractFunction, J, x) = 
+    state_diff_jacobian!(statevectortype(fun), fun, J, x)
+∇²differential!(fun::AbstractFunction, ∇G, x, dx) = 
+    ∇²differential!(statevectortype(fun), fun, ∇G, x, dx)
+
+# Euclidean state vectors
+state_diff(::EuclideanState, fun::AbstractFunction, x, x0) = x - x0
+errstate_dim(::EuclideanState, fun::AbstractFunction) = state_dim(fun)
+state_diff_jacobian!(::EuclideanState, fun::AbstractFunction, J, x) = J .= I(state_dim(fun))
+∇²differential!(::EuclideanState, fun::AbstractFunction, ∇G, x, dx) = ∇G .= 0
 
 # Some convenience methods
 Base.randn(::Type{T}, model::AbstractFunction) where {T} = ((@SVector randn(T, state_dim(model))), (@SVector randn(T, control_dim(model))))
