@@ -1,27 +1,37 @@
 abstract type AbstractTrajectory{n,m,T} <: AbstractVector{T} end
 
-terminal_control(Z::AbstractTrajectory) = !RobotDynamics.is_terminal(Z[end])
+has_terminal_control(Z::AbstractTrajectory) = !RobotDynamics.is_terminal(Z[end])
 traj_size(Z::AbstractTrajectory{n,m}) where {n,m} = n,m,length(Z)
-num_vars(Z::AbstractTrajectory) = num_vars(traj_size(Z)..., terminal_control(Z))
-eachcontrol(Z::AbstractTrajectory) = terminal_control(Z) ? Base.OneTo(length(Z)) : Base.OneTo(length(Z)-1)
+num_vars(Z::AbstractTrajectory) = num_vars(traj_size(Z)..., has_terminal_control(Z))
+eachcontrol(Z::AbstractTrajectory) = has_terminal_control(Z) ? Base.OneTo(length(Z)) : Base.OneTo(length(Z)-1)
+state_dim(Z::AbstractTrajectory{n}) where {n} = n
+control_dim(Z::AbstractTrajectory{<:Any,m}) where {m} = m
 
 function num_vars(n::Int, m::Int, N::Int, equal::Bool=false)
     Nu = equal ? N : N-1
     return N*n + Nu*m
 end
 
-function Base.copyto!(Z1::AbstractTrajectory, Z2::AbstractTrajectory)
-	@assert traj_size(Z1) == traj_size(Z2)
-	for k = 1:length(Z1)
-		Z1[k] = Z2[k]
+function Base.copyto!(dest::AbstractTrajectory, src::AbstractTrajectory)
+	@assert traj_size(dest) == traj_size(src)
+	for k = 1:length(src)
+		dest[k] = src[k]
 	end
-	return Z1
+	return src 
 end
 
 @inline states(Z::AbstractTrajectory) = state.(Z)
 function controls(Z::AbstractTrajectory)
 	return [control(Z[k]) for k in eachcontrol(Z) ]
 end
+
+states(Z::AbstractTrajectory, inds::AbstractVector{<:Integer}) = [states(Z, i) for i in inds]
+controls(Z::AbstractTrajectory, inds::AbstractVector{<:Integer}) = [controls(Z, i) for i in inds]
+
+states(Z::AbstractTrajectory, ind::Integer) = [state(z)[ind] for z in Z] 
+controls(Z::AbstractTrajectory, ind::Integer) = [control(z)[ind] for z in Z] 
+
+get_data(Z::AbstractTrajectory) = get_data.(Z)
 
 function Base.isapprox(Z1::AbstractTrajectory, Z2::AbstractTrajectory)
     all(zs->zs[1] ≈ zs[2], zip(Z1,Z2))
@@ -53,7 +63,7 @@ Supports iteration and indexing.
 """
 struct Traj{n,m,T,KP} <: AbstractTrajectory{n,m,T}
 	data::Vector{KP}
-	function Traj(Z::Vector{<:AbstractKnotPoint{T,n,m}}) where {n,m,T}
+	function Traj(Z::Vector{<:AbstractKnotPoint{n,m,<:Any,T}}) where {n,m,T}
 		new{n,m,T,eltype(Z)}(Z)
 	end
 end
@@ -73,8 +83,8 @@ Base.IndexStyle(::Traj) = IndexLinear()
 
 Traj(Z::Traj) = Z
 
-function Base.copy(Z::AbstractTrajectory) where {T,N,M}
-    Traj([KnotPoint(copy(z.z), copy(z._x), copy(z._u), z.dt, z.t) for z in Z])
+function Base.copy(Z::AbstractTrajectory{Nx,Nu}) where {Nx,Nu}
+    Traj([KnotPoint{Nx,Nu}(copy(z.z), z.t, z.dt) for z in Z])
 end
 
 function Traj(n::Int, m::Int, dt::AbstractFloat, N::Int; equal=false)
@@ -85,63 +95,61 @@ end
 
 function Traj(x::SVector, u::SVector, dt::AbstractFloat, N::Int; equal=false)
     equal ? uN = N : uN = N-1
-    Z = [KnotPoint(x,u,dt,(k-1)*dt) for k = 1:uN]
+    Z = [KnotPoint(x,u,(k-1)*dt,dt) for k = 1:uN]
     if !equal
         m = length(u)
-        push!(Z, KnotPoint(x,m,(N-1)*dt))
+        push!(Z, KnotPoint(x,u*0,(N-1)*dt,0.0))
     end
     return Traj(Z)
 end
 
 function Traj(X::Vector, U::Vector, dt::Vector, t=cumsum(dt) .- dt[1])
-    Z = [KnotPoint(X[k], U[k], dt[k], t[k]) for k = 1:length(U)]
+    n,m = length(X[1]), length(U[1])
+    Z = [KnotPoint{n,m}(n,m,[X[k]; U[k]], t[k], dt[k]) for k = 1:length(U)]
     if length(U) == length(X)-1
-        push!(Z, KnotPoint(X[end],length(U[1]),t[end]))
+        push!(Z, KnotPoint{n,m}(n,m,[X[end]; U[1]*0],t[end],0.0))
     end
     return Traj(Z)
 end
 
-
-states(Z::Traj, i) = [state(z)[i] for z in Z]
-
-function set_states!(Z::Traj, X)
+function setstates!(Z::Traj, X)
     for k in eachindex(Z)
-		RobotDynamics.set_state!(Z[k], X[k])
+		setstate!(Z[k], X[k])
     end
 end
 
-function set_states!(Z::Traj, X::AbstractMatrix)
+function setstates!(Z::Traj, X::AbstractMatrix)
     for k in eachindex(Z)
-		RobotDynamics.set_state!(Z[k], X[:,k])
+		setstate!(Z[k], X[:,k])
     end
 end
 
-function set_controls!(Z::AbstractTrajectory, U)
+function setcontrols!(Z::AbstractTrajectory, U)
     for k in 1:length(Z)-1
-		RobotDynamics.set_control!(Z[k], U[k])
+		setcontrol!(Z[k], U[k])
     end
 end
 
-function set_controls!(Z::AbstractTrajectory, U::AbstractMatrix)
+function setcontrols!(Z::AbstractTrajectory, U::AbstractMatrix)
     for k in 1:length(Z)-1
-		RobotDynamics.set_control!(Z[k], U[:,k])
+		setcontrol!(Z[k], U[:,k])
     end
 end
 
-function set_controls!(Z::AbstractTrajectory, u::SVector)
+function setcontrols!(Z::AbstractTrajectory, u::SVector)
     for k in 1:length(Z)-1
-		RobotDynamics.set_control!(Z[k], u)
+		setcontrol!(Z[k], u)
     end
 end
 
-function set_times!(Z::AbstractTrajectory, ts)
+function settimes!(Z::AbstractTrajectory, ts)
     for k in eachindex(ts)
         Z[k].t = ts[k]
         k < length(ts) && (Z[k].dt = ts[k+1] - ts[k])
     end
 end
 
-function get_times(Z::Traj)
+function gettimes(Z::Traj)
     [z.t for z in Z]
 end
 
@@ -155,12 +163,12 @@ function shift_fill!(Z::Traj, n=1)
     uf = control(Z[N-n])
     dt = Z[N-n-1].dt
     for k = N-n:N
-        set_state!(Z[k], xf) 
+        setstate!(Z[k], xf) 
         Z[k].t = Z[k-1].t + dt
         if k == N && is_terminal(Z[k])
             Z[k].dt = 0
         else
-            set_control!(Z[k], uf) 
+            setcontrol!(Z[k], uf) 
             Z[k].dt = dt
         end
     end
@@ -182,25 +190,20 @@ end
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~ FUNCTIONS ON TRAJECTORIES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
-"Evaluate the discrete dynamics for all knot points"
-function discrete_dynamics!(::Type{Q}, f, model, Z::Traj) where Q
-    for k in eachindex(Z)
-        f[k] = RobotDynamics.discrete_dynamics(Q, model, Z[k])
-    end
-end
+state_diff_jacobian!(model::AbstractModel, G, Z::AbstractTrajectory) = 
+    state_diff_jacobian!(statevectortype(model), model, G, Z)
+state_diff_jacobian!(::EuclideanState, model::AbstractModel, G, Z::AbstractTrajectory) = nothing
 
-
-@inline state_diff_jacobian!(G, model::AbstractModel, Z::Traj) = nothing
-function state_diff_jacobian!(G, model::LieGroupModel, Z::Traj)
+function state_diff_jacobian!(::RotationState, model::AbstractModel, G, Z::AbstractTrajectory)
 	for k in eachindex(Z)
 		G[k] .= 0
-		state_diff_jacobian!(G[k], model, Z[k])
+		state_diff_jacobian!(RotationState(), model, G[k], Z[k])
 	end
 end
 
-function rollout!(::Type{Q}, model::AbstractModel, Z::AbstractTrajectory, x0=state(Z[1])) where Q <: QuadratureRule
-    set_state!(Z[1], x0)
+function rollout!(sig::FunctionSignature, model::DiscreteDynamics, Z::AbstractTrajectory, x0=state(Z[1]))
+    setstate!(Z[1], x0)
     for k = 2:length(Z)
-        RobotDynamics.propagate_dynamics(Q, model, Z[k], Z[k-1])
+        RobotDynamics.propagate_dynamics!(sig, model, Z[k], Z[k-1])
     end
 end

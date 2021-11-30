@@ -3,7 +3,7 @@ n,m,N = 6,3,21
 times = range(0,pi,length=N)
 X = [SA[sin(t), cos(t), t, t^2, sin(t) + t, sqrt(t)] for t in times]
 U = [@SVector rand(m) for k = 1:N-1]
-Z = Traj(X, U, push!(diff(times),0)) 
+Z = RD.Traj(X, U, push!(diff(times),0)) 
 
 plot(X)
 plot(X, inds=1:2)
@@ -21,3 +21,9 @@ traj2!(-sin.(times), cos.(times))
 
 p = traj2(Z, xind=3, yind=5, linewidth=2, label="something")
 @test length(p.series_list) == 1
+
+p = plot(Z)
+@test length(p.series_list) == 9
+
+p = plot(Z, inds=3:6)
+@test length(p.series_list) == 4 

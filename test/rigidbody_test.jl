@@ -20,17 +20,17 @@ v = @SVector rand(3)
 q = rand(UnitQuaternion)
 ForwardDiff.jacobian(q->UnitQuaternion(q,false)*v, Rotations.params(q)) ≈ Rotations.∇rotate(q,v)
 
-struct Body{R} <: RigidBody{R} end
+RD.@autodiff struct Body{R} <: RobotDynamics.RigidBody{R} end
 RobotDynamics.control_dim(::Body) = 6
 
-function RobotDynamics.wrenches(model::Body, x::StaticVector, u::StaticVector)
+function RobotDynamics.wrenches(model::Body, x::StaticVector, u::StaticVector, t)
     q = orientation(model, x)
     F = q * SA[u[1], u[2], u[3]]  # forces in the body frame
     M = SA[u[4], u[5], u[6]]      # moments in the body frame
     SA[F[1], F[2], F[3], M[1], M[2], M[3]]
 end
 
-function RobotDynamics.wrench_jacobian!(F, model::Body, z::AbstractKnotPoint)
+function RobotDynamics.wrench_jacobian!(F, model::Body, z::RD.AbstractKnotPoint)
     inds = RobotDynamics.gen_inds(model)
     r,q,v,ω = RobotDynamics.parse_state(model, state(z))
     u = control(z)
@@ -52,17 +52,17 @@ end
 
 RobotDynamics.mass(::Body) = 2.0
 RobotDynamics.inertia(::Body) = Diagonal(SA[2,3,1.])
-RobotDynamics.wrench_sparsity(::RigidBody) = SA[false true  false false true;
-                                                false false false false true]
+RobotDynamics.wrench_sparsity(::Body) = SA[false true  false false true;
+                                           false false false false true]
 
 #---
 model = Body{UnitQuaternion{Float64}}()
-@test size(model) == (13,6)
+@test RD.dims(model) == (13,6,13)
 x,u = rand(model)
 q = orientation(model, x)
 @test Rotations.params(q) == x[4:7]
 @test norm(q) ≈ 1
-z = KnotPoint(x,u,0.01)
+z = RD.KnotPoint(x,u,0.0,0.01)
 @test length(x) == 13
 @test length(u) == 6
 @test norm(x[4:7]) ≈ 1
@@ -72,12 +72,13 @@ z = KnotPoint(x,u,0.01)
 # Test initializers
 x0,u0 = zeros(model)
 @test RBState(model, x0) ≈ zero(RBState)
-@test u0 ≈ zeros(control_dim(model))
+@test u0 ≈ zeros(RD.control_dim(model))
+@test x0[4:7] ≈ [1,0,0,0]
 
 # Test diferent rotations
 for R in [UnitQuaternion{Float64}, MRP{Float64}, RodriguesParam{Float64}]
     local model = Body{R}()
-	@test state_dim(model) == 9 + Rotations.params(R)
+	@test RD.state_dim(model) == 9 + Rotations.params(R)
 	RobotDynamics.rotation_type(model) == R
 	local x0,u0 = zeros(model)
 	@test RBState(model, x0) ≈ zero(RBState)
@@ -132,9 +133,9 @@ x_ = RobotDynamics.fill_state(model, 1, 2, 3, 4)
 
 # Test dynamics
 RobotDynamics.velocity_frame(::Body) = :world
-xdot = dynamics(model, x, u)
-@test xdot ≈ dynamics(model, x, u, 1.0)
-@test xdot ≈ dynamics(model, z)
+xdot = RD.dynamics(model, x, u)
+@test xdot ≈ RD.dynamics(model, x, u, 1.0)
+@test xdot ≈ RD.dynamics(model, z)
 xdot = RBState(xdot)
 x_ = RBState(x)
 @test position(xdot) ≈ linear_velocity(x_)
@@ -148,9 +149,9 @@ T = ξ[SA[4,5,6]]
 
 # Test body-frame velocity
 RobotDynamics.velocity_frame(::Body) = :body
-xdot = dynamics(model, x, u)
-@test xdot ≈ dynamics(model, x, u, 1.0)
-@test xdot ≈ dynamics(model, z)
+xdot = RD.dynamics(model, x, u)
+@test xdot ≈ RD.dynamics(model, x, u, 1.0)
+@test xdot ≈ RD.dynamics(model, z)
 xdot = RBState(xdot)
 x_ = RBState(x)
 q = orientation(x_)
@@ -177,7 +178,7 @@ x_ = RBState(model, x)
 @test RBState(model, x_) isa RBState
 
 # Not Implemented Body
-struct FakeBody{R} <: RigidBody{R} end
+struct FakeBody{R} <: RD.RigidBody{R} end
 model = FakeBody{MRP{Float64}}()
 @test_throws ErrorException("Not implemented") mass(model)
 @test_throws ErrorException("Not implemented") inertia(model)

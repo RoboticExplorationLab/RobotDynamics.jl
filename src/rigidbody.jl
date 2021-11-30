@@ -1,10 +1,33 @@
-# export
-#     orientation,
-#     linear_velocity,
-#     angular_velocity
+"""
+	RigidBody{R<:Rotation} <: LieGroupModel
 
-# @inline state_dim(::RigidBody{<:UnitQuaternion}) = 13
-# @inline state_dim(::RigidBody) = 12
+Abstraction of a dynamical system with free-body dynamics, with a 12 or 13-dimensional state
+vector: `[p; q; v; ω]`
+where `p` is the 3D position, `q` is the 3 or 4-dimension attitude representation, `v` is the
+3D linear velocity, and `ω` is the 3D angular velocity.
+
+# Interface
+Any single-body system can leverage the `RigidBody` type by inheriting from it and defining the
+following interface:
+```julia
+forces(::MyRigidBody, x, u)  # return the forces in the world frame
+moments(::MyRigidBody, x, u) # return the moments in the body frame
+inertia(::MyRigidBody, x, u) # return the 3x3 inertia matrix
+mass(::MyRigidBody, x, u)  # return the mass as a real scalar
+```
+
+Instead of defining `forces` and `moments` you can define the higher-level `wrenches` function
+	wrenches(model::MyRigidbody, z::AbstractKnotPoint)
+	wrenches(model::MyRigidbody, x, u)
+
+# Rotation Parameterization
+A `RigidBody` model must specify the rotational representation being used. Any `Rotations.Rotation{3}`
+can be used, but we suggest one of the following:
+* `UnitQuaternion`
+* `MRP`
+* `RodriguesParam`
+"""
+abstract type RigidBody{R<:Rotation} <: LieGroupModel end
 
 LieState(::RigidBody{R}) where R = LieState(R, (3,6))
 
@@ -22,7 +45,7 @@ end
 function Base.zeros(model::RigidBody{D}) where D
     n,m = size(model)
     r = @SVector zeros(3)
-    q = zero(D)
+    q = one(D)
     v = @SVector zeros(3)
     ω = @SVector zeros(3)
     x = build_state(model, r, q, v, ω)
@@ -62,8 +85,6 @@ end
 for rot in [RodriguesParam, MRP, RotMatrix, RotationVec, AngleAxis]
     @eval orientation(model::RigidBody{<:$rot}, x::AbstractVector, renorm=false) = ($rot)(x[4],x[5],x[6])
 end
-# orientation(model::RigidBody{R}, x::AbstractVector{T}, renorm=false) where {R,T} =
-#     R(x[4],x[5],x[6])
 function orientation(model::RigidBody{<:UnitQuaternion}, x::AbstractVector,
         renorm=false)
     q = UnitQuaternion(x[4],x[5],x[6],x[7], renorm)
@@ -168,7 +189,7 @@ end
 ############################################################################################
 #                                DYNAMICS
 ############################################################################################
-function dynamics(model::RigidBody{D}, x, u, t=0) where D
+function dynamics(model::RigidBody, x, u, t=0)
 
     r,q,v,ω = parse_state(model, x)
 
@@ -194,12 +215,20 @@ function dynamics(model::RigidBody{D}, x, u, t=0) where D
     # [xdot; qdot; vdot; ωdot]
 end
 
-@inline wrenches(model::RigidBody, z::AbstractKnotPoint) = wrenches(model, state(z), control(z))
-function wrenches(model::RigidBody, x::StaticVector, u::StaticVector)
-    F = forces(model, x, u)
-    M = moments(model, x, u)
+# Use the StaticArrays methods since we know the size will always be small enough
+@inline function dynamics!(model::RigidBody{D}, xdot, x, u, t=0) where D
+    xdot .= dynamics(model, x, u, t)
+end
+
+@inline wrenches(model::RigidBody, z::AbstractKnotPoint) = wrenches(model, state(z), control(z), time(z))
+function wrenches(model::RigidBody, x, u, t)
+    F = forces(model, x, u, t)
+    M = moments(model, x, u, t)
     SA[F[1], F[2], F[3], M[1], M[2], M[3]]
 end
+
+@inline forces(model::RigidBody, x, u, t) = forces(model, x, u)
+@inline moments(model::RigidBody, x, u, t) = moments(model, x, u)
 
 @inline mass(::RigidBody) = throw(ErrorException("Not implemented"))
 @inline inertia(::RigidBody)::SMatrix{3,3} = throw(ErrorException("Not implemented"))
@@ -208,19 +237,18 @@ end
 @inline moments(::RigidBody, x, u)::SVector{3} = throw(ErrorException("Not implemented"))
 @inline velocity_frame(::RigidBody) = :world # :body or :world
 
-function jacobian!(F::AbstractMatrix, model::RigidBody{<:UnitQuaternion}, z::AbstractKnotPoint)
+function jacobian!(model::RigidBody{<:UnitQuaternion}, F, y, x, u, t)
     iF = SA[1,2,3]
     iM = SA[4,5,6]
     ir,iq,iv,iω,iu = gen_inds(model)
 
     # Extract the info from the state and model
-    r,q,v,ω = parse_state(model, state(z))
-    u = control(z)
+    r,q,v,ω = parse_state(model, x)
     m = mass(model)
     J = inertia(model)
     Jinv = inertia_inv(model)
 
-    ξ = wrenches(model, z)
+    ξ = wrenches(model, x, u, t)
     f = SA[ξ[1], ξ[2], ξ[3]]  # forces in world frame
     τ = SA[ξ[4], ξ[5], ξ[6]]  # torques in body frame
 

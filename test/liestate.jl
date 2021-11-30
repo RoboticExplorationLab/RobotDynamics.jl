@@ -6,6 +6,7 @@ using BenchmarkTools
 using RobotDynamics
 
 import RobotDynamics: LieState
+const RD = RobotDynamics
 
 function error_state_quat(x::AbstractVector, x0::AbstractVector)
     dq1 = UnitQuaternion(x[4],x[5],x[6],x[7]) ⊖ UnitQuaternion(x0[4],x0[5],x0[6],x0[7])
@@ -34,7 +35,7 @@ R = UnitQuaternion{Float64}
 P = (3,2,3)
 s = LieState{R,P}()
 @test length(s) == 16
-@test state_diff_size(s) == 14
+@test RD.errstate_dim(s) == 14
 @test RobotDynamics.vec_inds(R,P,1) == 1:3   == RobotDynamics.inds(R,P,1)
 @test RobotDynamics.rot_inds(R,P,1) == 4:7   == RobotDynamics.inds(R,P,2)
 @test RobotDynamics.vec_inds(R,P,2) == 8:9   == RobotDynamics.inds(R,P,3)
@@ -58,7 +59,7 @@ s = LieState{R,P}()
 @test LieState(R,P) === s
 @test LieState(R,3,2,3) === s
 @test length(s) == 14
-@test state_diff_size(s) == 14
+@test RD.errstate_dim(s) == 14
 @test RobotDynamics.vec_inds(R,P,1) == 1:3   == RobotDynamics.inds(R,P,1)
 @test RobotDynamics.rot_inds(R,P,1) == 4:6   == RobotDynamics.inds(R,P,2)
 @test RobotDynamics.vec_inds(R,P,2) == 7:8   == RobotDynamics.inds(R,P,3)
@@ -74,9 +75,9 @@ R = UnitQuaternion{Float64}
 P = (3,2,3)
 s = LieState{R,P}()
 n = length(s)
-n̄ = state_diff_size(s)
+n̄ = RD.errstate_dim(s)
 G = zeros(n,n̄)
-RobotDynamics.state_diff_jacobian!(G, s, x)
+RobotDynamics.state_diff_jacobian!(s, G, x)
 
 q1 = UnitQuaternion(x[4],x[5],x[6],x[7])
 q2 = UnitQuaternion(x[10],x[11],x[12],x[13])
@@ -91,13 +92,13 @@ dx = @SVector rand(n)
 
 dq1 = SVector(dx[4],dx[5],dx[6],dx[7])
 dq2 = SVector(dx[10],dx[11],dx[12],dx[13])
-RobotDynamics.∇²differential!(∇G, s, x, dx)
+RobotDynamics.∇²differential!(s, ∇G, x, dx)
 ∇G1 = Rotations.∇²differential(q1, dq1)
 ∇G2 = Rotations.∇²differential(q2, dq2)
 ∇G0 = cat(zeros(3,3), ∇G1, zeros(2,2), ∇G2, zeros(3,3), dims=(1,2))
-@test ∇G0 ≈ ∇G
+@test Matrix(∇G0) ≈ Matrix(∇G)
 
-struct LieBody <:LieGroupModel end
+struct LieBody <: RD.LieGroupModel end
 RobotDynamics.control_dim(::LieBody) = 4
 RobotDynamics.LieState(::LieBody) = LieState(UnitQuaternion{Float64},(3,2,3))
 
@@ -105,7 +106,7 @@ model = LieBody()
 @test s === LieState(model)
 G .= 0
 ∇G .= 0
-RobotDynamics.state_diff_jacobian!(G, model, x)
-RobotDynamics.∇²differential!(∇G, model, x, dx)
+RobotDynamics.state_diff_jacobian!(model, G, x)
+RobotDynamics.∇²differential!(model, ∇G, x, dx)
 @test G0 ≈ G
 @test ∇G0 ≈ ∇G

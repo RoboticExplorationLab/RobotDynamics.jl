@@ -37,6 +37,7 @@ struct DynamicsJacobian{S1,S2,T} <: StaticMatrix{S1,S2,T}
 end
 
 DynamicsJacobian(n::Int, m::Int) = DynamicsJacobian(SizedMatrix{n,n+m}(zeros(n,n+m)))
+@inline DynamicsJacobian(model::AbstractModel) = DynamicsJacobian(state_dim(model), control_dim(model))
 
 @inline DynamicsJacobian{S1,S2}(t::NTuple) where {S1,S2}= DynamicsJacobian(SMatrix{S1,S2}(t))
 @inline DynamicsJacobian{S1,S2,T}(t::NTuple) where {S1,S2,T}= DynamicsJacobian(SMatrix{S1,S2,T}(t))

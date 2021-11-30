@@ -1,3 +1,11 @@
+"""
+	LieGroupModel <: AbstractModel
+
+Abstraction of a dynamical system whose state contains at least one arbitrary rotation.
+"""
+abstract type LieGroupModel <: ContinuousDynamics end
+const DiscreteLieDynamics = DiscretizedDynamics{L,Q} where {L<:LieGroupModel, Q<:QuadratureRule}
+statevectortype(::Type{<:LieGroupModel}) = RotationState() 
 
 import Rotations.params
 
@@ -42,6 +50,7 @@ end
 
 @inline LieState(::Type{R}, P::Tuple{Vararg{Int}}) where R <: Rotation = LieState{R,P}()
 @inline LieState(::Type{R}, P::Int...) where R <: Rotation = LieState{R,P}()
+LieState(model::DiscreteLieDynamics) = LieState(model.continuous_dynamics)
 
 """
     QuatState(n::Int, Q::StaticVector{<:Any,Int})
@@ -82,9 +91,7 @@ state_dim_rot(s::LieState{R}) where R = params(R)*num_rotations(s)
 Base.length(s::LieState{R,P}) where {R,P} = params(R)*num_rotations(s) + sum(P)
 Base.length(::Type{LieState{R,P}}) where {R,P} = params(R)*(length(P)-1) + sum(P)
 
-state_diff_size(s::LieState{R,P}) where {R,P} = 3*num_rotations(s) + sum(P)
-
-state_diff_size(model::LieGroupModel) = state_diff_size(LieState(model))
+errstate_dim(s::LieState{R,P}) where {R,P} = 3*num_rotations(s) + sum(P)
 
 # Useful functions for meta-programming
 rot_inds(R,P, i::Int) = (sum(P[1:i]) + (i-1)*params(R)) .+ (1:params(R))
@@ -169,8 +176,10 @@ end
 
 @inline state_dim(model::LieGroupModel) = length(LieState(model))
 
-@inline state_diff(model::LieGroupModel, x::AbstractVector, x0::AbstractVector, errmap=Rotations.CayleyMap()) =
+@inline state_diff(::RotationState, model::AbstractModel, x::AbstractVector, x0::AbstractVector, errmap=Rotations.CayleyMap()) =
     state_diff(LieState(model), x, x0, errmap)
+@inline errstate_dim(::RotationState, model::AbstractModel) = errstate_dim(LieState(model))
+
 @generated function state_diff(s::LieState{R,P}, x::AbstractVector, x0::AbstractVector, 
         errmap=Rotations.CayleyMap()) where {R,P}
     nr = length(P) - 1   # number of rotations
@@ -203,9 +212,10 @@ end
     end
 end
 
-@inline state_diff_jacobian!(G, model::LieGroupModel, x::StaticVector) =
-    state_diff_jacobian!(G, LieState(model), x)
-@generated function state_diff_jacobian!(G, s::LieState{R,P}, x::StaticVector) where {R,P}
+@inline state_diff_jacobian!(::RotationState, model::AbstractModel, G, x) =
+    state_diff_jacobian!(LieState(model), G, x)
+
+@generated function state_diff_jacobian!(s::LieState{R,P}, G, x) where {R,P}
     nr = length(P) - 1   # number of rotations
     np = nr + length(P)  # number of partitions
     nv = length(P)
@@ -243,9 +253,9 @@ end
     end
 end
 
-@inline ∇²differential!(∇G, model::LieGroupModel, x::StaticVector, dx::AbstractVector) =
-    ∇²differential!(∇G, LieState(model), x, dx)
-@generated function ∇²differential!(∇G, s::LieState{R,P}, x::StaticVector, dx::AbstractVector) where {R,P}
+@inline ∇²differential!(::RotationState, model::AbstractModel, ∇G, x::StaticVector, dx::AbstractVector) =
+    ∇²differential!(LieState(model), ∇G, x, dx)
+@generated function ∇²differential!(s::LieState{R,P}, ∇G, x::StaticVector, dx::AbstractVector) where {R,P}
     nr = length(P) - 1   # number of rotations
     np = nr + length(P)  # number of partitions
     nv = length(P)
