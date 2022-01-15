@@ -299,3 +299,14 @@ end
 
 fun = TestFunInherited()
 test_fun(fun)
+
+##############################
+# One-liner inner constructor
+##############################
+@autodiff struct TestInner <: TestFunBase 
+    a::Int
+    TestInner(a) = new(a)
+end
+
+fun = TestInner(1)
+test_fun(fun)

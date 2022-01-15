@@ -19,6 +19,8 @@ to initialize the new fields and provide the new type parameters.
 
 # Limitations
 * `RobotDynamics` must be defined the local module (cannot be hidden by an alias)
+* ForwardDiff and FiniteDiff must both be defined in the local module, since the 
+  struct is modified to include caches from these modules.
 * If the type has type parameters and no inner constructor, the type parameters must be 
   explicitly provided when constructing the object. No automatic inference will be done.
   It's best to explicitly provide an inner constructor with the desired behavior.
@@ -26,7 +28,9 @@ to initialize the new fields and provide the new type parameters.
 # Examples
 
 ```julia
-@autodef struct MyFun <: RobotDynamics.AbstractFunction end
+using RobotDynamics, ForwardDiff, FiniteDiff
+const RD = RobotDynamics
+RD.@autodiff struct MyFun <: RD.AbstractFunction end
 ```
 
 will define
@@ -58,7 +62,7 @@ end
 
 """
 macro autodiff(type::Expr)
-    _autodiff(__module__, type, [InPlace(), StaticReturn()], [ForwardAD(), FiniteDifference()])
+    _autodiff(__module__, macroexpand(__module__, type), [InPlace(), StaticReturn()], [ForwardAD(), FiniteDifference()])
 end
 
 macro autodiff(type::Expr, args...)
@@ -74,13 +78,24 @@ macro autodiff(type::Expr, args...)
             end
         end
     end
-    _autodiff(__module__, type, sigs, methods)
+    _autodiff(__module__, macroexpand(__module__, type), sigs, methods)
 end
 
-function _autodiff(mod, struct_expr::Expr, sigs::Vector{FunctionSignature}, methods::Vector{DiffMethod})
+function _autodiff(mod, expr::Expr, sigs::Vector{FunctionSignature}, methods::Vector{DiffMethod})
     jac_defs = Expr[]
+
+    # Find the piece of `expr` that is a struct
+    #  This handles e.g. a struct with Base.@kwdef
+    out = findstruct(expr)
+    if isnothing(out)
+        error("Didn't find a struct expression after @autodiff.")
+    end
+    struct_expr, loc = out
     
     # Get signature for jacobian methods 
+    if struct_expr.args[2] isa Symbol
+        error("Cannot use @autodiff on a model that is not a sub-type of RobotDynamics.AbstractFunction.")
+    end
     type_expr = struct_expr.args[2].args[1]
 
     # Check if it's a subtype of DiscreteDynamics
@@ -108,11 +123,38 @@ function _autodiff(mod, struct_expr::Expr, sigs::Vector{FunctionSignature}, meth
             push!(jac_defs, hessfun)
         end
     end
+    if !isnothing(loc[1])
+        # Replace wherever the struct showed up in the original expression
+        loc[1].args[loc[2]] = struct_expr
+        # Return the original expression
+        #  This handles e.g. Base.@kwdef
+        struct_expr = expr 
+    end
     return quote
-        $struct_expr
+        Base.@__doc__ $(esc(struct_expr))
         $(Expr(:block, jac_defs...))
     end
 end
+
+"""
+Find the first `struct` expression within `expr`.
+"""
+function findstruct(expr::Expr)
+    if expr.head == :struct
+        return (expr, (nothing,0))
+    end
+    for (i,arg) in enumerate(expr.args)
+        if arg isa Expr && arg.head == :struct
+            return (arg, (expr,i))
+        end
+        out = findstruct(arg)
+        if !isnothing(out)
+            return out
+        end
+    end
+    return nothing
+end
+findstruct(any) = nothing
 
 function get_call_signature(sig, diff, fname, fargs, type_expr, mod)
     # Get the name of the type
@@ -220,6 +262,12 @@ function add_field_to_struct(struct_expr0::Expr, newfield::Vector{Expr}, init_fi
     typedef = struct_expr.args[2]
     body = struct_expr.args[3]
 
+    # Get the name of the type
+    structname = typedef.args[1]
+    if structname isa Expr
+        structname = structname.args[1]
+    end
+
     # Check for valid sub-typing
     parent_expr = get_struct_parent(struct_expr)
     parent = mod.eval(parent_expr)
@@ -292,9 +340,14 @@ function add_field_to_struct(struct_expr0::Expr, newfield::Vector{Expr}, init_fi
 
     # Modify the constructor
     constructor_found = false
-    for field in body.args
+    for (i,field) in enumerate(body.args)
         if field isa Expr && field.head == :function
             constructor_found |= add_config_to_constructor(field, type_param, names, init_field, init_param)
+        elseif field isa Expr && (field.head == :(=) && field.args[1].head == :call 
+                && field.args[1].args[1] == structname)
+            innercon = Expr(:function, field.args[1], field.args[2])
+            constructor_found |= add_config_to_constructor(innercon, type_param, names, init_field, init_param)
+            body.args[i] = deepcopy(innercon)
         end
     end
 
