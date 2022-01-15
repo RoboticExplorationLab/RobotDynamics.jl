@@ -262,6 +262,12 @@ function add_field_to_struct(struct_expr0::Expr, newfield::Vector{Expr}, init_fi
     typedef = struct_expr.args[2]
     body = struct_expr.args[3]
 
+    # Get the name of the type
+    structname = typedef.args[1]
+    if structname isa Expr
+        structname = structname.args[1]
+    end
+
     # Check for valid sub-typing
     parent_expr = get_struct_parent(struct_expr)
     parent = mod.eval(parent_expr)
@@ -334,9 +340,14 @@ function add_field_to_struct(struct_expr0::Expr, newfield::Vector{Expr}, init_fi
 
     # Modify the constructor
     constructor_found = false
-    for field in body.args
+    for (i,field) in enumerate(body.args)
         if field isa Expr && field.head == :function
             constructor_found |= add_config_to_constructor(field, type_param, names, init_field, init_param)
+        elseif field isa Expr && (field.head == :(=) && field.args[1].head == :call 
+                && field.args[1].args[1] == structname)
+            innercon = Expr(:function, field.args[1], field.args[2])
+            constructor_found |= add_config_to_constructor(innercon, type_param, names, init_field, init_param)
+            body.args[i] = deepcopy(innercon)
         end
     end
 
