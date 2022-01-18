@@ -28,8 +28,8 @@ setdata!(z::AbstractKnotPoint{<:Any,<:Any,<:SVector}, v) = z.z = v
 
 setstate!(z::AbstractKnotPoint, x) = state(z) .= x
 setcontrol!(z::AbstractKnotPoint, u) = control(z) .= u
-setstate!(z::AbstractKnotPoint{<:Any,<:Any,<:SVector}, x) = setdata!(z, [x; control(z)])
-setcontrol!(z::AbstractKnotPoint{<:Any,<:Any,<:SVector}, u) = setdata!(z, [state(z); u])
+setstate!(z::AbstractKnotPoint{Nx,<:Any,<:SVector}, x) where Nx = setdata!(z, [SVector{Nx}(x); control(z)])
+setcontrol!(z::AbstractKnotPoint{<:Any,Nu,<:SVector}, u) where Nu = setdata!(z, [state(z); SVector{Nu}(u)])
 
 time(z::AbstractKnotPoint) = getparams(z).t 
 timestep(z::AbstractKnotPoint) = getparams(z).dt 
