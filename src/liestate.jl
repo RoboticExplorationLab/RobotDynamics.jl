@@ -176,18 +176,23 @@ end
 
 @inline state_dim(model::LieGroupModel) = length(LieState(model))
 
-@inline state_diff(::RotationState, model::AbstractModel, x::AbstractVector, x0::AbstractVector, errmap=Rotations.CayleyMap()) =
+@inline state_diff!(::RotationState, model::AbstractModel, dx::AbstractVector,
+    x::AbstractVector, x0::AbstractVector, errmap=Rotations.CayleyMap()) =
+    state_diff!(LieState(model), dx, x, x0, errmap)
+@inline state_diff(::RotationState, model::AbstractModel, x::AbstractVector, 
+    x0::AbstractVector, errmap=Rotations.CayleyMap()) =
     state_diff(LieState(model), x, x0, errmap)
 @inline errstate_dim(::RotationState, model::AbstractModel) = errstate_dim(LieState(model))
 
-@generated function state_diff(s::LieState{R,P}, x::AbstractVector, x0::AbstractVector, 
-        errmap=Rotations.CayleyMap()) where {R,P}
+function _state_diff_expr(R,P)
     nr = length(P) - 1   # number of rotations
     np = nr + length(P)  # number of partitions
     n̄ = 3*nr + sum(P)    # error state size
 
     # Generate a vector of δq = q0\q expressions for each q in the state
-    dq = [:($(Symbol("q$i")) = Rotations.rotation_error(R($(rot_state(R,P,i)...)), R($(rot_state(R,P,i,:x0)...)), errmap)) for i = 1:nr]
+    dq = [:($(Symbol("q$i")) = Rotations.rotation_error(
+        R($(rot_state(R,P,i)...)), R($(rot_state(R,P,i,:x0)...)), errmap)) for i = 1:nr
+    ]
 
     # Generate the vector of expressions for each element of the state differential
     dx = Expr[]
@@ -206,9 +211,28 @@ end
             end
         end
     end
+    return dq,dx
+end
+@generated function state_diff(s::LieState{R,P}, x::AbstractVector, x0::AbstractVector, 
+        errmap=Rotations.CayleyMap()) where {R,P}
+    nr = length(P) - 1   # number of rotations
+    n̄ = 3*nr + sum(P)    # error state size
+    dq,dx = _state_diff_expr(R,P)
     quote
         $(Expr(:block, dq...))
         $(:(SVector{$n̄}(tuple($(dx...)))))
+    end
+end
+@generated function state_diff!(s::LieState{R,P}, dx::AbstractVector, x::AbstractVector, 
+        x0::AbstractVector, errmap=Rotations.CayleyMap()) where {R,P}
+    dq,dx = _state_diff_expr(R,P)
+    dx_expr = map(enumerate(dx)) do (i,e)
+        :(dx[$i] = $e) 
+    end
+    quote
+        $(Expr(:block, dq...))
+        $(Expr(:block, dx_expr...))
+        return
     end
 end
 

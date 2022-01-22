@@ -61,6 +61,7 @@ jacobian!(fun::AbstractFunction, J, y, x, u) = throw(NotImplementedError("User-d
     throw(UserDefined("User-defined Jacobian of Jacobian-vector product is undefined for $(typeof(fun))"))
 
 # Dispatch on `statevectortype` trait
+state_diff!(fun::AbstractFunction, dx, x, x0) = state_diff!(statevectortype(fun), fun, dx, x, x0)
 state_diff(fun::AbstractFunction, x, x0) = state_diff(statevectortype(fun), fun, x, x0)
 errstate_dim(fun::AbstractFunction) = errstate_dim(statevectortype(fun), fun)
 state_diff_jacobian!(fun::AbstractFunction, J, z::AbstractKnotPoint) = 
@@ -71,6 +72,7 @@ state_diff_jacobian!(fun::AbstractFunction, J, x) =
     ∇²differential!(statevectortype(fun), fun, ∇G, x, dx)
 
 # Euclidean state vectors
+state_diff!(::EuclideanState, fun::AbstractFunction, dx, x, x0) = dx .= x .- x0
 state_diff(::EuclideanState, fun::AbstractFunction, x, x0) = x - x0
 errstate_dim(::EuclideanState, fun::AbstractFunction) = state_dim(fun)
 state_diff_jacobian!(::EuclideanState, fun::AbstractFunction, J, x) = J .= I(state_dim(fun))
