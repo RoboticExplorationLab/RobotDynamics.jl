@@ -30,6 +30,8 @@ include("jacobian.jl")
 include("trajectories.jl")
 include("plot_recipes.jl")
 
+const DataVector{T} = Union{Vector{T},StaticVector{<:Any,T},SubArray{T,1}}
+
 using FiniteDiff: compute_epsilon
 function FiniteDiff.finite_difference_gradient!(
     df::StridedVector{<:Number},
