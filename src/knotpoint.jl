@@ -16,7 +16,16 @@ abstract type AbstractKnotPoint{Nx,Nu,V,T} <: AbstractVector{T} end
 
 dims(z::AbstractKnotPoint) = (state_dim(z), control_dim(z))
 getstate(z::AbstractKnotPoint, v) = view(v, 1:state_dim(z))
-getcontrol(z::AbstractKnotPoint, v) = begin n,m = dims(z); view(v, n+1:n+m) end
+
+function getcontrol(z::AbstractKnotPoint, v)
+    if is_terminal(z)
+        return view(v, length(v):length(v)-1)
+    else
+        n,m = dims(z)
+        return view(v, n+1:n+m) 
+    end
+end
+
 getstate(z::AbstractKnotPoint{Nx,Nu,<:SVector}, v) where {Nx,Nu} = v[SVector{Nx}(1:Nx)]
 getcontrol(z::AbstractKnotPoint{Nx,Nu,<:SVector}, v) where {Nx,Nu} = v[SVector{Nu}(Nx+1:Nx+Nu)]
 
@@ -85,9 +94,17 @@ for (name,mutable) in [(:KnotPoint, true), (:StaticKnotPoint, false)]
         control_dim(z::$name{<:Any,Any}) = z.m
         state_dim(z::$name{Nx}) where Nx = Nx 
         control_dim(z::$name{<:Any,Nu}) where Nu = Nu 
+        vectype(::$name{<:Any,<:Any,V}) where V = V
+        vectype(::Type{<:$name{<:Any,<:Any,V}}) where V = V
 
         @inline getparams(z::$name) = (t=z.t, dt=z.dt)
         @inline getdata(z::$name) = z.z
+        function Base.copyto!(dest::$name, src::$name)
+            dest.t = src.t
+            dest.dt = src.dt
+            copyto!(dest.z, src.z)
+            dest
+        end
 
         # Array interface
         Base.similar(z::$name{Nx,Nu,V,T}, ::Type{S}, dims::Dims) where {Nx,Nu,V,T,S} = 

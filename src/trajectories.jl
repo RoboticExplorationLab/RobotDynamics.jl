@@ -6,6 +6,7 @@ num_vars(Z::AbstractTrajectory) = num_vars(traj_size(Z)..., has_terminal_control
 eachcontrol(Z::AbstractTrajectory) = has_terminal_control(Z) ? Base.OneTo(length(Z)) : Base.OneTo(length(Z)-1)
 state_dim(Z::AbstractTrajectory{n}) where {n} = n
 control_dim(Z::AbstractTrajectory{<:Any,m}) where {m} = m
+dims(Z::AbstractTrajectory) = traj_size(Z)
 
 function num_vars(n::Int, m::Int, N::Int, equal::Bool=false)
     Nu = equal ? N : N-1
@@ -15,7 +16,7 @@ end
 function Base.copyto!(dest::AbstractTrajectory, src::AbstractTrajectory)
 	@assert traj_size(dest) == traj_size(src)
 	for k = 1:length(src)
-		dest[k] = src[k]
+        copyto!(dest[k], src[k])
 	end
 	return src 
 end
@@ -112,6 +113,28 @@ function Traj(X::Vector, U::Vector, dt::Vector, t=cumsum(dt) .- dt[1])
     return Traj(Z)
 end
 
+function Traj(X::Vector, U::Vector; tf::Real=NaN, dt::Real=NaN)
+    n,m = length(X[1]), length(U[1])
+    N = length(X)
+    if isnan(tf) && isnan(dt)
+        error("Must specify either the time step or the total time.")
+    end
+    if !isnan(tf) && isnan(dt)
+        dt = tf / (N-1)
+    end
+    if !isnan(dt) && isnan(tf)
+        tf = dt * (N - 1)
+    end
+    if !isnan(dt) && !isnan(tf)
+        @assert tf == dt * (N-1) "Inconsistent time step and final time."
+    end
+    Z = [KnotPoint{n,m}(n,m, [X[k]; U[k]], (k-1)*dt, dt) for k = 1:length(U)]
+    if length(U) == length(X)-1
+        push!(Z, KnotPoint{n,m}(n,m,[X[end]; U[1]*0], tf, 0.0))
+    end
+    return Traj(Z)
+end
+
 function setstates!(Z::Traj, X)
     for k in eachindex(Z)
 		setstate!(Z[k], X[k])
@@ -176,12 +199,19 @@ end
 
 function Base.copyto!(Z::Traj, Z0::Traj)
 	@assert length(Z) == length(Z0)
-	for k in eachindex(Z)
+    N = length(Z)
+	for k = 1:N-1 
 		copyto!(Z[k].z, Z0[k].z)
 	end
+    if is_terminal(Z[end])
+        setstate!(Z[end], state(Z0[end]))
+    else
+		copyto!(Z[k].z, Z0[k].z)
+    end
+    Z
 end
 
-function Base.copyto!(Z::Union{Vector{<:KnotPoint},Traj{<:Any,<:Any,<:Any,<:KnotPoint}}, Z0::Traj)
+function Base.copyto!(Z::Traj{Nx,Nu,T,KP}, Z0::Traj{Nx,Nu,T,KP}) where {Nx,Nu,T,KP<:KnotPoint{Nx,Nu,<:StaticVector}}
 	@assert length(Z) == length(Z0)
 	for k in eachindex(Z)
 		Z[k].z = Z0[k].z
