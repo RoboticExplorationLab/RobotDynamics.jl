@@ -72,11 +72,22 @@ evaluate(fun::AbstractFunction, x, u) =
     throw(NotImplementedError("User-defined static return function not implemented for $(typeof(fun))")) 
 
 # Jacobian
-jacobian!(::FunctionSignature, ::UserDefined, fun::AbstractFunction, J, y, z) = jacobian!(functioninputs(fun), fun, J, y, z)
-jacobian!(inputtype::FunctionInputs, fun::AbstractFunction, J, y, z) = jacobian!(fun, J, y, getargs(inputtype, z)...)
+# Most generic method: this should the version called by external APIs
+jacobian!(::FunctionSignature, ::UserDefined, fun::AbstractFunction, J, y, z) = jacobian!(fun, J, y, z)
 
-jacobian!(fun::AbstractFunction, J, y, z::AbstractKnotPoint) = jacobian!(fun, J, y, state(z), control(z), getparams(z))
+# Highest-level function to implement for User-defined Jacobians
+jacobian!(fun::AbstractFunction, J, y, z) = jacobian!(functioninputs(fun), fun, J, y, z)
+
+# Dispatches on the input signature to call one of the following:
+#  jacobian!(fun, J, y, x, u, p)  # StateControl
+#  jacobian!(fun, J, y, x)        # StateOnly
+#  jacobian!(fun, J, y, u)        # ControlOnly
+jacobian!(inputtype::FunctionInputs, fun::AbstractFunction, J, y, z::AbstractKnotPoint) = jacobian!(fun, J, y, getargs(inputtype, z)...)
+
+# Strip the parameter
 jacobian!(fun::AbstractFunction, J, y, x, u, p) = jacobian!(fun, J, y, x, u)
+
+# Minimal call to be implemented for StateControl inputs
 jacobian!(fun::AbstractFunction, J, y, x, u) = throw(NotImplementedError("User-defined Jacobian not implemented for $(typeof(fun))")) 
 
 # Jacobian of Jacobian-vector product 
