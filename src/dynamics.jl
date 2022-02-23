@@ -5,7 +5,7 @@ output_dim(model::AbstractModel) = state_dim(model)
 abstract type ContinuousDynamics <: AbstractModel end
 @inline dynamics(model::ContinuousDynamics, z::AbstractKnotPoint) =
     dynamics(model, state(z), control(z), time(z))
-@inline dynamics(model::ContinuousDynamics, xdot, z::AbstractKnotPoint) =
+@inline dynamics!(model::ContinuousDynamics, xdot, z::AbstractKnotPoint) =
     dynamics!(model, xdot, state(z), control(z), time(z))
 
 @inline evaluate(model::ContinuousDynamics, x, u, p) =

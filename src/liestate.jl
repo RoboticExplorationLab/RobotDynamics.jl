@@ -277,9 +277,9 @@ end
     end
 end
 
-@inline ∇²differential!(::RotationState, model::AbstractModel, ∇G, x::StaticVector, dx::AbstractVector) =
+@inline ∇²differential!(::RotationState, model::AbstractModel, ∇G, x::AbstractVector, dx::AbstractVector) =
     ∇²differential!(LieState(model), ∇G, x, dx)
-@generated function ∇²differential!(s::LieState{R,P}, ∇G, x::StaticVector, dx::AbstractVector) where {R,P}
+@generated function ∇²differential!(s::LieState{R,P}, ∇G, x::AbstractVector, dx::AbstractVector) where {R,P}
     nr = length(P) - 1   # number of rotations
     np = nr + length(P)  # number of partitions
     nv = length(P)
