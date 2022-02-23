@@ -41,9 +41,11 @@ end
 function set_dt!(Z::AbstractTrajectory, dt::Real)
     t = Z[1].t
     for z in Z
-        z.dt = dt
         z.t = t
-        t += dt
+        if !is_terminal(z)
+            z.dt = dt
+            t += dt
+        end
     end
     return t 
 end
@@ -208,12 +210,16 @@ function Base.copyto!(Z::Traj, Z0::Traj)
     N = length(Z)
 	for k = 1:N-1 
 		copyto!(Z[k].z, Z0[k].z)
+        Z[k].t = Z0[k].t
+        Z[k].dt = Z0[k].dt
 	end
     if is_terminal(Z[end])
         setstate!(Z[end], state(Z0[end]))
     else
-		copyto!(Z[k].z, Z0[k].z)
+		copyto!(Z[N].z, Z0[N].z)
     end
+    Z[N].t = Z0[N].t
+    Z[N].dt = Z0[N].dt
     Z
 end
 

@@ -27,7 +27,7 @@ function getcontrol(z::AbstractKnotPoint, v)
 end
 
 getstate(z::AbstractKnotPoint{Nx,Nu,<:SVector}, v) where {Nx,Nu} = v[SVector{Nx}(1:Nx)]
-getcontrol(z::AbstractKnotPoint{Nx,Nu,<:SVector}, v) where {Nx,Nu} = v[SVector{Nu}(Nx+1:Nx+Nu)]
+getcontrol(z::AbstractKnotPoint{Nx,Nu,<:SVector}, v) where {Nx,Nu} = !is_terminal(z) * v[SVector{Nu}(Nx+1:Nx+Nu)]
 
 state(z::AbstractKnotPoint) = getstate(z, getdata(z))
 control(z::AbstractKnotPoint) = getcontrol(z, getdata(z))
@@ -110,7 +110,7 @@ for (name,mutable) in [(:KnotPoint, true), (:StaticKnotPoint, false)]
         Base.similar(z::$name{Nx,Nu,V,T}, ::Type{S}, dims::Dims) where {Nx,Nu,V,T,S} = 
             KnotPoint{Nx,Nu}(z.n, z.m, similar(z.z, S, dims), z.t, z.dt)
         Base.similar(z::$name{Nx,Nu,<:SVector,T}, ::Type{S}, dims::Dims) where {Nx,Nu,T,S} = 
-            KnotPoint{Nx,Nu}(z.n, z.m, similar(MVector{Nx+Nu,S}))
+            KnotPoint{Nx,Nu}(z.n, z.m, similar(MVector{Nx+Nu,S}), z.t, z.dt)
     end
     # Set struct mutability
     if mutable
@@ -121,7 +121,7 @@ for (name,mutable) in [(:KnotPoint, true), (:StaticKnotPoint, false)]
     eval(expr)
 end
 
-function (::Type{<:KnotPoint{Nx,Nu}})(z, t, dt) where {Nx,Nu}
+function (::Type{<:AbstractKnotPoint{Nx,Nu}})(z, t, dt) where {Nx,Nu}
     KnotPoint{Nx,Nu}(z, t, dt)
 end
 

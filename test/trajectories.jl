@@ -103,7 +103,7 @@ Z = RD.Traj(X,U,fill(dt,N))
 @test RobotDynamics.is_terminal(Z[end]) == false
 
 #--- Test copyto!
-Z0 = [RD.KnotPoint(3*X[k], 2*U[k], dt, dt*(k-1)) for k = 1:N]
+Z0 = [RD.KnotPoint(3*X[k], 2*U[k], dt*(k-1), dt) for k = 1:N]
 @test state.(Z0) ≈ 3 .* states(Z)
 @test control.(Z0) ≈ 2 .* controls(Z)
 copyto!(Z0, Z)
@@ -163,4 +163,34 @@ RD.rollout!(RD.StaticReturn(), dmodel, Z, X[1])
 Zmut = RD.Traj([RD.KnotPoint{n,m}(MVector(z.z), z.t, z.dt) for z in Z])
 RD.rollout!(RD.InPlace(), dmodel, Zmut, X[1])
 @test Z ≈ Zmut
+
+# Block constructors 
+Z = RD.Traj(randn(n,N), randn(m,N-1), tf=2.0)
+@test RD.dims(Z) == (n,m,N)
+@test Z[end].t == 2.0
+@test all(z->z.dt ≈ 0.2, Z[1:end-1])
+
+Z = RD.Traj([randn(n) for k = 1:N], [randn(m) for k = 1:N], dt=0.1)
+@test RD.dims(Z) == (n,m,N)
+@test Z[end].t == 1.0
+@test all(z->z.dt ≈ 0.1, Z)
+
+@test_throws ErrorException Z = RD.Traj(randn(n,N), randn(m,N-1))
+@test_throws AssertionError RD.Traj(randn(n,N), randn(m,N-1), dt=0.1, tf=2.0)
+
+Z2 = RD.Traj(zeros(n,N), zeros(m,N), dt=0.01)
+copyto!(Z2, Z)
+@test RD.states(Z2) ≈ RD.states(Z)
+@test RD.controls(Z2) ≈ RD.controls(Z)
+
+Z = RD.Traj([@SVector randn(n) for k = 1:N], [@SVector randn(m) for k = 1:N-1], dt=0.1)
+@test RD.vectype(Z[1]) === SVector{n+m,Float64}
+Z2 = RD.Traj(zeros(n,N), zeros(m,N-1), dt=0.01)
+copyto!(Z2, Z)
+RD.gettimes(Z2) ≈ RD.gettimes(Z)
+
+tf = RD.set_dt!(Z2, 0.01)
+@test tf ≈ 0.1 
+@test RD.gettimes(Z2) ≈ range(0,step=0.01,length=N)
+
 end
