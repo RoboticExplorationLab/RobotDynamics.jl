@@ -193,8 +193,7 @@ function dynamics(model::RigidBody, x, u, t=0)
 
     r,q,v,ω = parse_state(model, x)
 
-    z = StaticKnotPoint(x, u, 0.0, t)
-    ξ = wrenches(model, z)
+    ξ = wrenches(model, x, u, t)
     F = SA[ξ[1], ξ[2], ξ[3]]  # forces in world frame
     τ = SA[ξ[4], ξ[5], ξ[6]]  # torques in body frame
     m = mass(model)
@@ -220,7 +219,7 @@ end
     xdot .= dynamics(model, x, u, t)
 end
 
-@inline wrenches(model::RigidBody, z::AbstractKnotPoint) = wrenches(model, state(z), control(z), time(z))
+# @inline wrenches(model::RigidBody, z::AbstractKnotPoint) = wrenches(model, state(z), control(z), time(z))
 function wrenches(model::RigidBody, x, u, t)
     F = forces(model, x, u, t)
     M = moments(model, x, u, t)
