@@ -113,6 +113,12 @@ function Traj(X::Vector, U::Vector, dt::Vector, t=cumsum(dt) .- dt[1])
     return Traj(Z)
 end
 
+function Traj(X::Matrix, U::Matrix; kwargs...)
+    Xvec = [Vector(x) for x in eachcol(X)]
+    Uvec = [Vector(u) for u in eachcol(U)]
+    Traj(Xvec, Uvec; kwargs...)
+end
+
 function Traj(X::Vector, U::Vector; tf::Real=NaN, dt::Real=NaN)
     n,m = length(X[1]), length(U[1])
     N = length(X)
