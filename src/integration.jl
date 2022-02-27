@@ -45,6 +45,20 @@ end
 # Explicit Methods
 ########################################
 
+"""
+    Euler
+
+Explicit Euler integration:
+
+```math
+x_{k+1} = x_k + h f(x_k, u_k)
+```
+where ``h`` is the time step.
+
+!!! warning
+    In general, explicit Euler integration **SHOULD NOT BE USED!** It is the worst possible 
+    integration method since it is very inaccurate and can easily go unstable.
+"""
 struct Euler <: Explicit
     Euler(n::Integer, m::Integer) = new()
 end
@@ -71,6 +85,20 @@ function jacobian!(int::Euler, sig::FunctionSignature, model::ContinuousDynamics
     return nothing
 end
 
+@doc raw"""
+    RK3
+
+A third-order explicit Runge-Kutta method:
+
+```math
+\begin{aligned}
+&k_1 = f(x_k, u_k, t) h \\
+&k_2 = f(x_k + \frac{1}{2} k_1, u_k, t, + \frac{1}{2} h) h \\
+&k_3 = f(x_k - k_1 + 2 k_2, u_k, t, + h) h \\
+&x_{k+1} = x_k + \frac{1}{6} (k_1 + 4 k_2 + k_3) 
+\end{aligned}
+```
+"""
 struct RK3 <: Explicit 
     k1::ADVector{Float64}
     k2::ADVector{Float64}
@@ -205,7 +233,21 @@ function jacobian!(int::RK3, sig::InPlace, model, J, xn, x, u, t, h)
     return nothing
 end
 
-"Fourth-order Runge-Kutta method with zero-order-old on the controls"
+@doc raw"""
+    RK4
+
+The classic fourth-order explicit Runge-Kutta method.
+
+```math
+\begin{aligned}
+& k_1 = f(x_k, u_k, t) h \\
+& k_2 = f(x_k + \frac{1}{2} k_1, u_k, t + \frac{1}{2} h) h \\
+& k_3 = f(x_k + \frac{1}{2} k_2, u_k, t + \frac{1}{2} h) h \\
+& k_4 = f(x_k +  k_3, u_k, t + h) h \\
+& x_{k+1} = x_k + \frac{1}{6}(k_1 + 2k_2 + 2k_3 + k_4)
+\end{aligned}
+```
+"""
 struct RK4 <: Explicit
     k1::ADVector{Float64}
     k2::ADVector{Float64}
@@ -369,6 +411,16 @@ end
 # Implicit Methods
 ########################################
 
+"""
+    ImplicitMidpoint
+
+A symplectic method with second-order accuracy. A great option for those wanting 
+good performance with few calls to the dynamics.
+
+```math
+x_1 + h f(\\frac{1}{2}(x_1 + x_2), u_1, t + \\frac{1}{2} h) - x_2 = 0
+````
+"""
 struct ImplicitMidpoint <: Implicit
     xmid::ADVector{Float64}
     function ImplicitMidpoint(n::Integer, m::Integer)
@@ -475,5 +527,3 @@ function dynamics_error_jacobian!(
     end
     return nothing
 end
-
-a = 1
