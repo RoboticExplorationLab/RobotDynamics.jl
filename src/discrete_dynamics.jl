@@ -14,6 +14,18 @@ discrete_dynamics(model::DiscreteDynamics, x, u, t, dt) =
 discrete_dynamics!(model::DiscreteDynamics, xn, x, u, t, dt) =
     error("In-place discrete dynamics not defined yet.")
 
+"""
+    discrete_dynamics!(sig, xn, z::AbstractKnotPoint)
+
+Evaluate the discrete dynamics function, storing the output in `xn`, using the 
+[`FunctionSignature`](@ref) `sig` to determine which method to call.
+"""
+discrete_dynamics!(::InPlace, model::DiscreteDynamics, xn, z::AbstractKnotPoint) = 
+    discrete_dynamics!(model, xn, z)
+discrete_dynamics!(::StaticReturn, model::DiscreteDynamics, xn, z::AbstractKnotPoint) = 
+    xn .= discrete_dynamics(model, z)
+
+
 jacobian!(model::DiscreteDynamics, J, y, x, u, p) = jacobian!(model, J, y, x, u, p.t, p.dt)
 jacobian!(model::DiscreteDynamics, J, y, x, u, t, dt) =
     error("User-defined discrete dynamics Jacobian not defined.")

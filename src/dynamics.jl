@@ -7,6 +7,16 @@ abstract type ContinuousDynamics <: AbstractModel end
     dynamics(model, state(z), control(z), time(z))
 @inline dynamics!(model::ContinuousDynamics, xdot, z::AbstractKnotPoint) =
     dynamics!(model, xdot, state(z), control(z), time(z))
+"""
+    dynamics!(sig, model, xdot, z::AbstractKnotPoint)
+
+Evaluate the continuous time dynamics, storing the output in `xdot`, using the 
+[`FunctionSignature`](@ref) `sig` to determine which method to call.
+"""
+dynamics!(::InPlace, model::ContinuousDynamics, xdot, z::AbstractKnotPoint) = 
+    dynamics!(model, xdot, z)
+dynamics!(::StaticReturn, model::ContinuousDynamics, xdot, z::AbstractKnotPoint) = 
+    xdot .= dynamics!(model, z)
 
 @inline evaluate(model::ContinuousDynamics, x, u, p) =
     dynamics(model, x, u, p.t) 
