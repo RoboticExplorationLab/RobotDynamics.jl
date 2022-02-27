@@ -133,7 +133,7 @@ Z_ = [z for z in Z]
 #--- Test functions on trajectories
 model = Cartpole()
 dmodel = RD.DiscretizedDynamics{RD.RK4}(model)
-n,m = size(model)
+n,m = RD.dims(model)
 fVal = [@SVector zeros(n) for k = 1:N]
 X = [@SVector rand(n) for k = 1:N]
 U = [@SVector rand(m) for k = 1:N-1]

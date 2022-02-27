@@ -112,7 +112,7 @@ function integrate!(int::RK3, model, xn, x, u, t, h)
 end
 
 function jacobian!(int::RK3, sig::StaticReturn, model, J, xn, x, u, t, h)
-    n, m = size(model)
+    n, m = dims(model)
     ix = SVector{n}(1:n)
     iu = SVector{m}(n+1:n+m)
     k1 = dynamics(model, x,            u, t      ) * h
@@ -148,7 +148,7 @@ function jacobian!(int::RK3, sig::InPlace, model, J, xn, x, u, t, h)
     B1, B2, B3 = int.B[1], int.B[2], int.B[3]
     dA1, dA2, dA3 = int.dA[1], int.dA[2], int.dA[3]
     dB1, dB2, dB3 = int.dB[1], int.dB[2], int.dB[3]
-    n, m = size(model)
+    n, m = dims(model)
     ix, iu = 1:n, n+1:n+m
 
     jacobian!(model, J, k1, x, u, t)
@@ -251,7 +251,7 @@ function integrate!(int::RK4, model, xn, x, u, t, h)
 end
 
 function jacobian!(int::RK4, sig::StaticReturn, model, J, xn, x, u, t, h)
-    n, m = size(model)
+    n, m = dims(model)
     ix = SVector{n}(1:n)
     iu = SVector{m}(n+1:n+m)
     k1 = dynamics(model, x, u, t) * h
@@ -294,7 +294,7 @@ function jacobian!(int::RK4, sig::InPlace, model, J, xn, x, u, t, h)
     B1, B2, B3, B4 = int.B[1], int.B[2], int.B[3], int.B[4]
     dA1, dA2, dA3, dA4 = int.dA[1], int.dA[2], int.dA[3], int.dA[4]
     dB1, dB2, dB3, dB4 = int.dB[1], int.dB[2], int.dB[3], int.dB[4]
-    n, m = size(model)
+    n, m = dims(model)
     ix, iu = 1:n, n+1:n+m
 
     jacobian!(model, J, k1, x, u, t)
@@ -421,7 +421,7 @@ function dynamics_error_jacobian!(
     z2::AbstractKnotPoint,
     z1::AbstractKnotPoint,
 )
-    n, m = size(model)
+    n, m = dims(model)
     ix = SVector{n}(1:n)
     iu = SVector{m}(n+1:n+m)
     t, h = time(z1), timestep(z1)
@@ -453,7 +453,7 @@ function dynamics_error_jacobian!(
     z2::AbstractKnotPoint,
     z1::AbstractKnotPoint,
 )
-    n, m = size(model)
+    n, m = dims(model)
     ix = 1:n 
     iu = n+1:n+m 
     t, h = time(z1), timestep(z1)

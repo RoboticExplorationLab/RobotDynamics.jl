@@ -22,7 +22,7 @@ end
 function DiscretizedDynamics{Q}(
     continuous_dynamics::L,
 ) where {L<:ContinuousDynamics} where {Q}
-    n, m = size(continuous_dynamics)
+    n, m = dims(continuous_dynamics)
     DiscretizedDynamics(continuous_dynamics, Q(n, m))
 end
 

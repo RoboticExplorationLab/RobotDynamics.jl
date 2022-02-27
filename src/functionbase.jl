@@ -43,11 +43,7 @@ getargs(::StateControl, z::AbstractKnotPoint) = state(z), control(z), getparams(
 getargs(::StateOnly, z::AbstractKnotPoint) = (state(z),)
 getargs(::ControlOnly, z::AbstractKnotPoint) = (control(z),)
 
-
-Base.size(fun::AbstractFunction) = (state_dim(fun), control_dim(fun), output_dim(fun))
-@inline getinputs(z::AbstractVector) = z
-@inline setinputs!(dest::AbstractVector{<:Real}, src::AbstractVector{<:Real}) = src 
-inputtype(::Type{<:AbstractFunction}) = Float64
+datatype(::Type{<:AbstractFunction}) = Float64
 
 # Top-level command that can be overridden
 # Should only be overridden if using hand-written Jacobian methods

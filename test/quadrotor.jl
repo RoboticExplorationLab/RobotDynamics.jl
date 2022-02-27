@@ -50,7 +50,7 @@ end
 @inline RobotDynamics.velocity_frame(model::Quadrotor) = model.bodyframe ? :body : :world
 
 function trim_controls(model::Quadrotor)
-    @SVector fill(-model.gravity[3]*model.mass/4.0, size(model)[2])
+    @SVector fill(-model.gravity[3]*model.mass/4.0, control_dim(model))
 end
 
 function RobotDynamics.forces(model::Quadrotor, x, u)

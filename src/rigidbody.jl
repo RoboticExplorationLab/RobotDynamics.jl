@@ -32,7 +32,7 @@ abstract type RigidBody{R<:Rotation} <: LieGroupModel end
 LieState(::RigidBody{R}) where R = LieState(R, (3,6))
 
 function Base.rand(model::RigidBody{D}) where {D}
-    n,m = size(model)
+    n,m = dims(model)
     r = @SVector rand(3)
     q = rand(D)
     v = @SVector rand(3)
@@ -43,7 +43,7 @@ function Base.rand(model::RigidBody{D}) where {D}
 end
 
 function Base.zeros(model::RigidBody{D}) where D
-    n,m = size(model)
+    n,m = dims(model)
     r = @SVector zeros(3)
     q = one(D)
     v = @SVector zeros(3)

@@ -19,7 +19,7 @@ end
 
 cmodel = Cartpole()
 x,u = rand(cmodel)
-n,m = size(cmodel)
+n,m = RD.dims(cmodel)
 dt = 0.01
 t = 0.0
 z = RD.KnotPoint(x,u,t,dt)

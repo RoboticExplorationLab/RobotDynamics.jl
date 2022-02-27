@@ -37,7 +37,7 @@ x,u = fill(model, 10.0)
 @test u ≈ @SVector fill(10,1)
 
 
-n,m = size(model)
+n,m = RD.dims(model)
 t,dt = 0, 0.1
 F = zeros(n,n+m)
 y = zeros(n)

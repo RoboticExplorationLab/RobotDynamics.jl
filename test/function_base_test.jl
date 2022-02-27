@@ -13,7 +13,7 @@ using RobotDynamics: @autodiff, state, control, KnotPoint, getdata, getstate, ge
 
 using RobotDynamics: evaluate, evaluate!, jacobian!
 function test_allocs(fun)
-    n,m,p = size(fun)
+    n,m,p = RD.dims(fun)
     z_ = @SVector randn(n+m)
     z = KnotPoint{n,m}(z_,1.0,0.1)
     test_allocs(fun, z)
@@ -45,7 +45,7 @@ end
 
 function test_fun(fun)
     Random.seed!(1)
-    @test size(fun) == (2,2,3)
+    @test RD.dims(fun) == (2,2,3)
 
     z_ = @SVector randn(4)
     z = KnotPoint{2,2}(z_,1.0,0.1)
@@ -140,7 +140,7 @@ function RobotDynamics.jacobian!(::InPlace, ::FiniteDifference, fun::TestFun0, J
 end
 
 fun = TestFun0()
-n,m,p = size(fun)
+n,m,p = RD.dims(fun)
 x = @SVector randn(n)
 u = @SVector randn(m)
 t = 1.2
