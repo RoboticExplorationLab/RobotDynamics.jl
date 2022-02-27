@@ -5,7 +5,26 @@ Abstraction of a dynamical system whose state contains at least one arbitrary ro
 """
 abstract type LieGroupModel <: ContinuousDynamics end
 const DiscreteLieDynamics = DiscretizedDynamics{L,Q} where {L<:LieGroupModel, Q<:QuadratureRule}
+
+
+# RotationState interface
 statevectortype(::Type{<:LieGroupModel}) = RotationState() 
+
+@inline errstate_dim(::RotationState, model::AbstractModel) = errstate_dim(LieState(model))
+
+@inline state_diff(::RotationState, model::AbstractModel, x::AbstractVector, 
+    x0::AbstractVector, errmap=Rotations.CayleyMap()) =
+    state_diff(LieState(model), x, x0, errmap)
+
+@inline state_diff!(::RotationState, model::AbstractModel, dx::AbstractVector,
+    x::AbstractVector, x0::AbstractVector, errmap=Rotations.CayleyMap()) =
+    state_diff!(LieState(model), dx, x, x0, errmap)
+
+@inline errstate_jacobian!(::RotationState, model::AbstractModel, G, x) =
+    errstate_jacobian!(LieState(model), G, x)
+
+@inline ∇errstate_jacobian!(::RotationState, model::AbstractModel, ∇G, x::AbstractVector, dx::AbstractVector) =
+    ∇errstate_jacobian!(LieState(model), ∇G, x, dx)
 
 import Rotations.params
 
@@ -176,13 +195,6 @@ end
 
 @inline state_dim(model::LieGroupModel) = length(LieState(model))
 
-@inline state_diff!(::RotationState, model::AbstractModel, dx::AbstractVector,
-    x::AbstractVector, x0::AbstractVector, errmap=Rotations.CayleyMap()) =
-    state_diff!(LieState(model), dx, x, x0, errmap)
-@inline state_diff(::RotationState, model::AbstractModel, x::AbstractVector, 
-    x0::AbstractVector, errmap=Rotations.CayleyMap()) =
-    state_diff(LieState(model), x, x0, errmap)
-@inline errstate_dim(::RotationState, model::AbstractModel) = errstate_dim(LieState(model))
 
 function _state_diff_expr(R,P)
     nr = length(P) - 1   # number of rotations
@@ -236,10 +248,7 @@ end
     end
 end
 
-@inline state_diff_jacobian!(::RotationState, model::AbstractModel, G, x) =
-    state_diff_jacobian!(LieState(model), G, x)
-
-@generated function state_diff_jacobian!(s::LieState{R,P}, G, x) where {R,P}
+@generated function errstate_jacobian!(s::LieState{R,P}, G, x) where {R,P}
     nr = length(P) - 1   # number of rotations
     np = nr + length(P)  # number of partitions
     nv = length(P)
@@ -277,9 +286,7 @@ end
     end
 end
 
-@inline ∇²differential!(::RotationState, model::AbstractModel, ∇G, x::AbstractVector, dx::AbstractVector) =
-    ∇²differential!(LieState(model), ∇G, x, dx)
-@generated function ∇²differential!(s::LieState{R,P}, ∇G, x::AbstractVector, dx::AbstractVector) where {R,P}
+@generated function ∇errstate_jacobian!(s::LieState{R,P}, ∇G, x::AbstractVector, dx::AbstractVector) where {R,P}
     nr = length(P) - 1   # number of rotations
     np = nr + length(P)  # number of partitions
     nv = length(P)

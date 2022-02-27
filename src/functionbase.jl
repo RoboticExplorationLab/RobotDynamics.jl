@@ -237,30 +237,13 @@ jacobian!(fun::AbstractFunction, J, y, x, u) = throw(NotImplementedError("User-d
 ∇jacobian!(fun::AbstractFunction, H, b, y, x, u) = 
     throw(UserDefined("User-defined Jacobian of Jacobian-vector product is undefined for $(typeof(fun))"))
 
-# Dispatch on `statevectortype` trait
-state_diff!(fun::AbstractFunction, dx, x, x0) = state_diff!(statevectortype(fun), fun, dx, x, x0)
-state_diff(fun::AbstractFunction, x, x0) = state_diff(statevectortype(fun), fun, x, x0)
-errstate_dim(fun::AbstractFunction) = errstate_dim(statevectortype(fun), fun)
-state_diff_jacobian!(fun::AbstractFunction, J, z::AbstractKnotPoint) = 
-    state_diff_jacobian!(statevectortype(fun), fun, J, state(z))
-state_diff_jacobian!(fun::AbstractFunction, J, x) = 
-    state_diff_jacobian!(statevectortype(fun), fun, J, x)
-∇²differential!(fun::AbstractFunction, ∇G, x, dx) = 
-    ∇²differential!(statevectortype(fun), fun, ∇G, x, dx)
-
-# Euclidean state vectors
-state_diff!(::EuclideanState, fun::AbstractFunction, dx, x, x0) = dx .= x .- x0
-state_diff(::EuclideanState, fun::AbstractFunction, x, x0) = x - x0
-errstate_dim(::EuclideanState, fun::AbstractFunction) = state_dim(fun)
-state_diff_jacobian!(::EuclideanState, fun::AbstractFunction, J, x) = J .= I(state_dim(fun))
-∇²differential!(::EuclideanState, fun::AbstractFunction, ∇G, x, dx) = ∇G .= 0
 
 # Some convenience methods
+Base.rand(::Type{T}, model::AbstractFunction) where {T} = ((@SVector rand(T, state_dim(model))), (@SVector rand(T, control_dim(model))))
 Base.randn(::Type{T}, model::AbstractFunction) where {T} = ((@SVector randn(T, state_dim(model))), (@SVector randn(T, control_dim(model))))
 Base.zeros(::Type{T}, model::AbstractFunction) where {T} = ((@SVector zeros(T, state_dim(model))), (@SVector zeros(T, control_dim(model))))
-Base.rand(::Type{T}, model::AbstractFunction) where {T} = ((@SVector rand(T, state_dim(model))), (@SVector rand(T, control_dim(model))))
 Base.fill(model::AbstractFunction, v) = ((@SVector fill(v, state_dim(model))), (@SVector fill(v, control_dim(model))))
 
+Base.rand(model::AbstractFunction) = Base.rand(Float64, model)
 Base.randn(model::AbstractFunction) = Base.randn(Float64, model)
 Base.zeros(model::AbstractFunction) = Base.zeros(Float64, model)
-Base.rand(model::AbstractFunction) = Base.rand(Float64, model)

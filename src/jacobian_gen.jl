@@ -274,7 +274,7 @@ function add_field_to_struct(struct_expr0::Expr, newfield::Vector{Expr}, init_fi
     if !(parent <: RobotDynamics.AbstractFunction)
         error("Type must be a sub-type of RobotDynamics.AbstractFunction")
     end
-    type_param = Symbol(inputtype(parent))
+    type_param = Symbol(datatype(parent))
 
     # Resolve the parent name in the original scope
     parent_name, loc = get_parent_name(parent_expr, mod)
@@ -618,7 +618,7 @@ function modify_struct_def(::ForwardAD, struct_expr::Expr, mod, is_scalar_fun)
     pname = :JCH
     parent_name = get_struct_parent(struct_expr)
     parent = mod.eval(parent_name)
-    type_param = Symbol(inputtype(parent))
+    type_param = Symbol(datatype(parent))
     if is_scalar_fun
         newfield = [
             :(gradcfg::ForwardDiff.GradientConfig{Nothing, Float64, JCH, Vector{ForwardDiff.Dual{Nothing, Float64, JCH}}})
@@ -770,7 +770,7 @@ function modify_struct_def(::FiniteDifference, struct_expr::Expr, mod, is_scalar
     pname = nothing 
     parent_name = get_struct_parent(struct_expr)
     parent = mod.eval(parent_name)
-    type_param = Symbol(inputtype(parent))
+    type_param = Symbol(datatype(parent))
     if is_scalar_fun
         newfield = [
             :(gradcache::FiniteDiff.GradientCache{Nothing, Nothing, Nothing, Vector{Float64}, Val{:forward}(), Float64, Val{true}()})
