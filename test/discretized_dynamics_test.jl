@@ -3,7 +3,7 @@ include("double_integrator.jl")
 ## Test Euler
 @autodiff struct DoubleIntegrator{D} <: DI{D} end
 cmodel = DoubleIntegrator{2}()
-n,m = size(cmodel)
+n,m = RD.dims(cmodel)
 
 # Evaluate Euler step explicitly
 x0,u0 = randn(cmodel)
