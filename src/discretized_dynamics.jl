@@ -74,7 +74,7 @@ abstract type Implicit <: QuadratureRule end
     DiscretizedDynamics
 
 Represents a [`DiscreteDynamics`](@ref) model formed by integrating a continuous 
-dynamics model. It is essentially a [`ContinuousModel`](@ref) paired with a 
+dynamics model. It is essentially a [`ContinuousDynamics`](@ref) paired with a 
 [`QuadratureRule`](@ref) that defines how to use the [`dynamics!`](@ref) function 
 to get a [`discrete_dynamics!`](@ref) function. 
 

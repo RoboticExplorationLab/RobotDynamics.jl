@@ -218,7 +218,7 @@ them as a concatenated vector.
 
 ### Discretizing our dynamics
 We often need to discretize our continuous dynamics, either to simulate it or 
-feed it into optimization frameworks. The [`DiscretizedModel`](@ref) type 
+feed it into optimization frameworks. The [`DiscretizedDynamics`](@ref) type 
 discretizes a [`ContinuousDynamics`](@ref) model, turning it into a 
 [`DiscreteDynamics`](@ref) model by applying a [`QuadratureRule`](@ref).
 To discretize our system using, e.g. Runge-Kutta 4, we create a new 

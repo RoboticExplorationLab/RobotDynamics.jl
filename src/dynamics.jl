@@ -52,7 +52,7 @@ longer computed using pure subtraction. We can define a custom function for taki
 differences between 2 states vectors based on the type of the state vector. 
 
 We can query the type of the state vector using [`statevectortype(model)`](@ref), 
-which returns a [`StatVectorType`](@ref) trait (by default, [`EuclideanState`](@ref)).
+which returns a [`StateVectorType`](@ref) trait (by default, [`EuclideanState`](@ref)).
 After defining a new `StateVectorType` and the following methods (described in more 
 detail in the documentation for [`StateVectorType`](@ref)):
 

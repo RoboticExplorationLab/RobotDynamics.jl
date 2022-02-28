@@ -15,7 +15,7 @@ The dimensions `n`, `m`, and `p` can
 be queried individual by calling `state_dim`, `control_dim`, and `ouput_dim` or 
 collectively via [`dims`](@ref).
 
-## Evaluation 
+# Evaluation 
 An `AbstractFunction` can be evaluated in-place by calling any of 
 
     evaluate!(fun, y, z::AbstractKnotPoint)
@@ -35,7 +35,7 @@ Alternatively, the user can dispatch on [`FunctionSignature`](@ref) by calling
 
     evaluate!(::FunctionSignature, fun, y, z::AbstractKnotPoint)
 
-## Jacobians
+# Jacobians
 The Jacobian of ``f(x,u)`` with respect to both ``x`` and ``u`` can be computed 
 by calling the following function:
 
@@ -55,12 +55,12 @@ the `AbstractFunction`:
     jacobian!(fun, J, y, x, u, p)
     jacobian!(fun, J, y, x, u)
 
-## Functions of just the state or control
+# Functions of just the state or control
 Alternatively, the function can also be limited to an input of just the state or control 
 by defining the [`FunctionInputs`](@ref) trait. See trait documentation for more 
 information.
 
-## Convenience functions
+# Convenience functions
 The methods `fill(fun, v)`, `randn(fun)`, `rand(fun)`, and `zeros(fun)` are defined
 that provide a tuple with a state and control vector initialized using the corresponding
 function. The data type can be specified as the first argument for `randn`, `rand`, and 

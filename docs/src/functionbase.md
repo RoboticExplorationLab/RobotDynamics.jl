@@ -1,4 +1,4 @@
-# `AbstractFunction` API
+# [`AbstractFunction` API](@id AbstractFunction)
 ```@meta
 CurrentModule = RobotDynamics
 ```
@@ -21,6 +21,10 @@ input_dim
 ```@docs
 FunctionSignature
 DiffMethod
+StateVectorType
+EuclideanState
+RotationState
+statevectortype
 FunctionInputs
 functioninputs
 ```

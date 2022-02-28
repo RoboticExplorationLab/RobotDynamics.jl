@@ -133,10 +133,6 @@ function test_scalar_fun(fun)
 end
 
 ##
-fun = MyFun()
-test_scalar_fun(fun)
-
-##
 @macroexpand RD.@autodiff struct MyFunAuto <: RobotDynamics.ScalarFunction end
 RD.@autodiff struct MyFunAuto <: RobotDynamics.ScalarFunction end
 RD.state_dim(::MyFunAuto) = 4
@@ -169,5 +165,11 @@ function RD.hessian!(::MyFunAuto, H, x, u)
     return 
 end
 
-fun = MyFunAuto()
-test_scalar_fun(fun)
+##
+@testset begin "Scalar Function"
+    fun = MyFun()
+    test_scalar_fun(fun)
+
+    fun = MyFunAuto()
+    test_scalar_fun(fun)
+end

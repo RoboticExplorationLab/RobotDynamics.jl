@@ -9,16 +9,17 @@ where `p` is the 3D position, `q` is the 3 or 4-dimension attitude representatio
 # Interface
 Any single-body system can leverage the `RigidBody` type by inheriting from it and defining the
 following interface:
+
 ```julia
-forces(::MyRigidBody, x, u)  # return the forces in the world frame
-moments(::MyRigidBody, x, u) # return the moments in the body frame
+forces(::MyRigidBody, x, u, [t])  # return the forces in the world frame
+moments(::MyRigidBody, x, u, [t]) # return the moments in the body frame
 inertia(::MyRigidBody, x, u) # return the 3x3 inertia matrix
 mass(::MyRigidBody, x, u)  # return the mass as a real scalar
 ```
 
 Instead of defining `forces` and `moments` you can define the higher-level `wrenches` function
-	wrenches(model::MyRigidbody, z::AbstractKnotPoint)
-	wrenches(model::MyRigidbody, x, u)
+
+	wrenches(model::MyRigidbody, x, u, t)
 
 # Rotation Parameterization
 A `RigidBody` model must specify the rotational representation being used. Any `Rotations.Rotation{3}`
@@ -26,6 +27,21 @@ can be used, but we suggest one of the following:
 * `UnitQuaternion`
 * `MRP`
 * `RodriguesParam`
+
+# Working with state vectors for a `RigidBody`
+Several methods are provided for working with the state vectors for a `RigidBody`.
+Also see the documentation for [`RBState`](@ref) which provides a unified representation
+for working with states for rigid bodies, which can be easily converted to and 
+from the state vector representation for the given model.
+
+- [`Base.position`](@ref)
+- [`orientation`](@ref)
+- [`linear_velocity`](@ref)
+- [`angular_velocity`](@ref)
+- [`build_state`](@ref)
+- [`parse_state`](@ref)
+- [`gen_inds`](@ref)
+- [`flipquat`](@ref)
 """
 abstract type RigidBody{R<:Rotation} <: LieGroupModel end
 
@@ -82,15 +98,20 @@ end
 @inline linear_velocity(model::RigidBody, x) = x[gen_inds(model).v]
 @inline angular_velocity(model::RigidBody, x) = x[gen_inds(model).ω]
 
-for rot in [RodriguesParam, MRP, RotMatrix, RotationVec, AngleAxis]
-    @eval orientation(model::RigidBody{<:$rot}, x::AbstractVector, renorm=false) = ($rot)(x[4],x[5],x[6])
-end
 function orientation(model::RigidBody{<:UnitQuaternion}, x::AbstractVector,
         renorm=false)
     q = UnitQuaternion(x[4],x[5],x[6],x[7], renorm)
     return q
 end
+for rot in [RodriguesParam, MRP, RotMatrix, RotationVec, AngleAxis]
+    @eval orientation(model::RigidBody{<:$rot}, x::AbstractVector, renorm=false) = ($rot)(x[4],x[5],x[6])
+end
 
+"""
+    flipquat(model, x)
+
+Flips the quaternion sign for a `RigidBody{<:UnitQuaternion}`.
+"""
 function flipquat(model::RigidBody{<:UnitQuaternion}, x)
     return @SVector [x[1], x[2], x[3], -x[4], -x[5], -x[6], -x[7],
         x[8], x[9], x[10], x[11], x[12], x[13]]

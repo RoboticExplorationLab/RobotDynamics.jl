@@ -13,10 +13,19 @@ makedocs(
             "continuous.md",
             "discrete.md",
         ],
+        "Rotations" => [
+            # "liestate.md"
+            "rotationstate.md",
+        ],
         "Important Types" => [
             "knotpoints.md",
+            "trajectories.md",
         ],
-        "Function Base" => "functionbase.md",
+        "Internal API" => [
+            "functionbase.md",
+            "scalarfunction.md",
+            "autodiff.md",
+        ],
 
         # "Getting Started" => [
         #     "models.md",

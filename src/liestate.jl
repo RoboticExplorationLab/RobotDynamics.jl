@@ -1,11 +1,22 @@
 """
-	LieGroupModel <: AbstractModel
+	LieGroupModel <: ContinuousDynamics 
 
 Abstraction of a dynamical system whose state contains at least one arbitrary rotation.
+
+# Usage
+To use this model, you only need to define the following functions:
+
+- `control_dim(model::MyLieGroupModel)` 
+- `LieState(::MyLieGroupModel)`
+- Either [`dynamics!`](@ref) or [`dynamics`](@ref)
+
+where `LieState(model)` should return a [`LieState`](@ref) for your model, 
+describing how the state vector is composed of Euclidean and 3D rotations.
+Note that this function should only be a function of the type, not the actual 
+struct itself (i.e. your method definition should look like the one above).
 """
 abstract type LieGroupModel <: ContinuousDynamics end
 const DiscreteLieDynamics = DiscretizedDynamics{L,Q} where {L<:LieGroupModel, Q<:QuadratureRule}
-
 
 # RotationState interface
 statevectortype(::Type{<:LieGroupModel}) = RotationState() 
