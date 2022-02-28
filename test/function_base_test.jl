@@ -6,17 +6,26 @@ using ForwardDiff
 using FiniteDiff
 using LinearAlgebra
 using Random
+const RD = RobotDynamics
 
 using RobotDynamics: @autodiff, state, control, KnotPoint, getdata, getstate, getcontrol, getparams,
                      FiniteDifference, ForwardAD, StaticReturn, InPlace
 
 using RobotDynamics: evaluate, evaluate!, jacobian!
 function test_allocs(fun)
-    n,m,p = size(fun)
+    n,m,p = RD.dims(fun)
     z_ = @SVector randn(n+m)
     z = KnotPoint{n,m}(z_,1.0,0.1)
+    test_allocs(fun, z)
+end
+function test_allocs(fun, z)
+    n = RD.state_dim(z)
+    m = RD.control_dim(z)
+    z_ = RD.getdata(z)
+    p = RD.output_dim(fun)
+    w = RD.input_dim(fun)
     y = zeros(p)
-    J = zeros(p,n+n)
+    J = zeros(p,w)
     allocs = 0
     allocs += @allocated evaluate(fun, z)
     allocs += @allocated evaluate!(fun, y, z)
@@ -36,7 +45,7 @@ end
 
 function test_fun(fun)
     Random.seed!(1)
-    @test size(fun) == (2,2,3)
+    @test RD.dims(fun) == (2,2,3)
 
     z_ = @SVector randn(4)
     z = KnotPoint{2,2}(z_,1.0,0.1)
@@ -131,7 +140,7 @@ function RobotDynamics.jacobian!(::InPlace, ::FiniteDifference, fun::TestFun0, J
 end
 
 fun = TestFun0()
-n,m,p = size(fun)
+n,m,p = RD.dims(fun)
 x = @SVector randn(n)
 u = @SVector randn(m)
 t = 1.2
@@ -310,3 +319,136 @@ end
 
 fun = TestInner(1)
 test_fun(fun)
+
+
+##############################
+## State-Only 
+##############################
+@autodiff struct TestFunStateOnly <: RobotDynamics.AbstractFunction end
+
+RD.state_dim(::TestFunStateOnly) = 3
+RD.output_dim(::TestFunStateOnly) = 2
+RD.functioninputs(::TestFunStateOnly) = RD.StateOnly()
+
+function RD.evaluate(::TestFunStateOnly, x::RD.DataVector)
+    return SA[cos(x[1] - x[3]), sin(x[2]^2 * x[1])]
+end
+
+function RD.evaluate!(::TestFunStateOnly, y, x::RD.DataVector)
+    y[1] = cos(x[1] - x[3])
+    y[2] = sin(x[2]^2 * x[1])
+    return nothing
+end
+
+function RD.jacobian!(::TestFunStateOnly, J, y, x::RD.DataVector)
+    J .= 0
+    J[1,1] = -sin(x[1] - x[3])
+    J[1,3] = sin(x[1] - x[3])
+    J[2,1] = cos(x[2]^2 * x[1]) * x[2]^2
+    J[2,2] = cos(x[2]^2 * x[1]) * 2 * x[2] * x[1]
+    return nothing
+end
+
+fun = TestFunStateOnly()
+@test RD.functioninputs(fun) == RD.StateOnly()
+
+n = RD.state_dim(fun)
+p = RD.output_dim(fun)
+x = @SVector randn(n)
+u = @SVector randn(p)
+y = zeros(p)
+J = zeros(p,n)
+J0 = copy(J)
+fun = TestFunStateOnly()
+zs = RD.KnotPoint(x,u,0.0,0.1)
+z = RD.KnotPoint(Vector(x),Vector(u),0.0,0.1)
+
+evaluate!(fun, y, z)
+@test y ≈ evaluate(fun, z) ≈ evaluate(fun, x)
+evaluate!(fun, y, x)
+@test y ≈ evaluate(fun, z) ≈ evaluate(fun, x)
+
+jacobian!(fun, J0, y, x)
+jacobian!(RD.InPlace(), RD.UserDefined(), fun, J, y, z)
+@test J ≈ J0
+jacobian!(RD.StaticReturn(), RD.UserDefined(), fun, J, y, z)
+@test J ≈ J0
+
+jacobian!(RD.StaticReturn(), RD.ForwardAD(), fun, J, y, z)
+@test J ≈ J0
+jacobian!(RD.InPlace(), RD.ForwardAD(), fun, J, y, z)
+@test J ≈ J0
+jacobian!(RD.StaticReturn(), RD.FiniteDifference(), fun, J, y, z)
+@test J ≈ J0 atol=1e-5
+jacobian!(RD.InPlace(), RD.FiniteDifference(), fun, J, y, z)
+@test J ≈ J0 atol=1e-5
+
+@test RD.getinput(RD.functioninputs(fun), z) === state(z)
+run_alloc_tests && @test test_allocs(fun, zs) == 0
+
+##############################
+## Control Only
+##############################
+@autodiff struct TestFunControlOnly <: RobotDynamics.AbstractFunction end
+
+RD.control_dim(::TestFunControlOnly) = 2
+RD.output_dim(::TestFunControlOnly) = 3
+RD.functioninputs(::TestFunControlOnly) = RD.ControlOnly()
+
+function RD.evaluate(::TestFunControlOnly, u::RD.DataVector)
+    SA[exp(10*u[1]/u[2]), 1/u[1], (u[1] - u[2])^2]
+end
+
+function RD.evaluate!(::TestFunControlOnly, y, u::RD.DataVector)
+    y[1] = exp(10*u[1]/u[2])
+    y[2] = 1/u[1]
+    y[3] = (u[1] - u[2])^2
+    return nothing
+end
+
+function RD.jacobian!(::TestFunControlOnly, J, y, u::RD.DataVector)
+    J .= 0
+    e = exp(10*u[1] / u[2])
+    J[1,1] = 10/u[2] * e
+    J[1,2] = -10*u[1]/(u[2]^2) * e
+    J[2,1] = -1/u[1]^2
+    J[3,1] = 2*(u[1] - u[2])
+    J[3,2] = -2*(u[1] - u[2])
+    return nothing
+end
+
+fun = TestFunControlOnly()
+
+m = RD.control_dim(fun)
+p = RD.output_dim(fun)
+x = @SVector randn(4)
+u = @SVector randn(m)
+y = zeros(p)
+J = zeros(p,m)
+J0 = copy(J)
+zs = RD.KnotPoint(x,u,0.0,0.1)
+z = RD.KnotPoint(Vector(x),Vector(u),0.0,0.1)
+
+evaluate!(fun, y, z)
+@test y ≈ evaluate(fun, z) ≈ evaluate(fun, u)
+evaluate!(fun, y, u)
+@test y ≈ evaluate(fun, z) ≈ evaluate(fun, u)
+
+jacobian!(fun, J0, y, u)
+jacobian!(RD.InPlace(), RD.UserDefined(), fun, J, y, z)
+@test J ≈ J0
+J
+jacobian!(RD.StaticReturn(), RD.UserDefined(), fun, J, y, z)
+@test J ≈ J0
+
+jacobian!(RD.StaticReturn(), RD.ForwardAD(), fun, J, y, z)
+@test J ≈ J0
+jacobian!(RD.InPlace(), RD.ForwardAD(), fun, J, y, z)
+@test J ≈ J0
+jacobian!(RD.StaticReturn(), RD.FiniteDifference(), fun, J, y, z)
+@test J ≈ J0 atol=1e-2
+jacobian!(RD.InPlace(), RD.FiniteDifference(), fun, J, y, z)
+@test J ≈ J0 atol=1e-2
+
+@test RD.getinput(RD.functioninputs(fun), z) === control(z)
+run_alloc_tests && @test test_allocs(fun, zs) == 0

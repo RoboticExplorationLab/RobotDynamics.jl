@@ -17,7 +17,7 @@ model = LinearModel(A,B)
 @test RD.is_discrete(model) == false
 @test RD.is_timevarying(model) == false
 @test RD.is_affine(model) == false
-@test size(model) == (n,m) 
+@test RD.dims(model) == (n,m,n) 
 
 x,u = rand(model)
 z = KnotPoint(x,u,dt,t)
@@ -44,7 +44,7 @@ model = LinearModel(A,B,use_static=false)
 @test RD.is_discrete(model) == false
 @test RD.is_timevarying(model) == false
 @test RD.is_affine(model) == false
-@test size(model) == (n,m) 
+@test RD.dims(model) == (n,m,n) 
 
 @test dynamics(model, z) ≈ A*x + B*u
 @test discrete_dynamics(RK2, model, z) ≈ x2

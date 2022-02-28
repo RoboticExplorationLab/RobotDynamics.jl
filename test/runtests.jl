@@ -5,11 +5,12 @@ using ForwardDiff
 using LinearAlgebra
 using FiniteDiff
 using Random
+using Rotations
 const RD = RobotDynamics
 
 include("cartpole_model.jl")
 # include("random_linear.jl")
-# include("quadrotor.jl")
+include("quadrotor.jl")
 
 const run_alloc_tests = !haskey(ENV, "CI") 
 
@@ -35,6 +36,7 @@ end
 @testset "Lie State" begin
     include("liestate.jl")
     include("liemodel.jl")
+    include("state_diff_test.jl")
 end
 
 # @testset "Linear Systems" begin

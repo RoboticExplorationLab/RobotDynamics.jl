@@ -1,3 +1,12 @@
+# New `v0.4`
+Completely new overhaul of the existing API. Now allows for both "inplace" and 
+"out-of-place" methods that work with StaticArrays. The method for differentiation 
+can be chosen at runtime. No methods are provided by default, but the `@autodiff` macro is 
+provided which implements forward automatic differentiation via [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl) and finite 
+differencing via [FiniteDiff.jl](https://github.com/JuliaDiff/FiniteDiff.jl).
+
+Support for linear models is no longer provided. This functionality is likely to appear in 
+a downstream package such as [RobotZoo.jl](https://github.com/RoboticExplorationLab/RobotZoo.jl).
 # New in v0.3
 ## `integrate` method
 Allow for more flexibility for defining discrete dynamics by using 

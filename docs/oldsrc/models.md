@@ -69,7 +69,7 @@ dynamics(model, z)
 jacobian!(∇f, model, z)
 ```
 
-We can also use `size(model)` to get `(n,m)`, `rand(model)` to get a tuple of randomly-sampled state and
+We can also use `RD.dims(model)` to get `(n,m,n)`, `rand(model)` to get a tuple of randomly-sampled state and
 control vectors, or `zeros(model)` to get 0-vectors of the state and control.
 
 ### Analytical Jacobians

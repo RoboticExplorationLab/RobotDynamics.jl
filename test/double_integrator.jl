@@ -9,7 +9,7 @@ using RobotDynamics: @autodiff, KnotPoint, getdata,
 const RD = RobotDynamics
 
 function test_model(model)
-    n,m = size(model)
+    n,m = RD.dims(model)
     xdot = zeros(n)
     x = @SVector randn(n)
     u = @SVector randn(m)
@@ -67,7 +67,7 @@ function test_model(model)
 end
 
 function test_error_allocs(model)
-    n,m = size(model)
+    n,m = RD.dims(model)
     z1 = KnotPoint(randn(model)..., 0.0, 0.1)
     z2 = KnotPoint(randn(model)..., 0.1, 0.1)
     J1 = zeros(n, n+m)

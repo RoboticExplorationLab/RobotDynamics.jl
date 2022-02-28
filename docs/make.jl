@@ -1,24 +1,45 @@
 using Documenter
 using RobotDynamics
+using FiniteDiff
+using ForwardDiff
+using StaticArrays
 
 makedocs(
     sitename = "RobotDynamics",
     format = Documenter.HTML(prettyurls = false),
     pages = [
         "Introduction" => "index.md",
-        "Getting Started" => [
-            "models.md",
-            "dynamics_evaluation.md"
+        "Dynamics Models" => [
+            "continuous.md",
+            "discrete.md",
         ],
-        "Documentation" => [
-            "discretization.md",
+        "Rotations" => [
+            # "liestate.md"
+            "rotationstate.md",
+        ],
+        "Important Types" => [
             "knotpoints.md",
-            "liemodel.md",
-            "rigidbody.md",
-            "linearmodel.md",
-            "finite_diff.md",
-            "dynamics_api.md"   
-        ]
+            "trajectories.md",
+        ],
+        "Internal API" => [
+            "functionbase.md",
+            "scalarfunction.md",
+            "autodiff.md",
+        ],
+
+        # "Getting Started" => [
+        #     "models.md",
+        #     "dynamics_evaluation.md"
+        # ],
+        # "Documentation" => [
+        #     "discretization.md",
+        #     "knotpoints.md",
+        #     "liemodel.md",
+        #     "rigidbody.md",
+        #     "linearmodel.md",
+        #     "finite_diff.md",
+        #     "dynamics_api.md"   
+        # ]
     ]
 )
 

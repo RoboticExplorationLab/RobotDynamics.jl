@@ -9,16 +9,17 @@ where `p` is the 3D position, `q` is the 3 or 4-dimension attitude representatio
 # Interface
 Any single-body system can leverage the `RigidBody` type by inheriting from it and defining the
 following interface:
+
 ```julia
-forces(::MyRigidBody, x, u)  # return the forces in the world frame
-moments(::MyRigidBody, x, u) # return the moments in the body frame
+forces(::MyRigidBody, x, u, [t])  # return the forces in the world frame
+moments(::MyRigidBody, x, u, [t]) # return the moments in the body frame
 inertia(::MyRigidBody, x, u) # return the 3x3 inertia matrix
 mass(::MyRigidBody, x, u)  # return the mass as a real scalar
 ```
 
 Instead of defining `forces` and `moments` you can define the higher-level `wrenches` function
-	wrenches(model::MyRigidbody, z::AbstractKnotPoint)
-	wrenches(model::MyRigidbody, x, u)
+
+	wrenches(model::MyRigidbody, x, u, t)
 
 # Rotation Parameterization
 A `RigidBody` model must specify the rotational representation being used. Any `Rotations.Rotation{3}`
@@ -26,13 +27,28 @@ can be used, but we suggest one of the following:
 * `UnitQuaternion`
 * `MRP`
 * `RodriguesParam`
+
+# Working with state vectors for a `RigidBody`
+Several methods are provided for working with the state vectors for a `RigidBody`.
+Also see the documentation for [`RBState`](@ref) which provides a unified representation
+for working with states for rigid bodies, which can be easily converted to and 
+from the state vector representation for the given model.
+
+- [`Base.position`](@ref)
+- [`orientation`](@ref)
+- [`linear_velocity`](@ref)
+- [`angular_velocity`](@ref)
+- [`build_state`](@ref)
+- [`parse_state`](@ref)
+- [`gen_inds`](@ref)
+- [`flipquat`](@ref)
 """
 abstract type RigidBody{R<:Rotation} <: LieGroupModel end
 
 LieState(::RigidBody{R}) where R = LieState(R, (3,6))
 
 function Base.rand(model::RigidBody{D}) where {D}
-    n,m = size(model)
+    n,m = dims(model)
     r = @SVector rand(3)
     q = rand(D)
     v = @SVector rand(3)
@@ -43,7 +59,7 @@ function Base.rand(model::RigidBody{D}) where {D}
 end
 
 function Base.zeros(model::RigidBody{D}) where D
-    n,m = size(model)
+    n,m = dims(model)
     r = @SVector zeros(3)
     q = one(D)
     v = @SVector zeros(3)
@@ -82,15 +98,20 @@ end
 @inline linear_velocity(model::RigidBody, x) = x[gen_inds(model).v]
 @inline angular_velocity(model::RigidBody, x) = x[gen_inds(model).ω]
 
-for rot in [RodriguesParam, MRP, RotMatrix, RotationVec, AngleAxis]
-    @eval orientation(model::RigidBody{<:$rot}, x::AbstractVector, renorm=false) = ($rot)(x[4],x[5],x[6])
-end
 function orientation(model::RigidBody{<:UnitQuaternion}, x::AbstractVector,
         renorm=false)
     q = UnitQuaternion(x[4],x[5],x[6],x[7], renorm)
     return q
 end
+for rot in [RodriguesParam, MRP, RotMatrix, RotationVec, AngleAxis]
+    @eval orientation(model::RigidBody{<:$rot}, x::AbstractVector, renorm=false) = ($rot)(x[4],x[5],x[6])
+end
 
+"""
+    flipquat(model, x)
+
+Flips the quaternion sign for a `RigidBody{<:UnitQuaternion}`.
+"""
 function flipquat(model::RigidBody{<:UnitQuaternion}, x)
     return @SVector [x[1], x[2], x[3], -x[4], -x[5], -x[6], -x[7],
         x[8], x[9], x[10], x[11], x[12], x[13]]
@@ -193,8 +214,7 @@ function dynamics(model::RigidBody, x, u, t=0)
 
     r,q,v,ω = parse_state(model, x)
 
-    z = StaticKnotPoint(x, u, 0.0, t)
-    ξ = wrenches(model, z)
+    ξ = wrenches(model, x, u, t)
     F = SA[ξ[1], ξ[2], ξ[3]]  # forces in world frame
     τ = SA[ξ[4], ξ[5], ξ[6]]  # torques in body frame
     m = mass(model)
@@ -220,7 +240,7 @@ end
     xdot .= dynamics(model, x, u, t)
 end
 
-@inline wrenches(model::RigidBody, z::AbstractKnotPoint) = wrenches(model, state(z), control(z), time(z))
+# @inline wrenches(model::RigidBody, z::AbstractKnotPoint) = wrenches(model, state(z), control(z), time(z))
 function wrenches(model::RigidBody, x, u, t)
     F = forces(model, x, u, t)
     M = moments(model, x, u, t)

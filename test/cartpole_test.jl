@@ -37,7 +37,7 @@ x,u = fill(model, 10.0)
 @test u ≈ @SVector fill(10,1)
 
 
-n,m = size(model)
+n,m = RD.dims(model)
 t,dt = 0, 0.1
 F = zeros(n,n+m)
 y = zeros(n)
@@ -76,8 +76,8 @@ x0 = rand(model)[1]
 @test RD.state_diff(model, x, x0) ≈ x - x0
 @test RD.errstate_dim(model) == RD.state_dim(model)
 G = zeros(n,n)
-RD.state_diff_jacobian!(model, G, z)
+RD.errstate_jacobian!(model, G, z)
 @test G ≈ I(n)
 G .= 0
-RobotDynamics.state_diff_jacobian!(model, G, x)
+RobotDynamics.errstate_jacobian!(model, G, x)
 @test G ≈ I(n)

@@ -65,7 +65,7 @@ RobotDynamics.control_dim(::Cartpole) = 1
 
 # Create the model
 model = Cartpole()
-n,m = size(model)
+n,m = RD.dims(model)
 
 # Generate random state and control vector
 x,u = rand(model)

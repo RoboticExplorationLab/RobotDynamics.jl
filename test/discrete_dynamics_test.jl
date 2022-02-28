@@ -143,7 +143,7 @@ RD.control(z1)
 @test RD.dynamics_error(model, z2, z1) == zeros(4)
 
 # Test dynamics error jacobian
-n,m = size(model)
+n,m = RD.dims(model)
 J1 = zeros(n, n+m); J2 = copy(J1)
 y1 = zeros(n);      y2 = copy(y1)
 J10 = copy(J1);     J20 = copy(J2)

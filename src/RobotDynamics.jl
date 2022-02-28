@@ -14,6 +14,7 @@ using StaticArrays: SUnitRange
 include("utils.jl")
 include("knotpoint.jl")
 include("functionbase.jl")
+include("statevectortype.jl")
 include("scalar_function.jl")
 include("dynamics.jl")
 include("discrete_dynamics.jl")
@@ -29,6 +30,12 @@ include("rigidbody.jl")
 include("jacobian.jl")
 include("trajectories.jl")
 include("plot_recipes.jl")
+
+include("deprecate.jl")
+
+export KnotPoint
+
+const DataVector{T} = Union{Vector{T},StaticVector{<:Any,T},SubArray{T,1}}
 
 using FiniteDiff: compute_epsilon
 function FiniteDiff.finite_difference_gradient!(

@@ -274,7 +274,7 @@ function add_field_to_struct(struct_expr0::Expr, newfield::Vector{Expr}, init_fi
     if !(parent <: RobotDynamics.AbstractFunction)
         error("Type must be a sub-type of RobotDynamics.AbstractFunction")
     end
-    type_param = Symbol(inputtype(parent))
+    type_param = Symbol(datatype(parent))
 
     # Resolve the parent name in the original scope
     parent_name, loc = get_parent_name(parent_expr, mod)
@@ -489,8 +489,18 @@ function gen_jacobian(sig::StaticReturn, diff::ForwardAD, type_expr, mod)
 
     eval = GlobalRef(@__MODULE__, :evaluate)
     fun_body = quote
-        f(_z) = $eval(fun, getstate(z, _z), getcontrol(z, _z), getparams(z))
-        J .= ForwardDiff.jacobian(f, getdata(z))
+        inputtype = RobotDynamics.functioninputs(fun) 
+        function f(_x)
+            if inputtype == RobotDynamics.StateControl()
+                $eval(fun, RobotDynamics.StaticKnotPoint(z, _x))
+            else
+                $eval(fun, _x)
+            end
+        end
+        input = RobotDynamics.getinput(inputtype, z)
+        
+        J0 = ForwardDiff.jacobian(f, input)
+        J .= J0
         return nothing
     end
     Expr(:function, callsig, fun_body)
@@ -503,8 +513,16 @@ function gen_jacobian(sig::InPlace, diff::ForwardAD, type_expr, mod)
 
     eval = GlobalRef(@__MODULE__, :(evaluate!))
     fun_body = quote
-        f!(_y,_z) = $eval(fun, _y, getstate(z, _z), getcontrol(z, _z), getparams(z))
-        ForwardDiff.jacobian!(J, f!, y, getdata(z), fun.cfg)
+        inputtype = RobotDynamics.functioninputs(fun)
+        function f!(_y,_x)
+            if inputtype == RobotDynamics.StateControl()
+                $eval(fun, _y, RobotDynamics.StaticKnotPoint(z, _x))
+            else
+                $eval(fun, _y, _x)
+            end
+        end
+        input = RobotDynamics.getinput(inputtype, z)
+        ForwardDiff.jacobian!(J, f!, y, input, fun.cfg)
         return nothing
     end
     jacfun = Expr(:function, callsig, fun_body)
@@ -581,7 +599,7 @@ function init_cfg(outname, fieldname, type_param, callfun)
         ] 
     end
     quote
-        _n = RobotDynamics.state_dim($outname) + RobotDynamics.control_dim($outname)
+        _n = RobotDynamics.input_dim($outname)
         _m = RobotDynamics.output_dim($outname)
         $(init...)
         $outname = $callfun
@@ -600,7 +618,7 @@ function modify_struct_def(::ForwardAD, struct_expr::Expr, mod, is_scalar_fun)
     pname = :JCH
     parent_name = get_struct_parent(struct_expr)
     parent = mod.eval(parent_name)
-    type_param = Symbol(inputtype(parent))
+    type_param = Symbol(datatype(parent))
     if is_scalar_fun
         newfield = [
             :(gradcfg::ForwardDiff.GradientConfig{Nothing, Float64, JCH, Vector{ForwardDiff.Dual{Nothing, Float64, JCH}}})
@@ -629,8 +647,16 @@ function gen_jacobian(sig::StaticReturn, diff::FiniteDifference, type_expr, mod)
 
     eval = GlobalRef(@__MODULE__, :evaluate)
     fun_body = quote
-        f!(_y,_z) = _y .= $eval(fun, getstate(z, _z), getcontrol(z, _z), getparams(z))
-        FiniteDiff.finite_difference_jacobian!(J, f!, getdata(z), fun.cache)
+        inputtype = RobotDynamics.functioninputs(fun)
+        function f!(_y,_x)
+            if inputtype == RobotDynamics.StateControl()
+                _y .= $eval(fun, RobotDynamics.StaticKnotPoint(z, _x))
+            else
+                _y .= $eval(fun, _x)
+            end
+        end
+        input = RobotDynamics.getinput(inputtype, z)
+        FiniteDiff.finite_difference_jacobian!(J, f!, input, fun.cache)
         return nothing
     end
     Expr(:function, callsig, fun_body)
@@ -643,8 +669,16 @@ function gen_jacobian(sig::InPlace, diff::FiniteDifference, type_expr, mod)
 
     eval = GlobalRef(@__MODULE__, :evaluate!)
     fun_body = quote
-        f!(_y,_z) = $eval(fun, _y, getstate(z, _z), getcontrol(z, _z), getparams(z))
-        FiniteDiff.finite_difference_jacobian!(J, f!, getdata(z), fun.cache)
+        inputtype = RobotDynamics.functioninputs(fun)
+        function f!(_y,_x)
+            if inputtype == RobotDynamics.StateControl()
+                $eval(fun, _y, RobotDynamics.StaticKnotPoint(z, _x))
+            else
+                $eval(fun, _y, _x)
+            end
+        end
+        input = RobotDynamics.getinput(inputtype, z)
+        FiniteDiff.finite_difference_jacobian!(J, f!, input, fun.cache)
         return nothing
     end
     Expr(:function, callsig, fun_body)
@@ -723,7 +757,7 @@ function init_cache(outname, fieldname, type_param, callfun)
         ]
     end
     quote
-        _n = RobotDynamics.state_dim($outname) + RobotDynamics.control_dim($outname)
+        _n = RobotDynamics.input_dim($outname)
         _m = RobotDynamics.output_dim($outname)
         $(init...)
         $outname = $callfun
@@ -736,7 +770,7 @@ function modify_struct_def(::FiniteDifference, struct_expr::Expr, mod, is_scalar
     pname = nothing 
     parent_name = get_struct_parent(struct_expr)
     parent = mod.eval(parent_name)
-    type_param = Symbol(inputtype(parent))
+    type_param = Symbol(datatype(parent))
     if is_scalar_fun
         newfield = [
             :(gradcache::FiniteDiff.GradientCache{Nothing, Nothing, Nothing, Vector{Float64}, Val{:forward}(), Float64, Val{true}()})

@@ -140,7 +140,7 @@ xdot = RBState(xdot)
 x_ = RBState(x)
 @test position(xdot) ≈ linear_velocity(x_)
 @test Rotations.params(orientation(xdot)) ≈ Rotations.kinematics(orientation(x_), angular_velocity(x_))
-ξ = RobotDynamics.wrenches(model, z)
+ξ = RobotDynamics.wrenches(model, state(z), control(z), 0.0)
 F = ξ[SA[1,2,3]]
 T = ξ[SA[4,5,6]]
 @test linear_velocity(xdot) ≈ F/mass(model)

@@ -2,7 +2,7 @@ using RobotDynamics: orientation
 
 # Set up model
 model = Body{UnitQuaternion{Float64}}()
-@test size(model) == (13, 6, 13)
+@test RD.dims(model) == (13, 6, 13)
 x, u = rand(model)
 t, dt = 0, 0.1
 z = RD.KnotPoint(x, u, t, dt)
@@ -72,14 +72,14 @@ dx = RobotDynamics.state_diff(model, x, x0)
 G0 = Rotations.∇differential(q)
 G = zeros(RD.state_dim(model), RobotDynamics.errstate_dim(model))
 @test size(G) == (13, 12)
-RD.state_diff_jacobian!(model, G, z)
+RD.errstate_jacobian!(model, G, z)
 @test G ≈ cat(I(3), G0, I(6), dims = (1, 2))
 
 b = @SVector rand(13)
 ∇G0 = Rotations.∇²differential(q, b[SA[4, 5, 6, 7]])
 ∇G = zeros(RD.errstate_dim(model), RD.errstate_dim(model))
 @test size(∇G) == (12, 12)
-RobotDynamics.∇²differential!(model, ∇G, x, b)
+RobotDynamics.∇errstate_jacobian!(model, ∇G, x, b)
 @test ∇G ≈ cat(zeros(3, 3), ∇G0, zeros(6, 6), dims = (1, 2))
 
 # @btime RobotDynamics.state_diff_jacobian!($G, $model, $z)

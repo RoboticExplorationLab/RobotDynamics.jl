@@ -23,7 +23,7 @@ end
     xguide --> "time (s)"
     yguide --> "states"
     label --> reshape(default_labels[inds], 1, :)
-    gettimes(Z), (hcat(Vector.(get_data(Z))...)[inds,:])'
+    gettimes(Z), (hcat(Vector.(getdata(Z))...)[inds,:])'
 end
 
 """
