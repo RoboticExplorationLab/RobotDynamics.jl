@@ -7,16 +7,53 @@ forced dynamical system with `n` states and `m` controls.
 # Interface
 All instances of `AbstractKnotPoint` should support the following methods:
 
-	state_dim(z)::Integer         # state vector dimension
-	control_dim(z)::Integer       # control vector dimension
-	getparams(z)                  # arbitrary parameters, usually the time and time step 
-	getdata(z)::V                 # the underlying vector
+| **Required methods**  |    | **Brief description**  |
+|:--------------------- |:-- |:---------------------- |
+| `state_dim(z)` | | State vector dimension |
+| `control_dim(z)` | | Control vector dimension |
+| `get_data(z)::V` | | Get the vector of concatenated states and controls |
+| **Optional Methods** | **Default definition** | **Brief description** | 
+| `time(z)` | `z.t` | Get the time |
+| `timestep(z)` | `z.dt` | Get the time step |
+| `settime!(z, t)` | `z.t = t` | Set the time |
+| `settimestep!(z, dt)` | `z.dt = dt` | Set the time step |
+| `is_terminal(z)` | `timestep(z) === zero(datatype(z))` |
+
+# Methods
+Given the above interface, the following methods are defined for an `AbstractKnotPoint`:
+
+* `dims(z)`
+* [`getstate`](@ref)
+* [`getcontrol`](@ref)
+* [`state`](@ref)
+* [`control`](@ref)
+* [`state`](@ref)
+* [`setdata!`](@ref)
+* [`setstate!`](@ref)
+* [`setcontrol!`](@ref)
+* [`is_terminal`](@ref)
+* [`datatype`](@ref)
+* [`vectype`](@ref)
 """
 abstract type AbstractKnotPoint{Nx,Nu,V,T} <: AbstractVector{T} end
 
 dims(z::AbstractKnotPoint) = (state_dim(z), control_dim(z))
+
+"""
+    getstate(z, v)
+
+Extract the state vector from a vector `v`. Returns a view into the matrix by default, 
+or an `SVector` if the knot point uses `SVector`s.
+"""
 getstate(z::AbstractKnotPoint, v) = view(v, 1:state_dim(z))
 
+"""
+    getcontrol(z, v)
+
+Extract the state vector from a vector `v`. Returns a view into the matrix by default, 
+or an `SVector` if the knot point uses `SVector`s. If the knot point is a terminal 
+knot point, it will return an empty view or an `SVector` of zeros.
+"""
 function getcontrol(z::AbstractKnotPoint, v)
     if is_terminal(z)
         return view(v, length(v):length(v)-1)
@@ -29,21 +66,76 @@ end
 getstate(z::AbstractKnotPoint{Nx,Nu,<:SVector}, v) where {Nx,Nu} = v[SVector{Nx}(1:Nx)]
 getcontrol(z::AbstractKnotPoint{Nx,Nu,<:SVector}, v) where {Nx,Nu} = !is_terminal(z) * v[SVector{Nu}(Nx+1:Nx+Nu)]
 
+"""
+    state(z)
+
+Get the state vector. Returns either a view or an `SVector`.
+"""
 state(z::AbstractKnotPoint) = getstate(z, getdata(z))
+
+"""
+    control(z)
+
+Get the control vector. Returns either a view of an `SVector`. For a terminal knot point
+it will return an empty view or an `SVector` of zeros.
+"""
 control(z::AbstractKnotPoint) = getcontrol(z, getdata(z))
 
+"""
+    setdata!(z, v)
+
+Set the data vector, or the concatenated vector of states and controls.
+"""
 setdata!(z::AbstractKnotPoint, v) = z.z .= v
 setdata!(z::AbstractKnotPoint{<:Any,<:Any,<:SVector}, v) = z.z = v
 
+"""
+    setstate!(z, x)
+
+Set the state vector for an [`AbstractKnotPoint`](@ref).
+"""
 setstate!(z::AbstractKnotPoint, x) = state(z) .= x
-setcontrol!(z::AbstractKnotPoint, u) = control(z) .= u
 setstate!(z::AbstractKnotPoint{Nx,<:Any,<:SVector}, x) where Nx = setdata!(z, [SVector{Nx}(x); control(z)])
+
+"""
+    setcontrol!(z, x)
+
+Set the control vector for an [`AbstractKnotPoint`](@ref).
+"""
+setcontrol!(z::AbstractKnotPoint, u) = control(z) .= u
 setcontrol!(z::AbstractKnotPoint{<:Any,Nu,<:SVector}, u) where Nu = setdata!(z, [state(z); SVector{Nu}(u)])
+
+settime!(z::AbstractKnotPoint, t) = z.t = t
+settimestep!(z::AbstractKnotPoint, dt) = z.dt = dt
 
 time(z::AbstractKnotPoint) = getparams(z).t 
 timestep(z::AbstractKnotPoint) = getparams(z).dt 
 
-is_terminal(z::AbstractKnotPoint) = getparams(z).dt ≈ 0.0 
+"""
+    is_terminal(z)
+
+Determines if the knot point `z` is a terminal knot point with no 
+controls, only state information. By default a knot point is assumed to be a 
+terminal knot point if the time step is zero. By convention, if the last 
+knot point has control values assigned (for example, when doing first-order 
+hold on the controls), the final time step is set to infinity instead of zero.
+"""
+is_terminal(z::AbstractKnotPoint) = timestep(z) === zero(datatype(z))
+
+"""
+    datatype(x)
+
+Get the numeric data type used by the object `x`. Typically a floating point data type.
+"""
+datatype(z::AbstractKnotPoint{<:Any,<:Any,<:Any,T}) where T = T
+
+"""
+    vectype(x)
+
+Get the vector type used by the object `x`. Used to allow either static or 
+dynamic arrays in structs such as [`AbstractKnotPoint`](@ref).
+"""
+vectype(z::AbstractKnotPoint{<:Any,<:Any,V}) where V = V
 
 # Array interface
 Base.size(z::AbstractKnotPoint) = (state_dim(z) + control_dim(z), )
@@ -136,3 +228,46 @@ setcontrol(z::StaticKnotPoint, u) = setdata(z, [state(z); u])
 function Base.:*(c::Real, z::KP) where {KP<:AbstractKnotPoint}
     KP(getdata(z)*c, getparams(z)...)
 end
+
+"""
+    KnotPoint{Nx,Nu,V,T}
+
+A mutable [`AbstractKnotPoint`](@ref) with `Nx` states, `Nu` controls, stored using 
+a vector type `V` with data type `T`. Since the struct is mutable, the time, timestep, 
+and data can all be changed, which can be very efficient when the data being stored 
+as an `SVector`.
+
+# Constructors
+
+    KnotPoint{n,m}(v, t, dt)
+    KnotPoint{n,m}(x, u, t, dt)
+    KnotPoint{n,m}(n, m, v, t, dt) 
+    KnotPoint(n, m, v, t, dt)       # create a KnotPoint{Any,Any}
+    KnotPoint(x, u, t, dt)
+
+The last method will create a `KnotPoint{Any,Any}` if `x` and `u` are not `StaticVector`s.
+
+The vector type `V` can be queried using `vectype(z)`.
+"""
+KnotPoint
+
+"""
+    StaticKnotPoint
+
+A static version of [`KnotPoint`](@ref). Uses all of the same methods and constructors, 
+but also adds the following methods:
+
+    StaticKnotPoint(z, v)
+
+which creates a new `StaticKnotPoint` using the information from the `AbstractKnotPoint` z,
+but using data from `v`. Useful for creating temporary knot points from existing ones 
+without any runtime allocations.
+
+The following methods are similar to their mutable versions, but create a new 
+`StaticKnotPoint`:
+
+    setdata
+    setstate
+    setcontrol
+"""
+StaticKnotPoint

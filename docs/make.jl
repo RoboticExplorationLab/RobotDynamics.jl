@@ -13,7 +13,11 @@ makedocs(
             "continuous.md",
             "discrete.md",
         ],
+        "Important Types" => [
+            "knotpoints.md",
+        ],
         "Function Base" => "functionbase.md",
+
         # "Getting Started" => [
         #     "models.md",
         #     "dynamics_evaluation.md"
