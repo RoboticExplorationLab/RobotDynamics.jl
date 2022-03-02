@@ -144,5 +144,12 @@ the state vector space. The vector ``\\bar{x}`` is some element of the state spa
 errstate_dim(::EuclideanState, fun::AbstractFunction) = state_dim(fun)
 state_diff!(::EuclideanState, fun::AbstractFunction, dx, x, x0) = dx .= x .- x0
 state_diff(::EuclideanState, fun::AbstractFunction, x, x0) = x - x0
-errstate_jacobian!(::EuclideanState, fun::AbstractFunction, J, x) = J .= I(state_dim(fun))
 ∇errstate_jacobian!(::EuclideanState, fun::AbstractFunction, ∇G, x, dx) = ∇G .= 0
+
+function errstate_jacobian!(::EuclideanState, fun::AbstractFunction, J, x)
+    J .= 0
+    for i = 1:size(J,1)
+        J[i,i] = one(eltype(J))
+    end
+    return nothing
+end
