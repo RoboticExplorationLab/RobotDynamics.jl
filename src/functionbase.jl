@@ -139,6 +139,24 @@ The following three options are provided:
 * `StateControl`: a function of the form ``y = f(x,u)`` (default)
 * `StateOnly`: a function of the form ``y = f(x)``
 * `ControlOnly`: a function of the form ``y = f(u)``
+
+When defining methods for these functions, you need to disambiguate methods of the form
+    
+    evaluate(fun::AbstractFunction, z::AbstractKnotPoint)
+
+from 
+
+    evaluate(fun::MyStateOnlyFunction, x)
+
+It's not enough to annotate `x` as an `AbstractVector` because 
+`AbstractKnotPoint <: AbstractVector`. For most cases, the `RobotDynamics.DataVector` 
+type should be sufficient to accomplish this. For `StateOnly` or `ControlOnly` functions, 
+your methods should look like:
+
+    evaluate(fun::MyFunction, x::RobotDynamics.DataVector)
+    evaluate!(fun::MyFunction, y, x::RobotDynamics.DataVector)
+    jacobian!(fun::MyFunction, J, y, x::RobotDynamics.DataVector)
+
 """
 abstract type FunctionInputs end
 struct StateOnly <: FunctionInputs end
