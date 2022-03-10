@@ -107,6 +107,14 @@ abstract type DiffMethod end
 struct ForwardAD <: DiffMethod end
 struct FiniteDifference <: DiffMethod end
 struct UserDefined <: DiffMethod end
+struct ImplicitFunctionTheorem{D<:DiffMethod} <: DiffMethod
+    function ImplicitFunctionTheorem(diff::D) where D <: DiffMethod
+        if D <: ImplicitFunctionTheorem
+            throw(ArgumentError("DiffMethod for ImplicitFunctionTheorem cannot also be ImplicitFunctionTheorem."))
+        end
+        new{D}()
+    end
+end
 default_diffmethod(::AbstractFunction) = UserDefined()
 default_signature(::AbstractFunction) = StaticReturn()
 

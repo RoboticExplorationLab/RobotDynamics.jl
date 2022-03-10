@@ -65,7 +65,7 @@ function newton_solve(z1)
     return xn
 end
 x2 = newton_solve(z1)
-norm(midpoint_residual(x2, z1)) < 1e-6
+@test norm(midpoint_residual(x2, z1)) < 1e-6
 
 # Test in-place evaluation
 x2_inplace = copy(x1)
@@ -73,15 +73,42 @@ RD.evaluate!(dmodel, x2_inplace, z1)
 @test norm(midpoint_residual(x2_inplace, z1)) < 1e-6
 
 # Test static evaluation
-x2_static = RD.evaluate(dmodel, z1)
 z1s = KnotPoint(SVector{n}(x1), SVector{m}(u1), z1.t, z1.dt)
+x2_static = RD.evaluate(dmodel, z1s)
 @test norm(midpoint_residual(x2_static, z1s)) < 1e-6
 
+# Test Jacobian
+function fimplicit(v)
+    z = RD.StaticKnotPoint(z1, v) 
+    RD.evaluate(dmodel, z)
+end
+Jfd = FiniteDiff.finite_difference_jacobian(fimplicit, RD.getdata(z1))
+J = zeros(n, n+m)
+y = zeros(n)
+ENV["JULIA_DEBUG"] = "RobotDynamics"
+diff = RD.default_diffmethod(dmodel)
+@test diff isa RD.ImplicitFunctionTheorem
+@test diff === RD.ImplicitFunctionTheorem(RD.UserDefined())
+
+z1.z .+= 1
+@test_logs (:debug, r"Solving for next") RD.jacobian!(RD.InPlace(), diff, dmodel, J, y, z1)
+@test_logs (:debug, r"Using cached") RD.jacobian!(RD.InPlace(), diff, dmodel, J, y, z1)
+RD.setdata!(z1s, z1.z .+ 1)
+@test_logs (:debug, r"Solving for next") RD.jacobian!(RD.InPlace(), diff, dmodel, J, y, z1s)
+@test_logs (:debug, r"Using cached") RD.jacobian!(RD.StaticReturn(), diff, dmodel, J, y, z1s)
+
+ENV["JULIA_DEBUG"] = ""
 function test_allocs(dmodel, z::RD.AbstractKnotPoint{Nx,Nu}) where {Nx,Nu}
     zs = KnotPoint{Nx,Nu}(SVector{Nx+Nu}(RD.getdata(z)), z.t, z.dt)
     x2 = zeros(RD.state_dim(dmodel))
     allocs = @allocated RD.evaluate!(dmodel, x2, z1)
     allocs += @allocated RD.evaluate(dmodel, zs)
+    J = zeros(Nx, Nx + Nu)
+    y = zeros(Nx)
+    diff = RD.default_diffmethod(dmodel)
+    allocs += @allocated RD.jacobian!(RD.StaticReturn(), diff, dmodel, J, y, zs)
+    allocs += @allocated RD.jacobian!(RD.InPlace(), diff, dmodel, J, y, z)
     return allocs
 end
+test_allocs(dmodel, z1)  # run once to compile non-logging versions
 @test test_allocs(dmodel, z1) == 0

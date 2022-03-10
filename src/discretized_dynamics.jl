@@ -119,8 +119,6 @@ function DiscretizedDynamics{Q}(
     DiscretizedDynamics(continuous_dynamics, Q(n, m))
 end
 
-const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit}
-
 for method in (:state_dim, :control_dim, :output_dim, :errstate_dim, :statevectortype, 
                :functioninputs)
     @eval $method(model::DiscretizedDynamics) = $method(model.continuous_dynamics)
@@ -150,6 +148,10 @@ jacobian!(sig::FunctionSignature, ::UserDefined, model::DiscretizedDynamics, J, 
 # Implicit Dynamics
 ########################################
 
+const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit}
+default_diffmethod(model::ImplicitDynamicsModel) = 
+    ImplicitFunctionTheorem(default_diffmethod(model.continuous_dynamics))
+
 # TODO: [#19] overwrite `evaluate` to solve for the next state using Newton
 # TODO: [#19] overwrite `jacobian` to provide A,B using implicit function theorem
 function evaluate(model::ImplicitDynamicsModel, z::AbstractKnotPoint{Nx}) where Nx
@@ -168,6 +170,7 @@ function evaluate(model::ImplicitDynamicsModel, z::AbstractKnotPoint{Nx}) where 
     xn = state(z2)
     ix = SVector{Nx}(1:Nx) 
 
+    diff = default_diffmethod(model.continuous_dynamics)
     for iter = 1:newton_iters
         # Set the guess for the next state
         z2 = setstate(z2, xn)
@@ -180,7 +183,7 @@ function evaluate(model::ImplicitDynamicsModel, z::AbstractKnotPoint{Nx}) where 
         end
 
         # Calculate the Jacobian wrt x2
-        dynamics_error_jacobian!(integrator, StaticReturn(), model.continuous_dynamics, 
+        dynamics_error_jacobian!(StaticReturn(), diff, model, 
                                  J2, J1, y2, y1, z2, z1)
         A = J2[ix, ix] 
 
@@ -188,6 +191,7 @@ function evaluate(model::ImplicitDynamicsModel, z::AbstractKnotPoint{Nx}) where 
         dx = A \ r
         xn -= dx
     end
+    setdata!(integrator.z2, getdata(z))  # copy input into cache for Jacobian check
     return xn
 end
 
@@ -206,6 +210,7 @@ function evaluate!(model::ImplicitDynamicsModel, xn, z::AbstractKnotPoint)
     z2 = integrator.z2
     ipiv = integrator.ipiv
     copyto!(z2, z1)
+    diff = default_diffmethod(model.continuous_dynamics)
     for iter = 1:newton_iters
         # Set the guess for the next state
         setstate!(z2, xn)
@@ -218,7 +223,7 @@ function evaluate!(model::ImplicitDynamicsModel, xn, z::AbstractKnotPoint)
         end
 
         # Calculate the Jacobian wrt x2
-        dynamics_error_jacobian!(integrator, InPlace(), model.continuous_dynamics, J2, J1, r, dx, z2, z1)
+        dynamics_error_jacobian!(InPlace(), diff, model, J2, J1, r, dx, z2, z1)
         A = @view J2[:, 1:n]
 
         # Get the step
@@ -229,6 +234,54 @@ function evaluate!(model::ImplicitDynamicsModel, xn, z::AbstractKnotPoint)
         # Apply the step
         xn .-= dx
     end
+    setdata!(integrator.z2, getdata(z))  # copy input to cache for Jacobian check
+end
+
+function jacobian!(sig::StaticReturn, diff::ImplicitFunctionTheorem, model::ImplicitDynamicsModel, 
+                   J, y, z::AbstractKnotPoint{Nx,Nu}) where {Nx,Nu}
+    integrator = integration(model)
+    J2 = integrator.J2 
+    J1 = integrator.J1
+    ix = SVector{Nx}(1:Nx)
+
+    # Update Jacobian
+    aresame = maxdiff(integrator.z2, z) < √eps()
+    if !aresame
+        @debug "Solving for next state to get Jacobian using IFT."
+        evaluate(model, z)
+    else
+        @debug "Using cached Jacobians"
+    end
+    A2 = J2[ix,ix]
+    Jstatic = SMatrix{Nx,Nx+Nu}(J1)
+    F = lu(A2)    # TODO: use cached factorization
+    J .= F \ Jstatic
+    J .*= -1
+    return
+end
+
+function jacobian!(sig::InPlace, diff::ImplicitFunctionTheorem, model::ImplicitDynamicsModel, 
+                   J, y, z::AbstractKnotPoint)
+    integrator = integration(model)
+    J2 = integrator.J2 
+    J1 = integrator.J1
+    ipiv = integrator.ipiv
+    n,m = dims(z)
+
+    # Update Jacobian
+    aresame = maxdiff(integrator.z2, z) < √eps()
+    if !aresame
+        @debug "Solving for next state to get Jacobian using IFT."
+        evaluate!(model, y, z)
+    else
+        @debug "Using cached Jacobians"
+    end
+    A2 = @view J2[:,1:n] 
+    F = lu!(A2, ipiv)    # TODO: use cached factorization
+    J .= J1
+    J .*= -1
+    ldiv!(F, J)
+    return
 end
 
 dynamics_error(

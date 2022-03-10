@@ -7,6 +7,20 @@ function Base.showerror(io::IO, err::NotImplementedError)
     print(io, err.msg)
 end
 
+"""
+    maxdiff(a, b)
+
+Get the maximum difference between vectors. Equivalent to the infinity norm of the 
+difference, but avoids forming the temporary difference vector.
+"""
+function maxdiff(a, b)
+    err = -Inf
+    for i = min(length(a), length(b))
+        err = max(err, abs(a[i] - b[i]))
+    end
+    return err
+end
+
 # Add non-allocating lu! method that allows you to pass in the pivot vector
 using LinearAlgebra: BlasFloat, BlasInt
 using LinearAlgebra.BLAS: @blasfunc
