@@ -208,6 +208,14 @@ function jacobian!(sig::FunctionSignature, ::ImplicitFunctionTheorem{D}, model::
     jacobian!(integration(model), sig, D(), model, J, xn, z)
 end
 
+for sig in (:InPlace, :StaticReturn), diff in (:ForwardAD, :FiniteDifference, :UserDefined)
+    @eval begin
+        function jacobian!(::$sig, ::$diff, ::ImplicitDynamicsModel, J, xn, z)
+            throw(ArgumentError("Must call jacobian! on an ImplicitDynamicsModel with the ImplicitFunctionTheorem diff method. Got $($diff)."))
+        end
+    end
+end
+
 default_diffmethod(model::ImplicitDynamicsModel) = 
     ImplicitFunctionTheorem(default_diffmethod(model.continuous_dynamics))
 

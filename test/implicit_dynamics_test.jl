@@ -120,6 +120,11 @@ for i = 1:4
     @test norm(Jfd - J) < 1e-4
 end
 
+@test_throws ArgumentError RD.jacobian!(RD.InPlace(), RD.ForwardAD(), dmodel, J, y, z1)
+@test_throws ArgumentError RD.jacobian!(RD.StaticReturn(), RD.ForwardAD(), dmodel, J, y, z1)
+@test_throws ArgumentError RD.jacobian!(RD.StaticReturn(), RD.UserDefined(), dmodel, J, y, z1)
+@test_throws ArgumentError RD.jacobian!(RD.InPlace(), RD.FiniteDifference(), dmodel, J, y, z1)
+
 ENV["JULIA_DEBUG"] = "RobotDynamics"
 z1.z .+= 1
 @test_logs (:debug, r"Solving for next") RD.jacobian!(RD.InPlace(), diff, dmodel, J, y, z1)
