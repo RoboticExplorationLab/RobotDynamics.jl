@@ -26,6 +26,7 @@ end
     end
     @testset "Integration" begin
         include("integration_tests.jl")
+        include("implicit_dynamics_test.jl")
     end
     @testset "KnotPoints" begin
         include("knotpoints.jl")

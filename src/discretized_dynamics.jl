@@ -64,6 +64,11 @@ the output should be stored in the `y2` vector. For the Jacobian method, `J2`
 holds the Jacobian with respect to the state and control of `z2` (the knot point 
 at the next time step) and `J1` holds the Jacobian with respect to the state 
 and control of `z1` (the knot point at the current time step).
+
+## Treating an Implicit method as an Explicit method
+Implicit methods can be treated as an explicit integrator. In addition to the the 
+methods above that evaluate the dynamics error residual for the integrator, they 
+overload `evaluate`
 """
 abstract type Implicit <: QuadratureRule end
 
@@ -101,6 +106,9 @@ a `DiscretizedDynamics` model will use the chain rule with analytical Jacobians 
 the integrator. If the user wants to use a combination of ForwardDiff (or any other 
 differentiation method, for that matter) with the integrator, they are free to define their 
 own [`DiffMethod`](@ref) to dispatch on.
+
+## Implicit Dynamics
+
 """
 @autodiff struct DiscretizedDynamics{L,Q} <: DiscreteDynamics
     continuous_dynamics::L
@@ -147,142 +155,22 @@ jacobian!(sig::FunctionSignature, ::UserDefined, model::DiscretizedDynamics, J, 
 ########################################
 # Implicit Dynamics
 ########################################
-
 const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit}
+
+discrete_dynamics(model::ImplicitDynamicsModel, z::AbstractKnotPoint) =
+    integrate(integration(model), model, z)
+discrete_dynamics!(model::ImplicitDynamicsModel, xn, z::AbstractKnotPoint) =
+    integrate!(integration(model), model, xn, z)
+
+function jacobian!(sig::FunctionSignature, ::ImplicitFunctionTheorem{D}, model::ImplicitDynamicsModel, J, xn, z) where D
+    jacobian!(integration(model), sig, D(), model, J, xn, z)
+end
+
 default_diffmethod(model::ImplicitDynamicsModel) = 
     ImplicitFunctionTheorem(default_diffmethod(model.continuous_dynamics))
 
 # TODO: [#19] overwrite `evaluate` to solve for the next state using Newton
 # TODO: [#19] overwrite `jacobian` to provide A,B using implicit function theorem
-function evaluate(model::ImplicitDynamicsModel, z::AbstractKnotPoint{Nx}) where Nx
-    # TODO: get these from some options
-    newton_iters = 10
-    tol = 1e-6
-
-    z1 = z
-    n,m = dims(z)
-    integrator = integration(model)
-    J2 = integrator.J2
-    J1 = integrator.J1
-    y2 = integrator.y2
-    y1 = integrator.y1
-    z2 = StaticKnotPoint(z)
-    xn = state(z2)
-    ix = SVector{Nx}(1:Nx) 
-
-    diff = default_diffmethod(model.continuous_dynamics)
-    for iter = 1:newton_iters
-        # Set the guess for the next state
-        z2 = setstate(z2, xn)
-
-        # Calculate the residual
-        r = dynamics_error(integrator, model.continuous_dynamics, z2, z1)
-
-        if norm(r) < tol
-            break
-        end
-
-        # Calculate the Jacobian wrt x2
-        dynamics_error_jacobian!(StaticReturn(), diff, model, 
-                                 J2, J1, y2, y1, z2, z1)
-        A = J2[ix, ix] 
-
-        # Get the step
-        dx = A \ r
-        xn -= dx
-    end
-    setdata!(integrator.z2, getdata(z))  # copy input into cache for Jacobian check
-    return xn
-end
-
-function evaluate!(model::ImplicitDynamicsModel, xn, z::AbstractKnotPoint)
-    # TODO: get these from some options
-    newton_iters = 10
-    tol = 1e-6
-
-    z1 = z
-    n,m = dims(z)
-    integrator = integration(model)
-    J2 = integrator.J2
-    J1 = integrator.J1
-    r = integrator.y2
-    dx = integrator.y1
-    z2 = integrator.z2
-    ipiv = integrator.ipiv
-    copyto!(z2, z1)
-    diff = default_diffmethod(model.continuous_dynamics)
-    for iter = 1:newton_iters
-        # Set the guess for the next state
-        setstate!(z2, xn)
-
-        # Calculate the residual
-        dynamics_error!(integrator, model.continuous_dynamics, r, dx, z2, z1)
-
-        if norm(r) < tol
-            break
-        end
-
-        # Calculate the Jacobian wrt x2
-        dynamics_error_jacobian!(InPlace(), diff, model, J2, J1, r, dx, z2, z1)
-        A = @view J2[:, 1:n]
-
-        # Get the step
-        dx .= r
-        F = lu!(A, ipiv)
-        ldiv!(F, dx)
-
-        # Apply the step
-        xn .-= dx
-    end
-    setdata!(integrator.z2, getdata(z))  # copy input to cache for Jacobian check
-end
-
-function jacobian!(sig::StaticReturn, diff::ImplicitFunctionTheorem, model::ImplicitDynamicsModel, 
-                   J, y, z::AbstractKnotPoint{Nx,Nu}) where {Nx,Nu}
-    integrator = integration(model)
-    J2 = integrator.J2 
-    J1 = integrator.J1
-    ix = SVector{Nx}(1:Nx)
-
-    # Update Jacobian
-    aresame = maxdiff(integrator.z2, z) < √eps()
-    if !aresame
-        @debug "Solving for next state to get Jacobian using IFT."
-        evaluate(model, z)
-    else
-        @debug "Using cached Jacobians"
-    end
-    A2 = J2[ix,ix]
-    Jstatic = SMatrix{Nx,Nx+Nu}(J1)
-    F = lu(A2)    # TODO: use cached factorization
-    J .= F \ Jstatic
-    J .*= -1
-    return
-end
-
-function jacobian!(sig::InPlace, diff::ImplicitFunctionTheorem, model::ImplicitDynamicsModel, 
-                   J, y, z::AbstractKnotPoint)
-    integrator = integration(model)
-    J2 = integrator.J2 
-    J1 = integrator.J1
-    ipiv = integrator.ipiv
-    n,m = dims(z)
-
-    # Update Jacobian
-    aresame = maxdiff(integrator.z2, z) < √eps()
-    if !aresame
-        @debug "Solving for next state to get Jacobian using IFT."
-        evaluate!(model, y, z)
-    else
-        @debug "Using cached Jacobians"
-    end
-    A2 = @view J2[:,1:n] 
-    F = lu!(A2, ipiv)    # TODO: use cached factorization
-    J .= J1
-    J .*= -1
-    ldiv!(F, J)
-    return
-end
 
 dynamics_error(
     model::ImplicitDynamicsModel,

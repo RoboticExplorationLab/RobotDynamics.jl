@@ -10,7 +10,7 @@ const RD = RobotDynamics
 
 include("cartpole_model.jl")
 
-##
+## Test the custom LU method
 function testcustomlu()
     n,m = 4,2
     J1 = randn(n, n+m)
@@ -47,15 +47,15 @@ function midpoint_residual(x2, z1)
     RD.dynamics_error(dmodel, z2, z1)
 end
 
-function newton_solve(z1)
-    n,m = RD.dims(z1)
-    r(xn) = midpoint_residual(xn, z1)
+function newton_solve(v)
+    z = RD.StaticKnotPoint(z1, v)
+    n,m = RD.dims(z)
+    r(xn) = midpoint_residual(xn, z)
 
-    xn = copy(RD.state(z1))
+    xn = copy(RD.state(z))
     for i = 1:10
         res = r(xn)
-        if norm(res) < 1e-6
-            println("Converged in $i iterations.")
+        if norm(res) < 1e-10
             break
         end
 
@@ -64,51 +64,89 @@ function newton_solve(z1)
     end
     return xn
 end
-x2 = newton_solve(z1)
+x2 = newton_solve(RD.getdata(z1))
 @test norm(midpoint_residual(x2, z1)) < 1e-6
 
 # Test in-place evaluation
 x2_inplace = copy(x1)
+RD.discrete_dynamics!(dmodel, x2_inplace, z1)
+@test norm(midpoint_residual(x2_inplace, z1)) < 1e-6
 RD.evaluate!(dmodel, x2_inplace, z1)
 @test norm(midpoint_residual(x2_inplace, z1)) < 1e-6
 
+
 # Test static evaluation
+x1 = [1,pi,1.3,1.1]
+z1 = KnotPoint{n,m}(x1, u1, 0.0, dt)
 z1s = KnotPoint(SVector{n}(x1), SVector{m}(u1), z1.t, z1.dt)
+x2_static = RD.discrete_dynamics(dmodel, z1s)
+@test norm(midpoint_residual(x2_static, z1s)) < 1e-6
 x2_static = RD.evaluate(dmodel, z1s)
 @test norm(midpoint_residual(x2_static, z1s)) < 1e-6
 
 # Test Jacobian
-function fimplicit(v)
-    z = RD.StaticKnotPoint(z1, v) 
-    RD.evaluate(dmodel, z)
-end
-Jfd = FiniteDiff.finite_difference_jacobian(fimplicit, RD.getdata(z1))
 J = zeros(n, n+m)
 y = zeros(n)
-ENV["JULIA_DEBUG"] = "RobotDynamics"
 diff = RD.default_diffmethod(dmodel)
 @test diff isa RD.ImplicitFunctionTheorem
 @test diff === RD.ImplicitFunctionTheorem(RD.UserDefined())
 
+using Random
+Random.seed!(1)
+for i = 1:4
+    x = randn(n)
+    u = randn(m)
+    z1 = KnotPoint{n,m}(x, u, 0.0, dt)
+    Jfd = FiniteDiff.finite_difference_jacobian(newton_solve, RD.getdata(z1))
+
+    if iseven(i)
+        RD.discrete_dynamics!(dmodel, y, z1)
+    end
+    RD.jacobian!(RD.InPlace(), diff, dmodel, J, y, z1)
+    @test norm(Jfd - J) < 1e-4
+end
+
+for i = 1:4
+    x = randn(n)
+    u = randn(m)
+    z1 = KnotPoint{n,m}(x, u, 0.0, dt)
+    z1s = KnotPoint(SVector{n}(x), SVector{m}(u), z1.t, z1.dt)
+    Jfd = FiniteDiff.finite_difference_jacobian(newton_solve, RD.getdata(z1))
+
+    if iseven(i)
+        RD.discrete_dynamics(dmodel, z1s)
+    end
+    RD.jacobian!(RD.StaticReturn(), diff, dmodel, J, y, z1s)
+    @test norm(Jfd - J) < 1e-4
+end
+
+ENV["JULIA_DEBUG"] = "RobotDynamics"
 z1.z .+= 1
 @test_logs (:debug, r"Solving for next") RD.jacobian!(RD.InPlace(), diff, dmodel, J, y, z1)
 @test_logs (:debug, r"Using cached") RD.jacobian!(RD.InPlace(), diff, dmodel, J, y, z1)
 RD.setdata!(z1s, z1.z .+ 1)
-@test_logs (:debug, r"Solving for next") RD.jacobian!(RD.InPlace(), diff, dmodel, J, y, z1s)
+@test_logs (:debug, r"Solving for next") RD.jacobian!(RD.StaticReturn(), diff, dmodel, J, y, z1s)
 @test_logs (:debug, r"Using cached") RD.jacobian!(RD.StaticReturn(), diff, dmodel, J, y, z1s)
 
 ENV["JULIA_DEBUG"] = ""
-function test_allocs(dmodel, z::RD.AbstractKnotPoint{Nx,Nu}) where {Nx,Nu}
+function test_implicit_allocs(dmodel, z::RD.AbstractKnotPoint{Nx,Nu}) where {Nx,Nu}
     zs = KnotPoint{Nx,Nu}(SVector{Nx+Nu}(RD.getdata(z)), z.t, z.dt)
     x2 = zeros(RD.state_dim(dmodel))
-    allocs = @allocated RD.evaluate!(dmodel, x2, z1)
-    allocs += @allocated RD.evaluate(dmodel, zs)
     J = zeros(Nx, Nx + Nu)
     y = zeros(Nx)
     diff = RD.default_diffmethod(dmodel)
-    allocs += @allocated RD.jacobian!(RD.StaticReturn(), diff, dmodel, J, y, zs)
+    allocs = @allocated RD.discrete_dynamics!(dmodel, x2, z)
     allocs += @allocated RD.jacobian!(RD.InPlace(), diff, dmodel, J, y, z)
+
+    allocs += @allocated RD.discrete_dynamics(dmodel, zs)
+    allocs += @allocated RD.jacobian!(RD.StaticReturn(), diff, dmodel, J, y, zs)
+
+    z[1] += 1
+    allocs += @allocated RD.jacobian!(RD.InPlace(), diff, dmodel, J, y, z)
+
+    zs.z = zs.z .+ 0.2
+    allocs += @allocated RD.jacobian!(RD.StaticReturn(), diff, dmodel, J, y, zs)
     return allocs
 end
-test_allocs(dmodel, z1)  # run once to compile non-logging versions
-@test test_allocs(dmodel, z1) == 0
+test_implicit_allocs(dmodel, z1)  # run once to compile non-logging versions
+@test test_implicit_allocs(dmodel, z1) == 0

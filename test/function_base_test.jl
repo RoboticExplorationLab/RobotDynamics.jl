@@ -154,6 +154,10 @@ z_ = copy(z.z)
 @test getstate(z, z_) isa SubArray 
 @test getcontrol(z, z_) isa SubArray 
 
+RD.evaluate(fun, zs)
+y = zeros(3)
+RD.evaluate!(fun, y, z)
+
 test_fun(fun)
 
 ##############################
