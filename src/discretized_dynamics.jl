@@ -152,6 +152,45 @@ jacobian!(sig::FunctionSignature, ::UserDefined, model::DiscretizedDynamics, J, 
 
 # TODO: [#19] overwrite `evaluate` to solve for the next state using Newton
 # TODO: [#19] overwrite `jacobian` to provide A,B using implicit function theorem
+function evaluate(model::ImplicitDynamicsModel, z::AbstractKnotPoint{Nx}) where Nx
+    # TODO: get these from some options
+    newton_iters = 10
+    tol = 1e-6
+
+    z1 = z
+    n,m = dims(z)
+    integrator = integration(model)
+    J2 = integrator.J2
+    J1 = integrator.J1
+    y2 = integrator.y2
+    y1 = integrator.y1
+    z2 = StaticKnotPoint(z)
+    xn = state(z2)
+    ix = SVector{Nx}(1:Nx) 
+
+    for iter = 1:newton_iters
+        # Set the guess for the next state
+        z2 = setstate(z2, xn)
+
+        # Calculate the residual
+        r = dynamics_error(integrator, model.continuous_dynamics, z2, z1)
+
+        if norm(r) < tol
+            break
+        end
+
+        # Calculate the Jacobian wrt x2
+        dynamics_error_jacobian!(integrator, StaticReturn(), model.continuous_dynamics, 
+                                 J2, J1, y2, y1, z2, z1)
+        A = J2[ix, ix] 
+
+        # Get the step
+        dx = A \ r
+        xn -= dx
+    end
+    return xn
+end
+
 function evaluate!(model::ImplicitDynamicsModel, xn, z::AbstractKnotPoint)
     # TODO: get these from some options
     newton_iters = 10

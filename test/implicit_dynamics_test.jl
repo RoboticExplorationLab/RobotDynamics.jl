@@ -50,12 +50,6 @@ end
 function newton_solve(z1)
     n,m = RD.dims(z1)
     r(xn) = midpoint_residual(xn, z1)
-    # function r(xn)
-    #     v = zeros(eltype(xn), n+m)
-    #     z2 = RD.StaticKnotPoint(z1, v)
-    #     RD.setstate!(z2, xn)
-    #     RD.dynamics_error(integrator, model, z2, z1)
-    # ed
 
     xn = copy(RD.state(z1))
     for i = 1:10
@@ -73,13 +67,21 @@ end
 x2 = newton_solve(z1)
 norm(midpoint_residual(x2, z1)) < 1e-6
 
-# Try in-place evaluation
-x2_midpoint = copy(x1)
-RD.evaluate!(dmodel, x2_midpoint, z1)
-@test norm(midpoint_residual(x2_midpoint, z1)) < 1e-6
+# Test in-place evaluation
+x2_inplace = copy(x1)
+RD.evaluate!(dmodel, x2_inplace, z1)
+@test norm(midpoint_residual(x2_inplace, z1)) < 1e-6
 
-function test_allocs(dmodel, z)
+# Test static evaluation
+x2_static = RD.evaluate(dmodel, z1)
+z1s = KnotPoint(SVector{n}(x1), SVector{m}(u1), z1.t, z1.dt)
+@test norm(midpoint_residual(x2_static, z1s)) < 1e-6
+
+function test_allocs(dmodel, z::RD.AbstractKnotPoint{Nx,Nu}) where {Nx,Nu}
+    zs = KnotPoint{Nx,Nu}(SVector{Nx+Nu}(RD.getdata(z)), z.t, z.dt)
     x2 = zeros(RD.state_dim(dmodel))
-    @allocated RD.evaluate!(dmodel, x2, z1)
+    allocs = @allocated RD.evaluate!(dmodel, x2, z1)
+    allocs += @allocated RD.evaluate(dmodel, zs)
+    return allocs
 end
 @test test_allocs(dmodel, z1) == 0
