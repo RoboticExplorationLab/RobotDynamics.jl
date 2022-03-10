@@ -423,8 +423,21 @@ x_1 + h f(\\frac{1}{2}(x_1 + x_2), u_1, t + \\frac{1}{2} h) - x_2 = 0
 """
 struct ImplicitMidpoint <: Implicit
     xmid::ADVector{Float64}
+    J2::Matrix{Float64}
+    J1::Matrix{Float64}
+    y2::Vector{Float64}
+    y1::Vector{Float64}
+    z2::StaticKnotPoint{Any,Any,Vector{Float64},Float64}
+    ipiv::Vector{BlasInt}
     function ImplicitMidpoint(n::Integer, m::Integer)
-        new(ADVector{Float64}(n))
+        J2 = zeros(n,n+m)
+        J1 = zeros(n,n+m)
+        y2 = zeros(n)
+        y1 = zeros(n)
+        v = zeros(n+m)
+        z2 = StaticKnotPoint{Any,Any}(n, m, v, 0.0, NaN)
+        ipiv = zeros(BlasInt, n)
+        new(ADVector{Float64}(n), J2, J1, y2, y1, z2, ipiv)
     end
 end
 
