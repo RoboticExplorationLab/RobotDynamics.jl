@@ -68,7 +68,21 @@ and control of `z1` (the knot point at the current time step).
 ## Treating an Implicit method as an Explicit method
 Implicit methods can be treated as an explicit integrator. In addition to the the 
 methods above that evaluate the dynamics error residual for the integrator, they 
-overload `evaluate`
+overload `discrete_dynamics`, `discrete_dynamics!`, and `jacobian`. The forward simulation
+functions `discrete_dynamics` and `discrete_dynamics!` use Newton's method. The dynamics 
+Jacobians are calculated using the Implicit Function Theorem.
+
+If the state and control vector passed to `jacobian!` are the same as the last call 
+to `jacobian!`, `discrete_dynamics` or `discrete_dynamics!` the Jacobians and matrix 
+factorization from the Newton solve are used to speed up the computation. Note that 
+the factorization is only cached for `InPlace` methods, not `StaticReturn`.
+
+## Defining an Implicit Integrator
+An implicit integrator should define the signatures above for `dynamics_error` and 
+`dynamics_error_jacobian!`. If the method wants to provide the functionality of an 
+explicit integrator (as described in the previous section), it should store internally 
+a [`ImplicitNewtonCache`](@ref), which must be returned using the getter function 
+`getnewtoncache`.
 """
 abstract type Implicit <: QuadratureRule end
 
