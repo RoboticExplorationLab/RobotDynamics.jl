@@ -70,6 +70,11 @@ RD.jacobian!(RD.StaticReturn(), RD.UserDefined(), model, J, xn, z)
 RD.jacobian!(RD.InPlace(), RD.UserDefined(), model, J, xn, z)
 @test J ≈ J0
 
+int1 = RD.RK4(cmodel)
+int2 = copy(int1)
+@test int1.k1 !== int2.k1
+@test int1.k2 !== int2.k2
+@test int1.A !== int2.A
 
 # Test RK3 and jacobian
 model = RD.DiscretizedDynamics{RD.RK3}(cmodel)

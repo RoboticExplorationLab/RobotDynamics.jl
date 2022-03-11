@@ -29,6 +29,12 @@ struct ADVector{T}
     function ADVector{T}(n::Integer) where {T}
         new{T}(zeros(T, n), Dict{DataType,Vector{D} where D}())
     end
+
+    # Copy constructor
+    # Does a deep copy of the cache dictionary
+    function ADVector(adv::ADVector{T}) where T
+        new{T}(copy(adv.v), deepcopy(adv.d))
+    end
 end
 Base.getindex(adv::ADVector, ::Type{<:Number}) = adv.v
 function Base.getindex(adv::ADVector, T::Type{<:ForwardDiff.Dual})
@@ -40,6 +46,7 @@ function Base.getindex(adv::ADVector, T::Type{<:ForwardDiff.Dual})
         return d
     end
 end
+Base.copy(adv::ADVector{T}) where T = ADVector(adv)  # calls copy constructor
 
 ########################################
 # Explicit Methods
@@ -107,15 +114,15 @@ struct RK3 <: Explicit
     B::Vector{Matrix{Float64}}
     dA::Vector{Matrix{Float64}}
     dB::Vector{Matrix{Float64}}
-    function RK3(n::Integer, m::Integer)
-        k1, k2 = ADVector{Float64}(n), ADVector{Float64}(n)
-        k3 = ADVector{Float64}(n)
-        A = [zeros(n, n) for i = 1:3]
-        B = [zeros(n, m) for i = 1:3]
-        dA = [zeros(n, n) for i = 1:3]
-        dB = [zeros(n, m) for i = 1:3]
-        new(k1, k2, k3, A, B, dA, dB)
-    end
+end
+function RK3(n::Integer, m::Integer)
+    k1, k2 = ADVector{Float64}(n), ADVector{Float64}(n)
+    k3 = ADVector{Float64}(n)
+    A = [zeros(n, n) for i = 1:3]
+    B = [zeros(n, m) for i = 1:3]
+    dA = [zeros(n, n) for i = 1:3]
+    dB = [zeros(n, m) for i = 1:3]
+    RK3(k1, k2, k3, A, B, dA, dB)
 end
 getks(int::RK3, ::Type{T}) where {T} =
     int.k1[T]::Vector{T}, int.k2[T]::Vector{T}, int.k3[T]::Vector{T}
@@ -257,15 +264,15 @@ struct RK4 <: Explicit
     B::Vector{Matrix{Float64}}
     dA::Vector{Matrix{Float64}}
     dB::Vector{Matrix{Float64}}
-    function RK4(n::Integer, m::Integer)
-        k1, k2 = ADVector{Float64}(n), ADVector{Float64}(n)
-        k3, k4 = ADVector{Float64}(n), ADVector{Float64}(n)
-        A = [zeros(n, n) for i = 1:4]
-        B = [zeros(n, m) for i = 1:4]
-        dA = [zeros(n, n) for i = 1:4]
-        dB = [zeros(n, m) for i = 1:4]
-        new(k1, k2, k3, k4, A, B, dA, dB)
-    end
+end
+function RK4(n::Integer, m::Integer)
+    k1, k2 = ADVector{Float64}(n), ADVector{Float64}(n)
+    k3, k4 = ADVector{Float64}(n), ADVector{Float64}(n)
+    A = [zeros(n, n) for i = 1:4]
+    B = [zeros(n, m) for i = 1:4]
+    dA = [zeros(n, n) for i = 1:4]
+    dB = [zeros(n, m) for i = 1:4]
+    RK4(k1, k2, k3, k4, A, B, dA, dB)
 end
 getks(int::RK4, ::Type{T}) where {T} =
     int.k1[T]::Vector{T}, int.k2[T]::Vector{T}, int.k3[T]::Vector{T}, int.k4[T]::Vector{T}
@@ -567,20 +574,20 @@ mutable struct ImplicitNewtonCache
     F::LinearAlgebra.LU{Float64, Matrix{Float64}} 
     newton_iters::Int    # number of newton iterations
     newton_tol::Float64  # Newton tolerance
-    function ImplicitNewtonCache(n::Integer, m::Integer)
-        J2 = zeros(n,n+m)
-        J1 = zeros(n,n+m)
-        y2 = zeros(n)
-        y1 = zeros(n)
-        v = zeros(n+m)
-        z2 = StaticKnotPoint{Any,Any}(n, m, v, 0.0, NaN)
-        ipiv = zeros(BlasInt, n)
-        A = zeros(n,n) 
-        F = lu!(A, check=false)
-        iters = 10    # Default number of Newton iterations
-        tol = 1e-12   # Default Newton tolerance
-        new(J2, J1, y2, y1, z2, ipiv, A, F, iters, tol)
-    end
+end
+function ImplicitNewtonCache(n::Integer, m::Integer)
+    J2 = zeros(n,n+m)
+    J1 = zeros(n,n+m)
+    y2 = zeros(n)
+    y1 = zeros(n)
+    v = zeros(n+m)
+    z2 = StaticKnotPoint{Any,Any}(n, m, v, 0.0, NaN)
+    ipiv = zeros(BlasInt, n)
+    A = zeros(n,n) 
+    F = lu!(A, check=false)
+    iters = 10    # Default number of Newton iterations
+    tol = 1e-12   # Default Newton tolerance
+    ImplicitNewtonCache(J2, J1, y2, y1, z2, ipiv, A, F, iters, tol)
 end
 
 """
@@ -596,10 +603,10 @@ x_1 + h f(\\frac{1}{2}(x_1 + x_2), u_1, t + \\frac{1}{2} h) - x_2 = 0
 struct ImplicitMidpoint <: Implicit
     xmid::ADVector{Float64}
     cache::ImplicitNewtonCache
-    function ImplicitMidpoint(n::Integer, m::Integer)
-        cache = ImplicitNewtonCache(n, m)
-        new(ADVector{Float64}(n), cache)
-    end
+end
+function ImplicitMidpoint(n::Integer, m::Integer)
+    cache = ImplicitNewtonCache(n, m)
+    ImplicitMidpoint(ADVector{Float64}(n), cache)
 end
 
 getnewtoncache(integrator::ImplicitMidpoint) = integrator.cache
