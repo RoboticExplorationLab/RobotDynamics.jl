@@ -62,10 +62,10 @@ Use [`propagate_dynamics!`](@ref) to conveniently save the next state directly i
 the state vector of another [`KnotPoint`](@ref).
 """
 abstract type DiscreteDynamics <: AbstractModel end
-@inline evaluate(model::DiscreteDynamics, x, u, p) =
-    discrete_dynamics(model, x, u, p.t, p.dt)
-@inline evaluate!(model::DiscreteDynamics, xn, x, u, p) =
-    discrete_dynamics!(model, xn, x, u, p.t, p.dt)
+@inline evaluate(model::DiscreteDynamics, z::AbstractKnotPoint) =
+    discrete_dynamics(model, z::AbstractKnotPoint)
+@inline evaluate!(model::DiscreteDynamics, xn, z::AbstractKnotPoint) =
+    discrete_dynamics!(model, xn, z::AbstractKnotPoint)
 
 """
     discrete_dynamics(model, z::AbstractKnotPoint)

@@ -12,7 +12,7 @@ include("cartpole_model.jl")
 # include("random_linear.jl")
 include("quadrotor.jl")
 
-const run_alloc_tests = !haskey(ENV, "CI") 
+const run_alloc_tests = !haskey(ENV, "CI") && !Sys.iswindows()
 
 ##
 @testset "Function Base" begin
@@ -26,6 +26,7 @@ end
     end
     @testset "Integration" begin
         include("integration_tests.jl")
+        include("implicit_dynamics_test.jl")
     end
     @testset "KnotPoints" begin
         include("knotpoints.jl")

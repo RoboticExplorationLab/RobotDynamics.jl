@@ -64,8 +64,35 @@ the output should be stored in the `y2` vector. For the Jacobian method, `J2`
 holds the Jacobian with respect to the state and control of `z2` (the knot point 
 at the next time step) and `J1` holds the Jacobian with respect to the state 
 and control of `z1` (the knot point at the current time step).
+
+## Treating an Implicit method as an Explicit method
+Implicit methods can be treated as an explicit integrator. In addition to the the 
+methods above that evaluate the dynamics error residual for the integrator, they 
+overload `discrete_dynamics`, `discrete_dynamics!`, and `jacobian`. The forward simulation
+functions `discrete_dynamics` and `discrete_dynamics!` use Newton's method. The dynamics 
+Jacobians are calculated using the Implicit Function Theorem.
+
+If the state and control vector passed to `jacobian!` are the same as the last call 
+to `jacobian!`, `discrete_dynamics` or `discrete_dynamics!` the Jacobians and matrix 
+factorization from the Newton solve are used to speed up the computation. Note that 
+the factorization is only cached for `InPlace` methods, not `StaticReturn`.
+
+To call `jacobian!` on `DiscretizedDynamics` with an implicit dynamics model, it must be 
+called using the `ImplicitFunctionTheorem` method, which also specified the 
+[`DiffMethod`](@ref) that should be used to evaluate `dynamics_error_jacobian!`, e.g.
+
+    jacobian!(InPlace(), ImplicitFunctionTheorem(ForwardDiff), implicitmodel, J, y, z)
+
+## Defining an Implicit Integrator
+An implicit integrator should define the signatures above for `dynamics_error` and 
+`dynamics_error_jacobian!`. If the method wants to provide the functionality of an 
+explicit integrator (as described in the previous section), it should store internally 
+a [`ImplicitNewtonCache`](@ref), which must be returned using the getter function 
+`getnewtoncache`.
 """
 abstract type Implicit <: QuadratureRule end
+setnewtontolerance(integrator::Implicit, tol) = getnewtoncache(integrator).newton_tol = tol
+setnewtoniters(integrator::Implicit, iter) = getnewtoncache(integrator).newton_iters = iter 
 
 # Create an integrator from a dynamics model
 (::Type{Q})(model::AbstractModel) where {Q<:QuadratureRule} = Q(state_dim(model), control_dim(model))
@@ -101,6 +128,37 @@ a `DiscretizedDynamics` model will use the chain rule with analytical Jacobians 
 the integrator. If the user wants to use a combination of ForwardDiff (or any other 
 differentiation method, for that matter) with the integrator, they are free to define their 
 own [`DiffMethod`](@ref) to dispatch on.
+
+## Implicit Dynamics
+If an [`Implicit`](@ref) integrator is used, the interface changes slightly. The dynamics 
+residual is calculated and it's Jacobian are calculated using
+
+    dynamics_error(model, z2, z1)
+    dynamics_error!(model, y2, y1, z2, z1)
+    dynamics_error_jacobian!(sig, diff, model, J2, J1, y2, y1, z2, z1)
+
+Where the dynamics residual is stored in `y2` for the in-place version, and the Jacobians 
+with respect to the state and control at the next and current knot points are stored in `J2`
+and `J1`, respectively.
+
+Implicit dynamics integrators can also support the normal API 
+(see documentation for [`Implicit`](@ref)). Note that calls to `discrete_dynamics` will 
+use a Newton's solve to calculate the next state and calls to `jacobian!` will use the 
+Implicit Function Theorem. In order to use the implicit function theorem to get the 
+Jacobians, `jacobian!` must be called using the `ImplicitFunctionTheorem` 
+[`DiffMethod`](@ref), which also specifies the `DiffMethod` to use to on 
+`dynamics_error_jacobian!`.
+
+When using Newton's method during `discrete_dynamics`, the `DiffMethod` returned by 
+`default_diffmethod` for the continuous dynamics model is used to evaluate the 
+`dynamics_error_jacobian!`. There is no option to change this at run time, since 
+`discrete_dynamics` and `discrete_dynamics!` do not take a `DiffMethod` as an argument.
+
+The convergence tolerance and max number of iterations of the Newton's method can be set 
+using 
+
+    setnewtontolerance(model::ImplicitDynamicsModel, tol)
+    setnewtoniters(model::ImplicitDynamicsModel, iters)
 """
 @autodiff struct DiscretizedDynamics{L,Q} <: DiscreteDynamics
     continuous_dynamics::L
@@ -118,8 +176,6 @@ function DiscretizedDynamics{Q}(
     n, m = dims(continuous_dynamics)
     DiscretizedDynamics(continuous_dynamics, Q(n, m))
 end
-
-const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit}
 
 for method in (:state_dim, :control_dim, :output_dim, :errstate_dim, :statevectortype, 
                :functioninputs)
@@ -149,6 +205,32 @@ jacobian!(sig::FunctionSignature, ::UserDefined, model::DiscretizedDynamics, J, 
 ########################################
 # Implicit Dynamics
 ########################################
+const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit}
+
+@inline setnewtontolerance(model::ImplicitDynamicsModel, tol) = 
+    setnewtontolerance(integration(model), tol) 
+@inline setnewtoniters(model::ImplicitDynamicsModel, iter) = 
+    setnewtoniters(integration(model), iter)
+
+discrete_dynamics(model::ImplicitDynamicsModel, z::AbstractKnotPoint) =
+    integrate(integration(model), model, z)
+discrete_dynamics!(model::ImplicitDynamicsModel, xn, z::AbstractKnotPoint) =
+    integrate!(integration(model), model, xn, z)
+
+function jacobian!(sig::FunctionSignature, ::ImplicitFunctionTheorem{D}, model::ImplicitDynamicsModel, J, xn, z) where D
+    jacobian!(integration(model), sig, D(), model, J, xn, z)
+end
+
+for sig in (:InPlace, :StaticReturn), diff in (:ForwardAD, :FiniteDifference, :UserDefined)
+    @eval begin
+        function jacobian!(::$sig, ::$diff, ::ImplicitDynamicsModel, J, xn, z)
+            throw(ArgumentError("Must call jacobian! on an ImplicitDynamicsModel with the ImplicitFunctionTheorem diff method. Got $($diff)."))
+        end
+    end
+end
+
+default_diffmethod(model::ImplicitDynamicsModel) = 
+    ImplicitFunctionTheorem(default_diffmethod(model.continuous_dynamics))
 
 # TODO: [#19] overwrite `evaluate` to solve for the next state using Newton
 # TODO: [#19] overwrite `jacobian` to provide A,B using implicit function theorem

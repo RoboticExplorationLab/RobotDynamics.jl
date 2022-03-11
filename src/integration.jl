@@ -411,6 +411,178 @@ end
 # Implicit Methods
 ########################################
 
+# Use Newton's method to solve for the next state for implicit dynamics
+function integrate(integrator::Implicit, model::ImplicitDynamicsModel, 
+                   z::AbstractKnotPoint{Nx,Nu}) where {Nx,Nu} 
+    cache = getnewtoncache(integrator) 
+    newton_iters = cache.newton_iters
+    tol = cache.newton_tol
+
+    J2 = cache.J2
+    J1 = cache.J1
+    y2 = cache.y2
+    y1 = cache.y1
+    z1 = z
+    z2 = StaticKnotPoint(z)
+    xn = state(z2)
+    ix = SVector{Nx}(1:Nx) 
+
+    diff = default_diffmethod(model.continuous_dynamics)
+    for iter = 1:newton_iters
+        # Set the guess for the next state
+        z2 = setstate(z2, xn)
+
+        # Calculate the residual
+        r = dynamics_error(integrator, model.continuous_dynamics, z2, z1)
+
+        # Calculate the Jacobian wrt x2
+        dynamics_error_jacobian!(StaticReturn(), diff, model, 
+                                 J2, J1, y2, y1, z2, z1)
+        A = J2[ix, ix] 
+
+        if norm(r) < tol
+            break
+        end
+
+        # Get the step
+        F = lu(A)
+        dx = F \ r
+        xn -= dx
+    end
+    setdata!(cache.z2, getdata(z))  # copy input into cache for Jacobian check
+    return xn
+end
+
+function integrate!(integrator::Implicit, model::ImplicitDynamicsModel, xn, 
+                    z::AbstractKnotPoint)
+    cache = getnewtoncache(integrator) 
+    newton_iters = cache.newton_iters
+    tol = cache.newton_tol
+
+    z1 = z
+    n,m = dims(z)
+    J2 = cache.J2
+    J1 = cache.J1
+    r = cache.y2
+    dx = cache.y1
+    z2 = cache.z2
+    ipiv = cache.ipiv
+    A = cache.A
+    Aview = @view J2[:, 1:n]
+
+    copyto!(z2, z1)
+    diff = default_diffmethod(model.continuous_dynamics)
+    for iter = 1:newton_iters
+        # Set the guess for the next state
+        setstate!(z2, xn)
+
+        # Calculate the residual
+        dynamics_error!(integrator, model.continuous_dynamics, r, dx, z2, z1)
+
+        if norm(r) < tol
+            break
+        end
+
+        # Calculate the Jacobian wrt x2
+        dynamics_error_jacobian!(InPlace(), diff, model, J2, J1, r, dx, z2, z1)
+        A .= Aview 
+
+        # Get the step
+        dx .= r
+        F = lu!(A, ipiv)
+        ldiv!(F, dx)
+
+        # Apply the step
+        xn .-= dx
+    end
+    setdata!(cache.z2, getdata(z))  # copy input to cache for Jacobian check
+end
+
+# Use Implicit Function Theorem to calculate the dynamics Jacobians
+function jacobian!(integrator::Implicit, ::StaticReturn, diff::DiffMethod, 
+                   model::ImplicitDynamicsModel, J, y, z::AbstractKnotPoint{Nx,Nu}
+                   ) where {Nx,Nu}
+    cache = getnewtoncache(integrator) 
+    J2 = cache.J2
+    J1 = cache.J1
+    ix = SVector{Nx}(1:Nx)
+
+    # Update Jacobian
+    aresame = maxdiff(cache.z2, z) < √eps()
+    if !aresame
+        @debug "Solving for next state to get Jacobian using IFT."
+        evaluate(model, z)
+    else
+        @debug "Using cached Static Factorization"
+    end
+    A2 = J2[ix,ix]
+    Jstatic = SMatrix{Nx,Nx+Nu}(J1)
+    J .= A2 \ Jstatic
+    J .*= -1
+    return
+end
+
+function jacobian!(integrator::Implicit, ::InPlace, diff::DiffMethod, 
+                   model::ImplicitDynamicsModel, J, y, z::AbstractKnotPoint)
+    n,m = dims(z)
+    cache = getnewtoncache(integrator) 
+    J1 = cache.J1
+
+    aresame = maxdiff(cache.z2, z) < √eps()
+    local F
+    if !aresame
+        @debug "Solving for next state to get Jacobian using IFT."
+        y .= state(z)
+        evaluate!(model, y, z)
+    else
+        @debug "Using cached Factorization"
+    end
+    F = cache.F
+    J .= J1
+    J .*= -1
+    ldiv!(F, J)
+    return
+end
+
+"""
+    ImplicitNewtonCache
+
+A cache for the temporary variables needed while solving for the next state 
+    using Newton's method for implicit dynamics. Also used to calculate the 
+    Jacobians using the implicit function theorem.
+
+Also provides a couple options for controlling the behavior of the Newton solve.
+
+Every implicit integrator should store this cache internally and define it's 
+getter method `getnewtoncache(::Implicit)`.
+"""
+mutable struct ImplicitNewtonCache
+    J2::Matrix{Float64}
+    J1::Matrix{Float64}
+    y2::Vector{Float64}
+    y1::Vector{Float64}
+    z2::StaticKnotPoint{Any,Any,Vector{Float64},Float64}
+    ipiv::Vector{BlasInt}
+    A::Matrix{Float64}
+    F::LinearAlgebra.LU{Float64, Matrix{Float64}} 
+    newton_iters::Int    # number of newton iterations
+    newton_tol::Float64  # Newton tolerance
+    function ImplicitNewtonCache(n::Integer, m::Integer)
+        J2 = zeros(n,n+m)
+        J1 = zeros(n,n+m)
+        y2 = zeros(n)
+        y1 = zeros(n)
+        v = zeros(n+m)
+        z2 = StaticKnotPoint{Any,Any}(n, m, v, 0.0, NaN)
+        ipiv = zeros(BlasInt, n)
+        A = zeros(n,n) 
+        F = lu!(A, check=false)
+        iters = 10    # Default number of Newton iterations
+        tol = 1e-12   # Default Newton tolerance
+        new(J2, J1, y2, y1, z2, ipiv, A, F, iters, tol)
+    end
+end
+
 """
     ImplicitMidpoint
 
@@ -423,10 +595,14 @@ x_1 + h f(\\frac{1}{2}(x_1 + x_2), u_1, t + \\frac{1}{2} h) - x_2 = 0
 """
 struct ImplicitMidpoint <: Implicit
     xmid::ADVector{Float64}
+    cache::ImplicitNewtonCache
     function ImplicitMidpoint(n::Integer, m::Integer)
-        new(ADVector{Float64}(n))
+        cache = ImplicitNewtonCache(n, m)
+        new(ADVector{Float64}(n), cache)
     end
 end
+
+getnewtoncache(integrator::ImplicitMidpoint) = integrator.cache
 
 function dynamics_error(
     ::ImplicitMidpoint,

@@ -91,6 +91,9 @@ methods are provided:
 * `FiniteDifference`: finite difference approximation using 
    [FiniteDiff.jl](https://github.com/JuliaDiff/FiniteDiff.jl)
 * `UserDefined`: analytical function defined by the user.
+* `ImplicitFunctionTheorem`: Only available for a [`DiscretizedDynamics`](@ref) model
+   with an an implicit integrator. Parameterized by the `DiffMethod` of the underlying 
+   continuous dynamics model. 
 
 The `UserDefined` method can be provided by defining any of the following methods 
 on your [`AbstractFunction`](@ref):
@@ -107,6 +110,14 @@ abstract type DiffMethod end
 struct ForwardAD <: DiffMethod end
 struct FiniteDifference <: DiffMethod end
 struct UserDefined <: DiffMethod end
+struct ImplicitFunctionTheorem{D<:DiffMethod} <: DiffMethod
+    function ImplicitFunctionTheorem(diff::D) where D <: DiffMethod
+        if D <: ImplicitFunctionTheorem
+            throw(ArgumentError("DiffMethod for ImplicitFunctionTheorem cannot also be ImplicitFunctionTheorem."))
+        end
+        new{D}()
+    end
+end
 default_diffmethod(::AbstractFunction) = UserDefined()
 default_signature(::AbstractFunction) = StaticReturn()
 
