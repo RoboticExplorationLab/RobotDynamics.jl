@@ -15,6 +15,12 @@ where `n` and `m` are the state and control dimensions of the dynamical system.
 """
 abstract type QuadratureRule end
 
+# General member-wise copy for all integrators
+@generated function Base.copy(int::T) where T <: QuadratureRule
+    copyexprs = [:(copy(int.$field)) for field in fieldnames(T)]
+    return :(T($(copyexprs...)))
+end
+
 """
     Explicit <: QuadratureRule
 
@@ -182,6 +188,15 @@ for method in (:state_dim, :control_dim, :output_dim, :errstate_dim, :statevecto
     @eval $method(model::DiscretizedDynamics) = $method(model.continuous_dynamics)
 end
 default_diffmethod(::DiscretizedDynamics) = ForwardAD()
+
+# Shallow copy
+function Base.copy(model::DiscretizedDynamics)
+    DiscretizedDynamics(model.continuous_dynamics, model.integrator)
+end
+
+function Base.deepcopy(model::DiscreteDynamics)
+    DiscreteDynamics(copy(model.continuous_dynamics), copy(model.integrator))
+end
 
 @inline integration(model::DiscretizedDynamics) = model.integrator
 discrete_dynamics(model::DiscretizedDynamics, x, u, t, dt) =
