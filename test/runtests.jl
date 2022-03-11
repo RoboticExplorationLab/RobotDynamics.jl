@@ -12,7 +12,7 @@ include("cartpole_model.jl")
 # include("random_linear.jl")
 include("quadrotor.jl")
 
-const run_alloc_tests = !haskey(ENV, "CI") 
+const run_alloc_tests = !haskey(ENV, "CI") && !Sys.iswindows()
 
 ##
 @testset "Function Base" begin
