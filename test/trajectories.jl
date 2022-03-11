@@ -213,4 +213,16 @@ tf = RD.set_dt!(Z2, 0.01)
 @test tf ≈ 0.1 
 @test RD.gettimes(Z2) ≈ range(0,step=0.01,length=N)
 
+## Trajectory with different number of knot points
+nx = [4,4,4,4,4, 4, 2,2,2,2,2]
+nu = [2,2,2,2,4, 2, 1,1,1,1,1]
+X = [randn(n) for n in nx]
+U = [randn(m) for m in nu]
+dt = 0.1
+Z = SampledTrajectory(X, U, dt=dt)
+@test Z isa SampledTrajectory{Any,Any}
+@test RD.dims(Z) == (Any,Any,11)
+@test RD.dims(Z[1]) == (4,2)
+@test RD.dims(Z[end]) == (2,1)
+
 end
