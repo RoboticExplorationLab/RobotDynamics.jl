@@ -24,7 +24,11 @@ end
 # Add non-allocating lu! method that allows you to pass in the pivot vector
 using LinearAlgebra: BlasFloat, BlasInt
 using LinearAlgebra.BLAS: @blasfunc
-const libblastrampoline = LinearAlgebra.LAPACK.libblastrampoline 
+@static if VERSION < v"1.7"
+    const libblas = LinearAlgebra.LAPACK.liblapack
+else
+    const libblas = LinearAlgebra.LAPACK.libblastrampoline 
+end
 for (getrf,elty) in ((:dgetrf_, :Float64), (:sgetrf, :Float32))
     @eval begin
         function LinearAlgebra.LAPACK.getrf!(A::AbstractMatrix{$elty}, ipiv::AbstractVector{BlasInt})
@@ -34,7 +38,7 @@ for (getrf,elty) in ((:dgetrf_, :Float64), (:sgetrf, :Float32))
             @assert length(ipiv) == min(m, n)
             lda  = max(1,stride(A, 2))
             info = Ref{BlasInt}()
-            ccall((@blasfunc($getrf), libblastrampoline), Cvoid,
+            ccall((@blasfunc($getrf), libblas), Cvoid,
                     (Ref{BlasInt}, Ref{BlasInt}, Ptr{$elty},
                     Ref{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}),
                     m, n, A, lda, ipiv, info)
