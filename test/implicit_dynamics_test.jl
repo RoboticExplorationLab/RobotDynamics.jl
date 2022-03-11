@@ -155,5 +155,5 @@ function test_implicit_allocs(dmodel, z::RD.AbstractKnotPoint{Nx,Nu}) where {Nx,
     return allocs
 end
 test_implicit_allocs(dmodel, z1)  # run once to compile non-logging versions
-@test test_implicit_allocs(dmodel, z1) == 0
+run_alloc_tests && @test test_implicit_allocs(dmodel, z1) == 0
 end
