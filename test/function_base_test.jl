@@ -450,9 +450,9 @@ jacobian!(RD.StaticReturn(), RD.ForwardAD(), fun, J, y, z)
 jacobian!(RD.InPlace(), RD.ForwardAD(), fun, J, y, z)
 @test J ≈ J0
 jacobian!(RD.StaticReturn(), RD.FiniteDifference(), fun, J, y, z)
-@test J ≈ J0 atol=1e-2
+@test J ≈ J0 rtol=1e-2
 jacobian!(RD.InPlace(), RD.FiniteDifference(), fun, J, y, z)
-@test J ≈ J0 atol=1e-2
+@test J ≈ J0 rtol=1e-2
 
 @test RD.getinput(RD.functioninputs(fun), z) === control(z)
 run_alloc_tests && @test test_allocs(fun, zs) == 0

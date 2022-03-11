@@ -91,6 +91,8 @@ a [`ImplicitNewtonCache`](@ref), which must be returned using the getter functio
 `getnewtoncache`.
 """
 abstract type Implicit <: QuadratureRule end
+setnewtontolerance(integrator::Implicit, tol) = getnewtoncache(integrator).newton_tol = tol
+setnewtoniters(integrator::Implicit, iter) = getnewtoncache(integrator).newton_iters = iter 
 
 # Create an integrator from a dynamics model
 (::Type{Q})(model::AbstractModel) where {Q<:QuadratureRule} = Q(state_dim(model), control_dim(model))
@@ -151,6 +153,12 @@ When using Newton's method during `discrete_dynamics`, the `DiffMethod` returned
 `default_diffmethod` for the continuous dynamics model is used to evaluate the 
 `dynamics_error_jacobian!`. There is no option to change this at run time, since 
 `discrete_dynamics` and `discrete_dynamics!` do not take a `DiffMethod` as an argument.
+
+The convergence tolerance and max number of iterations of the Newton's method can be set 
+using 
+
+    setnewtontolerance(model::ImplicitDynamicsModel, tol)
+    setnewtoniters(model::ImplicitDynamicsModel, iters)
 """
 @autodiff struct DiscretizedDynamics{L,Q} <: DiscreteDynamics
     continuous_dynamics::L
@@ -198,6 +206,11 @@ jacobian!(sig::FunctionSignature, ::UserDefined, model::DiscretizedDynamics, J, 
 # Implicit Dynamics
 ########################################
 const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit}
+
+@inline setnewtontolerance(model::ImplicitDynamicsModel, tol) = 
+    setnewtontolerance(integration(model), tol) 
+@inline setnewtoniters(model::ImplicitDynamicsModel, iter) = 
+    setnewtoniters(integration(model), iter)
 
 discrete_dynamics(model::ImplicitDynamicsModel, z::AbstractKnotPoint) =
     integrate(integration(model), model, z)

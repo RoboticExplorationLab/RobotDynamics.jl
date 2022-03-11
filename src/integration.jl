@@ -414,7 +414,7 @@ end
 # Use Newton's method to solve for the next state for implicit dynamics
 function integrate(integrator::Implicit, model::ImplicitDynamicsModel, 
                    z::AbstractKnotPoint{Nx,Nu}) where {Nx,Nu} 
-    cache = integrator.cache
+    cache = getnewtoncache(integrator) 
     newton_iters = cache.newton_iters
     tol = cache.newton_tol
 
@@ -455,7 +455,7 @@ end
 
 function integrate!(integrator::Implicit, model::ImplicitDynamicsModel, xn, 
                     z::AbstractKnotPoint)
-    cache = integrator.cache
+    cache = getnewtoncache(integrator) 
     newton_iters = cache.newton_iters
     tol = cache.newton_tol
 
@@ -502,7 +502,7 @@ end
 function jacobian!(integrator::Implicit, ::StaticReturn, diff::DiffMethod, 
                    model::ImplicitDynamicsModel, J, y, z::AbstractKnotPoint{Nx,Nu}
                    ) where {Nx,Nu}
-    cache = integrator.cache
+    cache = getnewtoncache(integrator) 
     J2 = cache.J2
     J1 = cache.J1
     ix = SVector{Nx}(1:Nx)
@@ -525,7 +525,7 @@ end
 function jacobian!(integrator::Implicit, ::InPlace, diff::DiffMethod, 
                    model::ImplicitDynamicsModel, J, y, z::AbstractKnotPoint)
     n,m = dims(z)
-    cache = integrator.cache
+    cache = getnewtoncache(integrator) 
     J1 = cache.J1
 
     aresame = maxdiff(cache.z2, z) < √eps()
@@ -577,8 +577,8 @@ mutable struct ImplicitNewtonCache
         ipiv = zeros(BlasInt, n)
         A = zeros(n,n) 
         F = lu!(A, check=false)
-        iters = 10
-        tol = √eps()
+        iters = 10    # Default number of Newton iterations
+        tol = 1e-12   # Default Newton tolerance
         new(J2, J1, y2, y1, z2, ipiv, A, F, iters, tol)
     end
 end
