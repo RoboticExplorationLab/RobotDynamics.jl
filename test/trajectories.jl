@@ -2,6 +2,8 @@ using RobotDynamics: state, control, states, controls
 
 @testset "Trajectories" begin
 n,m,N = 5,3,11
+nx = fill(n,N)
+nu = fill(m,N)
 t,dt = 0.0,0.1
 x = @SVector rand(n)
 u = @SVector rand(m)
@@ -21,7 +23,7 @@ Z = RD.SampledTrajectory(n,m,dt=dt,N=N)
 @test Z[1].t ≈ 0
 @test Z[N].t ≈ (N-1)*dt
 @test RobotDynamics.is_terminal(Z[end]) == true
-@test RobotDynamics.dims(Z) == (Any,Any,N)
+@test RobotDynamics.dims(Z) == (nx,nu,N)
 @test RobotDynamics.num_vars(Z) == N*(n+m)-m 
 
 Z = RD.SampledTrajectory{n,m}(n,m, dt=dt, N=N, equal=true)
@@ -37,7 +39,7 @@ Z = RD.SampledTrajectory{n,m}(n,m, dt=dt, N=N, equal=true)
 @test Z[N].t ≈ (N-1)*dt
 @test RobotDynamics.is_terminal(Z[end]) == false
 @test RobotDynamics.num_vars(Z) == N*(n+m) 
-@test RD.dims(Z) == (n,m,N)
+@test RD.dims(Z) == (nx,nu,N)
 
 #--- Try different time inputs 
 tf = (N - 1) * dt
@@ -179,6 +181,8 @@ RobotDynamics.shift_fill!(Z)
 # @test !(conval.vals ≈ [zeros(n) for k = 1:N-1])
 
 # Test rollout
+nx = fill(n,N)
+nu = fill(m,N)
 RD.rollout!(RD.StaticReturn(), dmodel, Z, X[1])
 Zmut = RD.SampledTrajectory([RD.KnotPoint{n,m}(MVector{n+m}(z.z), z.t, z.dt) for z in Z])
 RD.rollout!(RD.InPlace(), dmodel, Zmut, X[1])
@@ -186,12 +190,12 @@ RD.rollout!(RD.InPlace(), dmodel, Zmut, X[1])
 
 # Block constructors 
 Z = RD.SampledTrajectory{n,m}(randn(n,N), randn(m,N-1), tf=2.0)
-@test RD.dims(Z) == (n,m,N)
+@test RD.dims(Z) == (nx,nu,N)
 @test Z[end].t == 2.0
 @test all(z->z.dt ≈ 0.2, Z[1:end-1])
 
 Z = RD.SampledTrajectory([randn(n) for k = 1:N], [randn(m) for k = 1:N], dt=0.1)
-@test RD.dims(Z) == (Any,Any,N)
+@test RD.dims(Z) == (nx,nu,N)
 @test Z[end].t == 1.0
 @test RD.gettimes(Z) ≈ range(0,tf,step=dt)
 
@@ -221,7 +225,7 @@ U = [randn(m) for m in nu]
 dt = 0.1
 Z = SampledTrajectory(X, U, dt=dt)
 @test Z isa SampledTrajectory{Any,Any}
-@test RD.dims(Z) == (Any,Any,11)
+@test RD.dims(Z) == (nx,nu,11)
 @test RD.dims(Z[1]) == (4,2)
 @test RD.dims(Z[end]) == (2,1)
 
