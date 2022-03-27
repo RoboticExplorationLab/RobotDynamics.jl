@@ -152,23 +152,26 @@ for (name,mutable) in [(:KnotPoint, true), (:StaticKnotPoint, false)]
             n::Int
             m::Int
             function $name{Nx,Nu}(z::V,t,dt) where {Nx,Nu,V} 
-                @assert Nx > 0
-                @assert Nu > 0
+                @assert Nx > 0 
+                @assert Nu > 0 
+                @assert Nx + Nu == length(z)
                 new{Nx,Nu,V,eltype(V)}(z, t, dt, Nx, Nu)
             end
             function $name{Nx,Nu}(x::V, u::V, t,dt) where {Nx,Nu,V} 
-                @assert Nx > 0
-                @assert Nu > 0
+                Nx != Any && @assert Nx == length(x)
+                Nu != Any && @assert Nu == length(u) 
                 new{Nx,Nu,V,eltype(V)}([x;u], t, dt, Nx, Nu)
             end
             function $name(n::Integer, m::Integer, z::V, t, dt) where V
                 @assert n > 0
                 @assert m > 0
+                @assert n + m == length(z)
                 new{Any,Any,V,eltype(V)}(z, t, dt, n, m)
             end
             function $name{Nx,Nu}(n::Integer, m::Integer, z::V, t, dt) where {Nx,Nu,V} 
                 Nx != Any && @assert Nx == n
                 Nu != Any && @assert Nu == m
+                @assert n + m == length(z)
                 new{Nx,Nu,V,eltype(V)}(z, t, dt, n, m)
             end
         end

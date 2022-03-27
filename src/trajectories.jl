@@ -128,7 +128,9 @@ vectype(Z::SampledTrajectory{<:Any,<:Any,<:Any,KP}) where KP = vectype(KP)
 has_terminal_control(Z::SampledTrajectory) = !RobotDynamics.is_terminal(Z[end])
 state_dim(Z::SampledTrajectory{n}) where {n} = n
 control_dim(Z::SampledTrajectory{<:Any,m}) where {m} = m
-dims(Z::SampledTrajectory) = (state_dim(Z), control_dim(Z), length(Z))
+state_dim(Z::SampledTrajectory, k::Integer) = state_dim(Z[k]) 
+control_dim(Z::SampledTrajectory, k::Integer) = control_dim(Z[k]) 
+dims(Z::SampledTrajectory) = (state_dim.(Z), control_dim.(Z), length(Z))
 getk(Z::SampledTrajectory, t::Real) = searchsortedfirst(Z.times, t)
 
 
@@ -313,7 +315,7 @@ end
 # Copying and Comparison 
 #############################################
 function Base.copy(Z::SampledTrajectory{Nx,Nu}) where {Nx,Nu}
-    SampledTrajectory([KnotPoint{Nx,Nu}(copy(z.z), z.t, z.dt) for z in Z])
+    SampledTrajectory([KnotPoint{Nx,Nu}(z.n, z.m, copy(z.z), z.t, z.dt) for z in Z])
 end
 
 function Base.isapprox(Z1::SampledTrajectory, Z2::SampledTrajectory)
