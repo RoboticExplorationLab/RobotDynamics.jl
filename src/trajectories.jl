@@ -107,7 +107,7 @@ function SampledTrajectory{Nx,Nu}(X::Vector, U::Vector; kwargs...) where {Nx, Nu
     if length(U) == length(X)
         push!(Z, KnotPoint{Nx,Nu}(length(X[end]), length(U[end]), [X[end]; U[end]], times[N], Inf))
     else
-        push!(Z, KnotPoint{Nx,Nu}(length(X[end]), length(U[end]), [X[end]; U[1]*0], times[N], 0.0))
+        push!(Z, KnotPoint{Nx,Nu}(length(X[end]), length(U[end]), [X[end]; U[end]*0], times[N], 0.0))
     end
     return SampledTrajectory(Z)
 end
