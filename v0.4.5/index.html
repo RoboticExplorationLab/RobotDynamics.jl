@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Introduction · RobotDynamics</title><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js"></script><script src="siteinfo.js"></script><script src="../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit">RobotDynamics</span></div><form class="docs-search" action="search.html"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li class="is-active"><a class="tocitem" href="index.html">Introduction</a><ul class="internal"><li><a class="tocitem" href="#Getting-Started-1"><span>Getting Started</span></a></li></ul></li><li><span class="tocitem">Dynamics Models</span><ul><li><a class="tocitem" href="continuous.html">Continuous Dynamics</a></li><li><a class="tocitem" href="discrete.html">Discrete Dynamics</a></li></ul></li><li><span class="tocitem">Rotations</span><ul><li><a class="tocitem" href="rotationstate.html">The Rotation State</a></li></ul></li><li><span class="tocitem">Important Types</span><ul><li><a class="tocitem" href="knotpoints.html">Knot Points</a></li><li><a class="tocitem" href="trajectories.html">Trajectories</a></li></ul></li><li><span class="tocitem">Internal API</span><ul><li><a class="tocitem" href="functionbase.html"><code>AbstractFunction</code> API</a></li><li><a class="tocitem" href="scalarfunction.html">Scalar Functions</a></li><li><a class="tocitem" href="autodiff.html">Differentiation API</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href="index.html">Introduction</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href="index.html">Introduction</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/RoboticExplorationLab/RobotDynamics.jl/blob/master/docs/src/index.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="RobotDynamics.jl-1"><a class="docs-heading-anchor" href="#RobotDynamics.jl-1">RobotDynamics.jl</a><a class="docs-heading-anchor-permalink" href="#RobotDynamics.jl-1" title="Permalink"></a></h1><p>Welcome to <code>RobotDynamics.jl</code>! This package is dedicated to providing a convenient interface for defining the dynamics of forced dynamical systems, such as robots.</p><p>This package also provides many efficient methods for evaluating dynamics, their Jacobians, and their discrete-time versions for use in optimization packages such as <a href="https://github.com/RoboticExplorationLab/TrajectoryOptimization.jl">TrajectoryOptimization.jl</a>.</p><h2 id="Getting-Started-1"><a class="docs-heading-anchor" href="#Getting-Started-1">Getting Started</a><a class="docs-heading-anchor-permalink" href="#Getting-Started-1" title="Permalink"></a></h2><pre><code class="language-julia">a = 1
+b = 2
+a + b</code></pre><pre><code class="language-none">3</code></pre><h3 id="Defining-a-new-continuous-dynamics-model-1"><a class="docs-heading-anchor" href="#Defining-a-new-continuous-dynamics-model-1">Defining a new continuous dynamics model</a><a class="docs-heading-anchor-permalink" href="#Defining-a-new-continuous-dynamics-model-1" title="Permalink"></a></h3><p>It is pretty straightforward to define a new dynamics model. We start by creating  new struct that inherits from <a href="continuous.html#RobotDynamics.ContinuousDynamics"><code>ContinuousDynamics</code></a>. You can store any model parameters in the model struct:</p><pre><code class="language-julia">using RobotDynamics
+struct MyModel &lt;: RobotDynamics.ContinuousDynamics
+    mass::Float64
+    spring_stiffness::Float64
+end</code></pre><p>We now need to specify the dimensions of our state and control vectors:</p><pre><code class="language-julia">RobotDynamics.state_dim(::MyModel) = 2
+RobotDynamics.control_dim(::MyModel) = 1</code></pre><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>For best performance, these output of these functions should be static  with respect to the model type. For example, storing the state and control dimension as variables in the model and returning them can degrade   performance.</p></div></div><p>Now we&#39;re ready to define our dynamics functions. We can specify either in-place  or out-of-place dynamics functions signatures. We start with the in-place  definition:</p><pre><code class="language-julia">function RobotDynamics.dynamics!(model::MyModel, xdot, x, u)
+    # x is the state vector
+    # u is the control vector
+    p = x[1]  # position
+    v = x[2]  # velocity
+    pdot = v
+    F = -model.spring_stiffness * p + u[1]  # force
+    vdot = F / model.mass
+    xdot[1] = pdot
+    xdot[2] = vdot
+    nothing
+end</code></pre><div class="admonition is-warning"><header class="admonition-header">Warning</header><div class="admonition-body"><p>Be sure to exactly match this function signature. Following standard Julia conventions, the in-place version uses a <code>!</code>, while the out-of-place method  below does not.</p></div></div><p>For small systems like this, it is often efficient to use out-of-place methods  with <a href="https://github.com/JuliaArrays/StaticArrays.jl">StaticArrays</a>. Our signature looks almost identical, except that it does not have a <code>!</code> at the end, and does  not have <code>xdot</code> as a argument:</p><pre><code class="language-julia">using StaticArrays
+function RobotDynamics.dynamics(model::MyModel, x, u)
+    p = x[1]  # position
+    v = x[2]  # velocity
+    pdot = v
+    F = -model.spring_stiffness * p + u[1]  # force
+    vdot = F / model.mass
+    return SA[pdot, vdot]  # shortcut to create an SVector
+end</code></pre><h3 id="Calling-the-dynamics-1"><a class="docs-heading-anchor" href="#Calling-the-dynamics-1">Calling the dynamics</a><a class="docs-heading-anchor-permalink" href="#Calling-the-dynamics-1" title="Permalink"></a></h3><p>Now that we&#39;ve defined our dynamics, let&#39;s see how we can call it. This package  provides the <a href="knotpoints.html#RobotDynamics.KnotPoint"><code>KnotPoint</code></a> type that stores the state and control vector  together with information about the time. Let&#39;s start by creating our model  and some <code>KnotPoint</code> types:</p><pre><code class="language-julia">mass = 1.0
+stiffness = 0.5
+model = MyModel(mass, stiffness)
+n = RobotDynamics.state_dim(model)
+m = RobotDynamics.control_dim(model)
+
+# Create a KnotPoint using SVectors
+# (should use this when calling out-of-place methods)
+xs = @SVector randn(n)
+us = @SVector randn(m)
+t = 0.0   # current time
+dt = NaN  # time step, not needed for continuous models
+zs = KnotPoint(xs, us, t, dt)
+
+# Create a KnotPoint using normal vectors
+# (using &#39;s&#39; for static, &#39;d&#39; for dynamic)
+xd = Vector(xs)
+ud = Vector(us)
+zd = KnotPoint{n,m}(xd, ud, t, dt)</code></pre><p>Now that we&#39;ve defined some inputs, let&#39;s evaluate our continuous dynamics. We  can use any of the methods below:</p><pre><code class="language-julia"># Out-of-place methods
+RobotDynamics.dynamics(model, zs)
+RobotDynamics.dynamics(model, xs, us)
+RobotDynamics.dynamics(model, xs, us, t)
+
+# In-place methods
+xdot = zeros(n)
+RobotDynamics.dynamics!(model, xdot, zd)
+RobotDynamics.dynamics!(model, xdot, xd, ud)
+RobotDynamics.dynamics!(model, xdot, xd, ud, t)
+xd</code></pre><h3 id="Querying-the-dynamics-Jacobian-1"><a class="docs-heading-anchor" href="#Querying-the-dynamics-Jacobian-1">Querying the dynamics Jacobian</a><a class="docs-heading-anchor-permalink" href="#Querying-the-dynamics-Jacobian-1" title="Permalink"></a></h3><p>Writing down an analytical dynamics Jacobian can often be time-consuming and  error-prone. RobotDynamics allows the user to specify, at run time, the method  to be used to evaluate the dynamics Jacobians, as long as they are defined on  your type. To automatically define methods that use  <a href="https://github.com/JuliaDiff/ForwardDiff.jl">ForwardDiff.jl</a> or <a href="https://github.com/JuliaDiff/FiniteDiff.jl">FiniteDiff.jl</a>, you can use the <a href="autodiff.html#RobotDynamics.@autodiff"><code>@autodiff</code></a> macro provided by this package. This modifies your model, adding new fields for the caches used by these methods, as well as the  methods to evaluate them. For our example, all we have to do is add the macro  before our model struct definition:</p><pre><code class="language-julia"># NOTE: must include these packages when using `@autodiff`
+using ForwardDiff
+using FiniteDiff
+RobotDynamics.@autodiff struct MyModel &lt;: RobotDynamics.ContinuousDynamics
+    mass::Float64
+    spring_stiffness::Float64
+end</code></pre><div class="admonition is-warning"><header class="admonition-header">Warning</header><div class="admonition-body"><p>Adding the <code>@autodiff</code> method before a type will require you to restart any  active Julia kernels you have running, since it changes the type definition by adding a type parameter and a couple extra fields related to the  caches for ForwardDiff and FiniteDiff. </p></div></div><p>After which we can use the following generic methods to evaluate our dynamics Jacobians:</p><pre><code class="language-julia">J = zeros(n, n + m)
+sig = RobotDynamics.StaticReturn()  # out-of-place signature
+diff = RobotDynamics.ForwardAD()    # use forward AD differentiation
+RobotDynamics.jacobian!(sig, diff, model, J, xdot, zs)
+
+sig = RobotDynamics.InPlace()            # out-of-place signature
+diff = RobotDynamics.FiniteDifference()  # use finite differences
+RobotDynamics.jacobian!(sig, diff, model, J, xdot, zd)</code></pre><p>These methods should always be called using a <code>KnotPoint</code> input, since it&#39;s more efficient to differentiation the dynamics treating the state and control as a  single vector input into the dynamics, which is why the <code>KnotPoint</code> type stores them as a concatenated vector.</p><h3 id="Discretizing-our-dynamics-1"><a class="docs-heading-anchor" href="#Discretizing-our-dynamics-1">Discretizing our dynamics</a><a class="docs-heading-anchor-permalink" href="#Discretizing-our-dynamics-1" title="Permalink"></a></h3><p>We often need to discretize our continuous dynamics, either to simulate it or  feed it into optimization frameworks. The <a href="discrete.html#RobotDynamics.DiscretizedDynamics"><code>DiscretizedDynamics</code></a> type  discretizes a <a href="continuous.html#RobotDynamics.ContinuousDynamics"><code>ContinuousDynamics</code></a> model, turning it into a  <a href="discrete.html#RobotDynamics.DiscreteDynamics"><code>DiscreteDynamics</code></a> model by applying a <a href="discrete.html#RobotDynamics.QuadratureRule"><code>QuadratureRule</code></a>. To discretize our system using, e.g. Runge-Kutta 4, we create a new  <code>DiscretizedDynamics</code> model:</p><pre><code class="language-julia">rk4 = RobotDynamics.RK4(n, m)  # create the integrator
+model_discrete = RobotDynamics.DiscretizedDynamics(model, rk4)</code></pre><p>We can query our discrete dynamics using very similar methods to those we  used before, except now we have to specify the time step.</p><pre><code class="language-julia"># Specify a time step of 0.1 seconds
+zs.dt = 0.1
+zd.dt = 0.1
+
+# Out-of-place methods
+RobotDynamics.discrete_dynamics(model_discrete, zs)
+RobotDynamics.discrete_dynamics(model_discrete, xs, us, t, dt)
+
+# In-place methods
+xn = zeros(n)
+RobotDynamics.discrete_dynamics!(model_discrete, xn, zd)
+RobotDynamics.discrete_dynamics!(model_discrete, xn, xd, ud, t, dt)</code></pre><p>The Jacobians are called using the same methods used for the continuous dynamics.</p></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="continuous.html">Continuous Dynamics »</a></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Tuesday 29 March 2022 14:13">Tuesday 29 March 2022</span>. Using Julia version 1.6.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
