@@ -188,6 +188,7 @@ for method in (:state_dim, :control_dim, :output_dim, :errstate_dim, :statevecto
     @eval $method(model::DiscretizedDynamics) = $method(model.continuous_dynamics)
 end
 default_diffmethod(::DiscretizedDynamics) = ForwardAD()
+default_signature(model::DiscretizedDynamics) = default_signature(model.continuous_dynamics)
 
 # Shallow copy
 function Base.copy(model::DiscretizedDynamics)
@@ -229,8 +230,11 @@ const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit
 
 discrete_dynamics(model::ImplicitDynamicsModel, z::AbstractKnotPoint) =
     integrate(integration(model), model, z)
-discrete_dynamics!(model::ImplicitDynamicsModel, xn, z::AbstractKnotPoint) =
-    integrate!(integration(model), model, xn, z)
+# discrete_dynamics!(model::ImplicitDynamicsModel, xn, z::AbstractKnotPoint) =
+#     integrate!(integration(model), model, xn, z)
+
+discrete_dynamics!(model::ImplicitDynamicsModel, xn, x, u, t, dt) =
+    integrate!(integration(model), model, xn, x, u, t, dt)
 
 function jacobian!(sig::FunctionSignature, ::ImplicitFunctionTheorem{D}, model::ImplicitDynamicsModel, J, xn, z) where D
     jacobian!(integration(model), sig, D(), model, J, xn, z)

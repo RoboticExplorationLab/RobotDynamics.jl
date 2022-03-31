@@ -462,22 +462,32 @@ end
 
 function integrate!(integrator::Implicit, model::ImplicitDynamicsModel, xn, 
                     z::AbstractKnotPoint)
+    integrate!(integrator, model, xn, state(z), control(z), z.t, z.dt)
+end
+function integrate!(integrator::Implicit, model::ImplicitDynamicsModel, xn, 
+                    x, u, t, h)
     cache = getnewtoncache(integrator) 
     newton_iters = cache.newton_iters
     tol = cache.newton_tol
 
-    z1 = z
-    n,m = dims(z)
+    z1 = cache.z1
+    z2 = cache.z2
+    # copyto!(z1, z)
+    setstate!(z1, x)
+    setcontrol!(z1, u)
+    z1.t = t
+    z1.dt = h
+    copyto!(z2, z1)
+
+    n,m = dims(model)
     J2 = cache.J2
     J1 = cache.J1
     r = cache.y2
     dx = cache.y1
-    z2 = cache.z2
     ipiv = cache.ipiv
     A = cache.A
     Aview = @view J2[:, 1:n]
 
-    copyto!(z2, z1)
     diff = default_diffmethod(model.continuous_dynamics)
     for iter = 1:newton_iters
         # Set the guess for the next state
@@ -502,7 +512,7 @@ function integrate!(integrator::Implicit, model::ImplicitDynamicsModel, xn,
         # Apply the step
         xn .-= dx
     end
-    setdata!(cache.z2, getdata(z))  # copy input to cache for Jacobian check
+    setdata!(cache.z2, getdata(z1))  # copy input to cache for Jacobian check
 end
 
 # Use Implicit Function Theorem to calculate the dynamics Jacobians
@@ -569,6 +579,7 @@ mutable struct ImplicitNewtonCache
     y2::Vector{Float64}
     y1::Vector{Float64}
     z2::StaticKnotPoint{Any,Any,Vector{Float64},Float64}
+    z1::KnotPoint{Any,Any,Vector{Float64},Float64}
     ipiv::Vector{BlasInt}
     A::Matrix{Float64}
     F::LinearAlgebra.LU{Float64, Matrix{Float64}} 
@@ -582,12 +593,13 @@ function ImplicitNewtonCache(n::Integer, m::Integer)
     y1 = zeros(n)
     v = zeros(n+m)
     z2 = StaticKnotPoint{Any,Any}(n, m, v, 0.0, NaN)
+    z1 = KnotPoint{Any,Any}(n, m, copy(v), 0.0, NaN)
     ipiv = zeros(BlasInt, n)
     A = zeros(n,n) 
     F = lu!(A, check=false)
     iters = 10    # Default number of Newton iterations
     tol = 1e-12   # Default Newton tolerance
-    ImplicitNewtonCache(J2, J1, y2, y1, z2, ipiv, A, F, iters, tol)
+    ImplicitNewtonCache(J2, J1, y2, y1, z2, z1, ipiv, A, F, iters, tol)
 end
 
 """
