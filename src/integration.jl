@@ -431,8 +431,10 @@ function integrate(integrator::Implicit, model::ImplicitDynamicsModel,
     y1 = cache.y1
     z1 = z
     z2 = StaticKnotPoint(z)
-    xn = state(z2)
     ix = SVector{Nx}(1:Nx) 
+
+    # Use the current state as the current guess
+    xn = state(z1)
 
     diff = default_diffmethod(model.continuous_dynamics)
     for iter = 1:newton_iters
@@ -487,6 +489,9 @@ function integrate!(integrator::Implicit, model::ImplicitDynamicsModel, xn,
     ipiv = cache.ipiv
     A = cache.A
     Aview = @view J2[:, 1:n]
+
+    # Use the current state as the guess
+    copyto!(xn, state(z1))
 
     diff = default_diffmethod(model.continuous_dynamics)
     for iter = 1:newton_iters
