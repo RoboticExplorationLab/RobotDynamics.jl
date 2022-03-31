@@ -185,7 +185,7 @@ function controls(Z::SampledTrajectory)
     return [control(Z[k]) for k in eachcontrol(Z) ]
 end
 controls(Z::SampledTrajectory, inds::AbstractVector{<:Integer}) = [controls(Z, i) for i in inds]
-controls(Z::SampledTrajectory, ind::Integer) = [control(z)[ind] for z in Z] 
+controls(Z::SampledTrajectory, ind::Integer) = [control(Z[k])[ind] for k in eachcontrol(Z)] 
 
 """
     gettimes(Z)
