@@ -72,6 +72,7 @@ x2 = newton_solve(RD.getdata(z1))
 x2_inplace = copy(x1)
 RD.discrete_dynamics!(dmodel, x2_inplace, z1)
 @test norm(midpoint_residual(x2_inplace, z1)) < √eps() 
+x2_inplace .= 0
 RD.evaluate!(dmodel, x2_inplace, z1)
 @test norm(midpoint_residual(x2_inplace, z1)) < √eps() 
 

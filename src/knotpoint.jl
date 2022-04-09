@@ -195,8 +195,10 @@ for (name,mutable) in [(:KnotPoint, true), (:StaticKnotPoint, false)]
         @inline getparams(z::$name) = (t=z.t, dt=z.dt)
         @inline getdata(z::$name) = z.z
         function Base.copyto!(dest::$name, src::$name)
-            dest.t = src.t
-            dest.dt = src.dt
+            if ismutabletype($name)
+                dest.t = src.t
+                dest.dt = src.dt
+            end
             copyto!(dest.z, src.z)
             dest
         end
