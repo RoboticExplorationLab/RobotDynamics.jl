@@ -1,6 +1,7 @@
 ## Dynamics
 abstract type AbstractModel <: AbstractFunction end
 output_dim(model::AbstractModel) = state_dim(model)
+default_diffmethod(::AbstractModel) = RD.ForwardAD()
 
 """
     ContinuousDynamics
