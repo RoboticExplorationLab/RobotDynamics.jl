@@ -195,7 +195,7 @@ function Base.copy(model::DiscretizedDynamics)
     DiscretizedDynamics(model.continuous_dynamics, model.integrator)
 end
 
-function Base.deepcopy(model::DiscreteDynamics)
+function Base.deepcopy(model::DiscretizedDynamics)
     DiscreteDynamics(copy(model.continuous_dynamics), copy(model.integrator))
 end
 
