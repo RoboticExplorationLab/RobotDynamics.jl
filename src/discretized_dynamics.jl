@@ -228,10 +228,8 @@ const ImplicitDynamicsModel{L,Q} = DiscretizedDynamics{L,Q} where {L,Q<:Implicit
 @inline setnewtoniters(model::ImplicitDynamicsModel, iter) = 
     setnewtoniters(integration(model), iter)
 
-discrete_dynamics(model::ImplicitDynamicsModel, z::AbstractKnotPoint) =
-    integrate(integration(model), model, z)
-# discrete_dynamics!(model::ImplicitDynamicsModel, xn, z::AbstractKnotPoint) =
-#     integrate!(integration(model), model, xn, z)
+discrete_dynamics(model::ImplicitDynamicsModel, x, u, t, dt) =
+    integrate(integration(model), model, x, u, t, dt)
 
 discrete_dynamics!(model::ImplicitDynamicsModel, xn, x, u, t, dt) =
     integrate!(integration(model), model, xn, x, u, t, dt)

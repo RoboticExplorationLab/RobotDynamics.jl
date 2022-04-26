@@ -16,7 +16,6 @@ function testcustomlu()
     J1 = randn(n, n+m)
     A = @view J1[:,1:n]
     A2 = copy(A)
-
     ipiv = similar(A, BLAS.BlasInt, min(n, n+m))
     # @allocated LAPACK.getrf!(A, ipiv)
     allocs = @allocated F = lu!(A, ipiv)
@@ -91,7 +90,7 @@ J = zeros(n, n+m)
 y = zeros(n)
 diff = RD.default_diffmethod(dmodel)
 @test diff isa RD.ImplicitFunctionTheorem
-@test diff === RD.ImplicitFunctionTheorem(RD.UserDefined())
+@test diff === RD.ImplicitFunctionTheorem(RD.default_diffmethod(model))
 
 using Random
 Random.seed!(1)

@@ -421,16 +421,23 @@ end
 # Use Newton's method to solve for the next state for implicit dynamics
 function integrate(integrator::Implicit, model::ImplicitDynamicsModel, 
                    z::AbstractKnotPoint{Nx,Nu}) where {Nx,Nu} 
+    integrate(integrator, model, state(z), control(z), time(z), timestep(z))
+end
+function integrate(integrator::Implicit, model::ImplicitDynamicsModel, 
+                   x::StaticVector{Nx}, u::StaticVector{Nu}, t, h) where {Nx,Nu} 
     cache = getnewtoncache(integrator) 
     newton_iters = cache.newton_iters
     tol = cache.newton_tol
+
+    x = SVector(x)
+    u = SVector(u)
 
     J2 = cache.J2
     J1 = cache.J1
     y2 = cache.y2
     y1 = cache.y1
-    z1 = z
-    z2 = StaticKnotPoint(z)
+    z1 = StaticKnotPoint(x, u, t, h)
+    z2 = StaticKnotPoint(z1)
     ix = SVector{Nx}(1:Nx) 
 
     # Use the current state as the current guess
@@ -458,7 +465,7 @@ function integrate(integrator::Implicit, model::ImplicitDynamicsModel,
         dx = F \ r
         xn -= dx
     end
-    setdata!(cache.z2, getdata(z))  # copy input into cache for Jacobian check
+    setdata!(cache.z2, getdata(z1))  # copy input into cache for Jacobian check
     return xn
 end
 

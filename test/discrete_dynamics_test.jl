@@ -141,6 +141,13 @@ x2 = RD.evaluate(model, z1)
 z2 = KnotPoint(x2, RD.control(z1)*0, 0.1, z1.dt)
 RD.control(z1)
 @test RD.dynamics_error(model, z2, z1) == zeros(4)
+e2 = similar(e1)
+e1 = similar(x2)
+RD.dynamics_error!(StaticReturn(), model, e2, e1, z2, z1)
+@test e2 ≈ zeros(4)
+e2 .= 1
+RD.dynamics_error!(InPlace(), model, e2, e1, z2, z1)
+@test e2 ≈ zeros(4)
 
 # Test dynamics error jacobian
 n,m = RD.dims(model)

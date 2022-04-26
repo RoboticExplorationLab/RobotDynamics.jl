@@ -35,7 +35,7 @@ RD.jacobian!(RD.StaticReturn(), RD.UserDefined(), cmodel, J0, xdot, z)
 # Test Euler
 model = RD.DiscretizedDynamics{RD.Euler}(cmodel)
 xdot = RD.dynamics(cmodel, z)
-@test discrete_dynamics(model, z) ≈ x + xdot * dt
+@test RD.discrete_dynamics(model, z) ≈ x + xdot * dt
 
 check_jacobians(model, z)
 
@@ -51,7 +51,7 @@ _k2 = dynamics(cmodel, x + _k1/2, u)*dt
 _k3 = dynamics(cmodel, x + _k2/2, u)*dt
 _k4 = dynamics(cmodel, x + _k3, u)*dt
 
-@test discrete_dynamics(model, z) ≈ x + (_k1 + 2*_k2 + 2*_k3 + _k4)/6 
+@test RD.discrete_dynamics(model, z) ≈ x + (_k1 + 2*_k2 + 2*_k3 + _k4)/6 
 xn = zeros(n)
 RD.discrete_dynamics!(model, xn, z)
 @test xn ≈ x + (_k1 + 2*_k2 + 2*_k3 + _k4)/6 
