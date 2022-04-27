@@ -239,6 +239,27 @@ dynamics_error_jacobian!(
     z1::AbstractKnotPoint,
 ) = error("User-defined dynamics error Jacobian not defined for $(typeof(model)).")
 
+# Provide default that calls the User-defined explicit dynamics function
+function dynamics_error_jacobian!(
+    sig::FunctionSignature,
+    diffmethod::UserDefined,
+    model::DiscreteDynamics,
+    J2,
+    J1,
+    y2,
+    y1,
+    z2::AbstractKnotPoint,
+    z1::AbstractKnotPoint,
+)
+    jacobian!(sig, diffmethod, model, J1, y1, z1)
+    n = state_dim(model)
+    for i = 1:n
+        J2[i,i] = -1.0
+    end
+    nothing
+end
+
+
 """
     propagate_dynamics!(sig, model, z2, z1)
 
