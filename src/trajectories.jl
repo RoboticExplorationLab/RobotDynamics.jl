@@ -380,7 +380,7 @@ function _gettimeinfo(;t0=0.0, tf=NaN, dt=NaN, N=0)
     Δt = tf - t0
 
     # Check consistency
-    @assert tf == dt * (N-1) "Inconsistent time step and final time."
+    @assert tf ≈ dt * (N-1) "Inconsistent time step and final time."
     @assert dt ≈ Δt / (N - 1) "Inconsistent time step and trajectory length."
     return range(t0, tf, length=N)
 end
