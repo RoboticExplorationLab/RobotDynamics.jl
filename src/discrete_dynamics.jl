@@ -110,10 +110,10 @@ discrete_dynamics!(model::DiscreteDynamics, xn, x, u, t, dt) =
 Evaluate the discrete dynamics function, storing the output in `xn`, using the 
 [`FunctionSignature`](@ref) `sig` to determine which method to call.
 """
-discrete_dynamics!(::InPlace, model::DiscreteDynamics, xn, z::AbstractKnotPoint) = 
-    discrete_dynamics!(model, xn, z)
-discrete_dynamics!(::StaticReturn, model::DiscreteDynamics, xn, z::AbstractKnotPoint) = 
-    xn .= discrete_dynamics(model, z)
+discrete_dynamics!(::InPlace, model::DiscreteDynamics, xn, args...) = 
+    discrete_dynamics!(model, xn, args...)
+discrete_dynamics!(::StaticReturn, model::DiscreteDynamics, xn, args...) = 
+    xn .= discrete_dynamics(model, args...)
 
 
 jacobian!(model::DiscreteDynamics, J, y, x, u, p) = jacobian!(model, J, y, x, u, p.t, p.dt)
