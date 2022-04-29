@@ -241,8 +241,6 @@ dynamics_error_jacobian!(
 
 # Provide default that calls the User-defined explicit dynamics function
 function dynamics_error_jacobian!(
-    sig::FunctionSignature,
-    diffmethod::UserDefined,
     model::DiscreteDynamics,
     J2,
     J1,
