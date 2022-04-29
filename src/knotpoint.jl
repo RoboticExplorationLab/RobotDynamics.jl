@@ -161,7 +161,7 @@ for (name,mutable) in [(:KnotPoint, true), (:StaticKnotPoint, false)]
                 Nx != Any && @assert Nx == length(x)
                 Nu != Any && @assert Nu == length(u) 
                 z =[x;u]
-                new{Nx,Nu,typeof(z),eltype(z)}(z, t, dt, Nx, Nu)
+                new{Nx,Nu,typeof(z),eltype(z)}(z, t, dt, length(x), length(u))
             end
             function $name(n::Integer, m::Integer, z::V, t, dt) where V
                 @assert n > 0
