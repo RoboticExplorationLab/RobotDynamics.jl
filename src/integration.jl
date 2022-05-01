@@ -424,6 +424,12 @@ function integrate(integrator::Implicit, model::ImplicitDynamicsModel,
     integrate(integrator, model, state(z), control(z), time(z), timestep(z))
 end
 function integrate(integrator::Implicit, model::ImplicitDynamicsModel, 
+                   x::AbstractVector, u::AbstractVector, t, h)
+    Nx = length(x)
+    Nu = length(u)
+    integrate(integrator, model, SizedVector{Nx}(x), SizedVector{Nu}(u), t, h)
+end
+function integrate(integrator::Implicit, model::ImplicitDynamicsModel, 
                    x::StaticVector{Nx}, u::StaticVector{Nu}, t, h) where {Nx,Nu} 
     cache = getnewtoncache(integrator) 
     newton_iters = cache.newton_iters
