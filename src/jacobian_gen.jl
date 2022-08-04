@@ -777,9 +777,16 @@ function modify_struct_def(::FiniteDifference, struct_expr::Expr, mod, is_scalar
             :(hesscache::FiniteDiff.HessianCache{Vector{Float64}, Val{:hcentral}(), Val{true}()})
         ]
     else
-        newfield = [
-            :(cache::FiniteDiff.JacobianCache{Vector{$type_param}, Vector{$type_param}, Vector{$type_param}, UnitRange{Int64}, Nothing, Val{:forward}(), $type_param})
-        ]
+        finitediff_version = get_dependency_version("FiniteDiff")
+        newfield = if finitediff_version >= v"2.13"
+            [
+                :(cache::FiniteDiff.JacobianCache{Vector{$type_param}, Vector{$type_param}, Vector{$type_param}, Vector{$type_param}, UnitRange{Int64}, Nothing, Val{:forward}(), $type_param})
+            ]
+        else
+            [
+                :(cache::FiniteDiff.JacobianCache{Vector{$type_param}, Vector{$type_param}, Vector{$type_param}, UnitRange{Int64}, Nothing, Val{:forward}(), $type_param})
+            ]
+        end
     end
 
     struct_expr = copy(struct_expr)

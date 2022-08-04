@@ -52,3 +52,9 @@ function LinearAlgebra.lu!(A::StridedMatrix{T}, ipiv::AbstractVector{BlasInt}; c
     check && LinearAlgebra.checknonsingular(lpt[3])
     return LU{T,typeof(A)}(lpt[1], lpt[2], lpt[3])
 end
+
+function get_dependency_version(pkg_name)
+    m = Pkg.dependencies()
+    v = m[findfirst(v -> v.name == pkg_name, m)].version
+    v
+end
