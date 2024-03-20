@@ -113,7 +113,7 @@ Base.Tuple(x::RBState) = (
 
 Re-normalize the unit quaternion.
 """
-@inline renorm(x::RBState) = RBState(x.r, normalize(x.q.q), x.v, x.ω)
+@inline renorm(x::RBState) = RBState(x.r, x.q / norm(x.q.q), x.v, x.ω)
 
 """
     position(x::RBState)
