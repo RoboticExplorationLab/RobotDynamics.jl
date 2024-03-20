@@ -84,7 +84,6 @@ x = RBState(x_)
 q = rand(QuatRotation)
 x1 = RBState(r, q, v, ω)
 x2 = RBState(r, -q.q, v, ω)
-@which RBState(r, -q.q, v, ω)
 @test x1[4:7] ≈ -x2[4:7]
 @test x1 ≈ x2
 @test !(SVector(x1) ≈ SVector(x2))
