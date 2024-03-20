@@ -8,6 +8,7 @@ using FiniteDiff
 using RecipesBase
 using SparseArrays
 using Pkg
+using Quaternions
 
 using Rotations: skew
 using StaticArrays: SUnitRange
@@ -51,7 +52,7 @@ function FiniteDiff.finite_difference_gradient!(
     # c1 is x1 if we need a complex copy of x, otherwise Nothing
     # c2 is Nothing
     fx, c1, c2, c3 = cache.fx, cache.c1, cache.c2, cache.c3
-    copyto!(c3,x)
+    copyto!(c3, x)
     if fdtype == Val(:forward)
         for i ∈ eachindex(x)
             epsilon = compute_epsilon(fdtype, x[i], relstep, absstep, dir)
