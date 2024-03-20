@@ -3,9 +3,11 @@ using RobotDynamics
 using StaticArrays
 using Rotations
 using BenchmarkTools
+using Random
 
+Random.seed!(1)
 r = @SVector rand(3)
-q = rand(UnitQuaternion)
+q = rand(QuatRotation)
 v = @SVector rand(3)
 ω = @SVector rand(3)
 
@@ -20,7 +22,7 @@ x32 = RBState{Float32}(r, q, v, ω)
 @test x32 isa RBState{Float32}
 @test eltype(x32[1:3]) == Float32
 @test RD.position(x32) isa SVector{3,Float32}
-@test RD.orientation(x32) isa UnitQuaternion{Float32}
+@test RD.orientation(x32) isa QuatRotation{Float32}
 
 # Pass in other types of vectors
 x = RBState{Float64}(Vector(r), q, v, ω)
@@ -30,7 +32,7 @@ x = RBState{Float64}(Vector(r), q, Vector(v), Vector(ω))
 @test RD.linear_velocity(x) isa SVector{3,Float64}
 @test RD.angular_velocity(x) isa SVector{3,Float64}
 
-x = RBState{Float64}(view(r,:), q, view(Vector(v),1:3), Vector(ω))
+x = RBState{Float64}(view(r, :), q, view(Vector(v), 1:3), Vector(ω))
 @test RD.position(x) isa SVector{3,Float64}
 
 @test RD.RBState{Float32}(x) isa RBState{Float32}
@@ -40,21 +42,21 @@ x = RBState{Float64}(view(r,:), q, view(Vector(v),1:3), Vector(ω))
 
 # Pass in other rotations
 x2 = RD.RBState{Float64}(r, RotMatrix(q), v, ω)
-@test RD.orientation(x2) \ RD.orientation(x) ≈ one(UnitQuaternion)
-@test RD.orientation(x2) isa UnitQuaternion
+@test RD.orientation(x2) \ RD.orientation(x) ≈ one(QuatRotation)
+@test RD.orientation(x2) isa QuatRotation
 
 # Let the constructor figure out data type
 @test RBState(r, q, v, ω) isa RBState{Float64}
-@test RBState(Float32.(r), UnitQuaternion{Float32}(q), Float32.(v), Float32.(ω)) isa RBState{Float32}
+@test RBState(Float32.(r), QuatRotation{Float32}(q), Float32.(v), Float32.(ω)) isa RBState{Float32}
 @test RBState(Float32.(r), q, Float32.(v), Float32.(ω)) isa RBState{Float64}
-@test RBState(r, UnitQuaternion{Float32}(q), Float32.(v), Float32.(ω)) isa RBState{Float64}
+@test RBState(r, QuatRotation{Float32}(q), Float32.(v), Float32.(ω)) isa RBState{Float64}
 
 # Convert from another rotation type
 x = [r; Rotations.params(MRP(q)); v; ω]
-@test RBState(MRP, x) ≈ RBState(r,q,v,ω)
+@test RBState(MRP, x) ≈ RBState(r, q, v, ω)
 x = [r; Rotations.params(RodriguesParam(q)); v; ω]
-@test !(RBState(MRP, x) ≈ RBState(r,q,v,ω))
-@test RBState(RodriguesParam, x) ≈ RBState(r,q,v,ω)
+@test !(RBState(MRP, x) ≈ RBState(r, q, v, ω))
+@test RBState(RodriguesParam, x) ≈ RBState(r, q, v, ω)
 
 
 # Pass in a vector for the quaternion
@@ -62,15 +64,16 @@ q_ = Rotations.params(q)
 x = RBState(r, q_, v, ω)
 @test RD.orientation(x) ≈ q
 x = RBState(r, 2q_, v, ω)
-@test RD.orientation(x) ≈ 2q  # shouldnt renormalize
+@test Rotations.params(RD.orientation(x)) ≈ 2q_  # shouldnt renormalize
+Rotations.params(RD.orientation(x))
 @test RBState(Float32.(r), Float32.(q_), Float32.(v), Float32.(ω)) isa RBState{Float32}
 
 # Pass in a vector for the entire state
-using RobotDynamics: position, orientation, linear_velocity, angular_velocity 
+using RobotDynamics: position, orientation, linear_velocity, angular_velocity
 x_ = [r; 2q_; v; ω]
 x = RBState(x_)
 @test position(x) ≈ r
-@test orientation(x) ≈ 2q  # shouldnt renormalize
+@test Rotations.params(orientation(x)) ≈ 2q_  # shouldnt renormalize
 @test linear_velocity(x) ≈ v
 @test angular_velocity(x) ≈ ω
 
@@ -78,9 +81,9 @@ x = RBState(x_)
 @test RBState(Vector(x_)) isa RBState{Float64}
 
 # Test comparison (with double-cover)
-q = rand(UnitQuaternion)
+q = rand(QuatRotation)
 x1 = RBState(r, q, v, ω)
-x2 = RBState(r, -q, v, ω)
+x2 = RBState(r, -q.q, v, ω)
 @test x1[4:7] ≈ -x2[4:7]
 @test x1 ≈ x2
 @test !(SVector(x1) ≈ SVector(x2))
@@ -93,22 +96,22 @@ x = RBState(r, q, v, ω)
 @test x[11:13] ≈ ω
 @test x[4] ≈ q.w
 
-@test getindex(x,2) == r[2]
-@test getindex(x,8) == v[1]
-@test getindex(x,13) == ω[3]
+@test getindex(x, 2) == r[2]
+@test getindex(x, 8) == v[1]
+@test getindex(x, 13) == ω[3]
 
 # Renorm
-x2 = RBState(r,2*q,v,ω)
-@test norm(orientation(x2)) ≈ 2
+x2 = RBState(r, 2 * q.q, v, ω)
+@test norm(orientation(x2).q) ≈ 2
 x = RobotDynamics.renorm(x2)
-@test norm(orientation(x2)) ≈ 2
-@test norm(orientation(x)) ≈ 1
+@test norm(orientation(x2).q) ≈ 2
+@test norm(orientation(x).q) ≈ 1
 @test isrotation(orientation(x))
 
 # Test zero constructor
 x0 = zero(RBState)
 @test position(x0) ≈ zero(r)
-@test orientation(x0) ≈ one(UnitQuaternion)
+@test orientation(x0) ≈ one(QuatRotation)
 @test linear_velocity(x0) ≈ zero(v)
 @test angular_velocity(x0) ≈ zero(v)
 @test zero(RBState) isa RBState{Float64}
@@ -154,8 +157,8 @@ q2 = orientation(x2)
 @test Rotations.params(RodriguesParam(q2) \ RodriguesParam(q1)) ≈ dx[4:6]
 
 # Test randbetween
-xmin = RBState(fill(-1,3), one(UnitQuaternion), fill(-2,3), fill(-3,3))
-xmax = RBState(fill(+1,3), one(UnitQuaternion), fill(+2,3), fill(+3,3))
+xmin = RBState(fill(-1, 3), one(QuatRotation), fill(-2, 3), fill(-3, 3))
+xmax = RBState(fill(+1, 3), one(QuatRotation), fill(+2, 3), fill(+3, 3))
 @test randbetween(xmin, xmax) isa RBState{Float64}
 for k = 1:10
     local x = randbetween(xmin, xmax)

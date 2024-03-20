@@ -18,7 +18,7 @@ RobotDynamics.inertia(model::Satellite) = model.J
 function RobotDynamics.forces(model::Satellite, x::StaticVector, u::StaticVector)
     q = orientation(model, x)
     F = @SVector [u[1], u[2], u[3]]
-    q*F  # world frame
+    q * F  # world frame
 end
 
 # Define the 3D moments at the center of mass, in the body frame
@@ -29,14 +29,14 @@ end
 
 # Build model
 T = Float64
-R = UnitQuaternion{T}
+R = QuatRotation{T}
 mass = 1.0
 J = Diagonal(@SVector ones(3))
 model = Satellite{R,T}(mass, J)
 
 # Initialization
-x,u = rand(model)
-z = KnotPoint(x,u,0.1)
+x, u = rand(model)
+z = KnotPoint(x, u, 0.1)
 ∇f = RobotDynamics.DynamicsJacobian(model)
 
 # Continuous dynamics
@@ -51,8 +51,8 @@ function RobotDynamics.wrench_jacobian!(F, model::Satellite, z)
     u = control(z)
     q = orientation(model, x)
     ir, iq, iv, iω, iu = RobotDynamics.gen_inds(model)
-    iF = SA[1,2,3]
-    iM = SA[4,5,6]
+    iF = SA[1, 2, 3]
+    iM = SA[4, 5, 6]
     F[iF, iq] .= Rotations.∇rotate(q, u[iF])
     F[iF, iu[iF]] .= RotMatrix(q)
     for i = 1:3
@@ -63,8 +63,8 @@ end
 b2 = @benchmark jacobian!($∇f, $model, $z)
 
 function RobotDynamics.wrench_sparsity(::Satellite)
-    SA[false true  false false true;
-       false false false false true]
+    SA[false true false false true;
+        false false false false true]
 end
 b3 = @benchmark jacobian!($∇f, $model, $z)
 println("Analytical Wrench Jacobian:  ", judge(minimum(b2), minimum(b1)))

@@ -16,14 +16,14 @@ Note that this function should only be a function of the type, not the actual
 struct itself (i.e. your method definition should look like the one above).
 """
 abstract type LieGroupModel <: ContinuousDynamics end
-const DiscreteLieDynamics = DiscretizedDynamics{L,Q} where {L<:LieGroupModel, Q<:QuadratureRule}
+const DiscreteLieDynamics = DiscretizedDynamics{L,Q} where {L<:LieGroupModel,Q<:QuadratureRule}
 
 # RotationState interface
-statevectortype(::Type{<:LieGroupModel}) = RotationState() 
+statevectortype(::Type{<:LieGroupModel}) = RotationState()
 
 @inline errstate_dim(::RotationState, model::AbstractModel) = errstate_dim(LieState(model))
 
-@inline state_diff(::RotationState, model::AbstractModel, x::AbstractVector, 
+@inline state_diff(::RotationState, model::AbstractModel, x::AbstractVector,
     x0::AbstractVector, errmap=Rotations.CayleyMap()) =
     state_diff(LieState(model), x, x0, errmap)
 
@@ -39,7 +39,7 @@ statevectortype(::Type{<:LieGroupModel}) = RotationState()
 
 import Rotations.params
 
-params(::Type{<:UnitQuaternion}) = 4
+params(::Type{<:QuatRotation}) = 4
 params(::Type{<:RodriguesParam}) = 3
 params(::Type{<:MRP}) = 3
 params(::Type{<:RotMatrix3}) = 9
@@ -65,7 +65,7 @@ end of the state vector.
 If we want to construct a state vector like the following: `[v3, q, v2, q, v3]` where `v2`
 and `v3` and vector components of length 2 and 3, respectively, and `q` is a 4-dimensional
 unit quaternion. The `LieState` for this state vector would be
-`LieState{UnitQuaternion{Float64},3,2,3}`. The length should be (3+4+2+4+3) = 16, which can
+`LieState{QuatRotation{Float64},3,2,3}`. The length should be (3+4+2+4+3) = 16, which can
 be verified by `length(s::LieState)`.
 
 # Constructors
@@ -78,15 +78,15 @@ struct LieState{R,P}
     end
 end
 
-@inline LieState(::Type{R}, P::Tuple{Vararg{Int}}) where R <: Rotation = LieState{R,P}()
-@inline LieState(::Type{R}, P::Int...) where R <: Rotation = LieState{R,P}()
+@inline LieState(::Type{R}, P::Tuple{Vararg{Int}}) where {R<:Rotation} = LieState{R,P}()
+@inline LieState(::Type{R}, P::Int...) where {R<:Rotation} = LieState{R,P}()
 LieState(model::DiscreteLieDynamics) = LieState(model.continuous_dynamics)
 
 """
     QuatState(n::Int, Q::StaticVector{<:Any,Int})
     QuatState(n::Int, Q::NTuple{<:Any,Int})
 
-Create a `n`-dimensional `LieState` assuming `R = UnitQuaternion{Float64}` and `Q[i]` is the
+Create a `n`-dimensional `LieState` assuming `R = QuatRotation{Float64}` and `Q[i]` is the
 first index of each quaternion in the state vector.
 
 # Example
@@ -100,36 +100,36 @@ call `QuatState(16, SA[4,10])`.
     if NR == 1
         P0 = SVector{0,Int}()
     else
-        diffs = [:(Q[$i] - Q[$(i-1)] - 4) for i = 2:NR]
-        P0 = :(SVector{NR-1}(tuple($(diffs...))))
+        diffs = [:(Q[$i] - Q[$(i - 1)] - 4) for i = 2:NR]
+        P0 = :(SVector{NR - 1}(tuple($(diffs...))))
     end
     quote
         P = $P0
         P = push(P, n - (Q[end] + 4) + 1)
         P = pushfirst(P, Q[1] - 1)
-        return LieState(UnitQuaternion{Float64}, Tuple(P))
+        return LieState(QuatRotation{Float64}, Tuple(P))
     end
 end
 @inline QuatState(n::Int, Q::NTuple{<:Any,Int}) = QuatState(n, SVector(Q))
 
 "number of rotations"
-num_rotations(::LieState{<:Any,P}) where P = length(P) - 1
+num_rotations(::LieState{<:Any,P}) where {P} = length(P) - 1
 
-state_dim_vec(::LieState{<:Any,P}) where P = sum(P)
-state_dim_rot(s::LieState{R}) where R = params(R)*num_rotations(s)
+state_dim_vec(::LieState{<:Any,P}) where {P} = sum(P)
+state_dim_rot(s::LieState{R}) where {R} = params(R) * num_rotations(s)
 
-Base.length(s::LieState{R,P}) where {R,P} = params(R)*num_rotations(s) + sum(P)
-Base.length(::Type{LieState{R,P}}) where {R,P} = params(R)*(length(P)-1) + sum(P)
+Base.length(s::LieState{R,P}) where {R,P} = params(R) * num_rotations(s) + sum(P)
+Base.length(::Type{LieState{R,P}}) where {R,P} = params(R) * (length(P) - 1) + sum(P)
 
-errstate_dim(s::LieState{R,P}) where {R,P} = 3*num_rotations(s) + sum(P)
+errstate_dim(s::LieState{R,P}) where {R,P} = 3 * num_rotations(s) + sum(P)
 
 # Useful functions for meta-programming
-rot_inds(R,P, i::Int) = (sum(P[1:i]) + (i-1)*params(R)) .+ (1:params(R))
-vec_inds(R,P, i::Int) =
-    ((i > 1 ? sum(P[1:i-1]) : 0) + (i-1)*params(R)) .+ (1:P[i])
-inds(R,P, i::Int) = isodd(i) ? vec_inds(R,P, 1+i÷2) : rot_inds(R,P, i÷2)
+rot_inds(R, P, i::Int) = (sum(P[1:i]) + (i - 1) * params(R)) .+ (1:params(R))
+vec_inds(R, P, i::Int) =
+    ((i > 1 ? sum(P[1:i-1]) : 0) + (i - 1) * params(R)) .+ (1:P[i])
+inds(R, P, i::Int) = isodd(i) ? vec_inds(R, P, 1 + i ÷ 2) : rot_inds(R, P, i ÷ 2)
 @inline inds(s::LieState{R,P}, i::Int) where {R,P} = inds(R, P, i)
-rot_state(R,P, i::Int, sym=:x) = [:($(sym)[$j]) for j in rot_inds(R,P,i)]
+rot_state(R, P, i::Int, sym=:x) = [:($(sym)[$j]) for j in rot_inds(R, P, i)]
 
 """
     vec_states(model::LieGroupModel, x)
@@ -141,7 +141,7 @@ a tuple `v` of `SVector`s, where `length(v[i])` is equal to the length specified
 """
 @generated function vec_states(s::LieState{R,P}, x) where {R,P}
     T = eltype(x)
-    inds = [vec_inds(R,P,i) for i = 1:length(P)]
+    inds = [vec_inds(R, P, i) for i = 1:length(P)]
     states = [[:(x[$i]) for i in ind] for ind in inds]
     vecs = [:(SVector{$(length(inds)),$T}($(inds...))) for inds in states]
     quote
@@ -159,10 +159,10 @@ a tuple rotations, whose type matches the rotation type specified in the `LieSta
 """
 @generated function rot_states(s::LieState{R,P}, x) where {R,P}
     T = eltype(x)
-    inds = [rot_inds(R,P,i) for i = 1:length(P)-1]
+    inds = [rot_inds(R, P, i) for i = 1:length(P)-1]
     states = [[:(x[$i]) for i in ind] for ind in inds]
-    if R <: UnitQuaternion
-        vecs = [:(R($(inds...),false)) for inds in states]
+    if R <: QuatRotation
+        vecs = [:(R($(inds...), false)) for inds in states]
     else
         vecs = [:(R($(inds...))) for inds in states]
     end
@@ -182,13 +182,13 @@ end
     x = Expr[]
     for i = 1:np
         if isodd(i)  # vector part
-            vi = inds(R,P,i)
+            vi = inds(R, P, i)
             for j in vi
                 push!(x, :(rand()))
             end
         else
             r = i ÷ 2
-            ri = inds(R,P,i)
+            ri = inds(R, P, i)
             for j = 1:Rotations.params(R)
                 push!(x, :($(Symbol("q$r"))[$j]))
             end
@@ -207,14 +207,14 @@ end
 @inline state_dim(model::LieGroupModel) = length(LieState(model))
 
 
-function _state_diff_expr(R,P)
+function _state_diff_expr(R, P)
     nr = length(P) - 1   # number of rotations
     np = nr + length(P)  # number of partitions
-    n̄ = 3*nr + sum(P)    # error state size
+    n̄ = 3 * nr + sum(P)    # error state size
 
     # Generate a vector of δq = q0\q expressions for each q in the state
     dq = [:($(Symbol("q$i")) = Rotations.rotation_error(
-        R($(rot_state(R,P,i)...)), R($(rot_state(R,P,i,:x0)...)), errmap)) for i = 1:nr
+        R($(rot_state(R, P, i)...)), R($(rot_state(R, P, i, :x0)...)), errmap)) for i = 1:nr
     ]
 
     # Generate the vector of expressions for each element of the state differential
@@ -222,11 +222,11 @@ function _state_diff_expr(R,P)
     for i = 1:np
         # for the vector parts, simply subtract the indices from the original states
         if isodd(i)
-            vi = inds(R,P,i)
+            vi = inds(R, P, i)
             for j in vi
                 push!(dx, :(x[$j] - x0[$j]))
             end
-        # for the rotational parts, use the elements of the rotational errors generated above
+            # for the rotational parts, use the elements of the rotational errors generated above
         else
             r = i ÷ 2  # rotation index
             for j = 1:3
@@ -234,23 +234,23 @@ function _state_diff_expr(R,P)
             end
         end
     end
-    return dq,dx
+    return dq, dx
 end
-@generated function state_diff(s::LieState{R,P}, x::AbstractVector, x0::AbstractVector, 
-        errmap=Rotations.CayleyMap()) where {R,P}
+@generated function state_diff(s::LieState{R,P}, x::AbstractVector, x0::AbstractVector,
+    errmap=Rotations.CayleyMap()) where {R,P}
     nr = length(P) - 1   # number of rotations
-    n̄ = 3*nr + sum(P)    # error state size
-    dq,dx = _state_diff_expr(R,P)
+    n̄ = 3 * nr + sum(P)    # error state size
+    dq, dx = _state_diff_expr(R, P)
     quote
         $(Expr(:block, dq...))
         $(:(SVector{$n̄}(tuple($(dx...)))))
     end
 end
-@generated function state_diff!(s::LieState{R,P}, dx::AbstractVector, x::AbstractVector, 
-        x0::AbstractVector, errmap=Rotations.CayleyMap()) where {R,P}
-    dq,dx = _state_diff_expr(R,P)
-    dx_expr = map(enumerate(dx)) do (i,e)
-        :(dx[$i] = $e) 
+@generated function state_diff!(s::LieState{R,P}, dx::AbstractVector, x::AbstractVector,
+    x0::AbstractVector, errmap=Rotations.CayleyMap()) where {R,P}
+    dq, dx = _state_diff_expr(R, P)
+    dx_expr = map(enumerate(dx)) do (i, e)
+        :(dx[$i] = $e)
     end
     quote
         $(Expr(:block, dq...))
@@ -263,11 +263,11 @@ end
     nr = length(P) - 1   # number of rotations
     np = nr + length(P)  # number of partitions
     nv = length(P)
-    n̄ = 3*nr + sum(P)    # error state size
-    n = params(R)*nr + sum(P)
+    n̄ = 3 * nr + sum(P)    # error state size
+    n = params(R) * nr + sum(P)
 
     # Generate a vector of δq = q0\q expressions for each q in the state
-    q = [:(R($(rot_state(R,P,i)...))) for i = 1:nr]
+    q = [:(R($(rot_state(R, P, i)...))) for i = 1:nr]
 
     # Generate a vector of expressions assigning 1s to all the vector state diagonals
     Gv = Expr[]
@@ -275,7 +275,7 @@ end
     c = 1
     for k = 1:nv
         for j = 1:P[k]
-            push!(Gv, :(G[$(LinearIndices((n,n̄))[r,c])] = 1))
+            push!(Gv, :(G[$(LinearIndices((n, n̄))[r, c])] = 1))
             r += 1
             c += 1
         end
@@ -287,8 +287,8 @@ end
     Gr = Expr[]
     for k = 1:nr
         rinds = rot_inds(R, P, k)
-        cinds = (sum(P[1:k]) + 3*(k-1)) .+ (1:3)
-        push!(Gr, :(G[$rinds,$cinds] .= Rotations.∇differential($(q[k]))))
+        cinds = (sum(P[1:k]) + 3 * (k - 1)) .+ (1:3)
+        push!(Gr, :(G[$rinds, $cinds] .= Rotations.∇differential($(q[k]))))
     end
     quote
         $(Expr(:block, Gv...))
@@ -301,17 +301,17 @@ end
     nr = length(P) - 1   # number of rotations
     np = nr + length(P)  # number of partitions
     nv = length(P)
-    n̄ = 3*nr + sum(P)    # error state size
-    n = params(R)*nr + sum(P)
+    n̄ = 3 * nr + sum(P)    # error state size
+    n = params(R) * nr + sum(P)
 
     # Generate a vector of δq = q0\q expressions for each q in the state
-    q  = [:(R($(rot_state(R,P,i,:x)...)))  for i = 1:nr]
-    dq = [:(SVector{$(params(R))}($(rot_state(R,P,i,:dx)...))) for i = 1:nr]
+    q = [:(R($(rot_state(R, P, i, :x)...))) for i = 1:nr]
+    dq = [:(SVector{$(params(R))}($(rot_state(R, P, i, :dx)...))) for i = 1:nr]
 
     Gr = Expr[]
     for k = 1:nr
-        cinds = (sum(P[1:k]) + 3*(k-1)) .+ (1:3)
-        push!(Gr, :(view(∇G,$cinds,$cinds) .= SMatrix{3,3}(Rotations.∇²differential($(q[k]), $(dq[k])))))
+        cinds = (sum(P[1:k]) + 3 * (k - 1)) .+ (1:3)
+        push!(Gr, :(view(∇G, $cinds, $cinds) .= SMatrix{3,3}(Rotations.∇²differential($(q[k]), $(dq[k])))))
     end
     quote
         $(Expr(:block, Gr...))

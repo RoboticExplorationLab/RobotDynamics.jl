@@ -116,7 +116,7 @@ end
 
 # Build model
 T = Float64
-R = UnitQuaternion{T}
+R = QuatRotation{T}
 mass = 1.0
 J = Diagonal(@SVector ones(3))
 model = Satellite{R,T}(mass, J)
