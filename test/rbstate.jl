@@ -64,7 +64,6 @@ q_ = Rotations.params(q)
 x = RBState(r, q_, v, ω)
 @test RD.orientation(x) ≈ q
 x = RBState(r, 2q_, v, ω)
-@which RBState(r, 2q_, v, ω)
 @test Rotations.params(RD.orientation(x)) ≈ 2q_  # shouldnt renormalize
 Rotations.params(RD.orientation(x))
 @test RBState(Float32.(r), Float32.(q_), Float32.(v), Float32.(ω)) isa RBState{Float32}

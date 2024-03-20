@@ -6,7 +6,7 @@ using StaticArrays
 using BenchmarkTools
 using ForwardDiff
 
-using RobotDynamics: mass, inertia
+using RobotDynamics: mass, inertia, orientation
 
 # Temporary fix for Rotations
 # function Rotations.∇rotate(q::QuatRotation, r::AbstractVector)
