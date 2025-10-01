@@ -1,4 +1,4 @@
-struct NotImplementedError <: Exception 
+struct NotImplementedError <: Exception
     msg::String
 end
 
@@ -10,7 +10,7 @@ end
 """
     maxdiff(a, b)
 
-Get the maximum difference between vectors. Equivalent to the infinity norm of the 
+Get the maximum difference between vectors. Equivalent to the infinity norm of the
 difference, but avoids forming the temporary difference vector.
 """
 function maxdiff(a, b)
@@ -27,26 +27,9 @@ using LinearAlgebra.BLAS: @blasfunc
 @static if VERSION < v"1.7"
     const libblas = LinearAlgebra.LAPACK.liblapack
 else
-    const libblas = LinearAlgebra.LAPACK.libblastrampoline 
+    const libblas = LinearAlgebra.LAPACK.libblastrampoline
 end
-for (getrf,elty) in ((:dgetrf_, :Float64), (:sgetrf, :Float32))
-    @eval begin
-        function LinearAlgebra.LAPACK.getrf!(A::AbstractMatrix{$elty}, ipiv::AbstractVector{BlasInt})
-            LinearAlgebra.require_one_based_indexing(A)
-            LinearAlgebra.chkstride1(A)
-            m, n = size(A)
-            @assert length(ipiv) == min(m, n)
-            lda  = max(1,stride(A, 2))
-            info = Ref{BlasInt}()
-            ccall((@blasfunc($getrf), libblas), Cvoid,
-                    (Ref{BlasInt}, Ref{BlasInt}, Ptr{$elty},
-                    Ref{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}),
-                    m, n, A, lda, ipiv, info)
-            LAPACK.chkargsok(info[])
-            A, ipiv, info[] #Error code is stored in LU factorization type
-        end
-    end
-end
+
 function LinearAlgebra.lu!(A::StridedMatrix{T}, ipiv::AbstractVector{BlasInt}; check::Bool=true) where T
     lpt = LAPACK.getrf!(A, ipiv)
     check && LinearAlgebra.checknonsingular(lpt[3])
